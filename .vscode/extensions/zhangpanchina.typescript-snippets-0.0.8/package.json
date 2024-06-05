@@ -1,0 +1,66 @@
+{
+	"name": "typescript-snippets",
+	"displayName": "TypeScript code Snippets",
+	"description": "Code snippets for TypeScript and JavaScipt syntax",
+	"version": "0.0.8",
+	"keywords": [
+		"snippets",
+		"js",
+		"ts",
+		"TypeScript",
+		"typescipt"
+	],
+	"publisher": "zhangpanchina",
+	"license": "SEE LICENSE IN LICENSE.txt",
+	"scripts": {
+		"commit": "git add . && npx git-cz && git pull && git push"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/zhangpanchina/vscode-typescript-snippets"
+	},
+	"engines": {
+		"vscode": "^1.42.0"
+	},
+	"categories": [
+		"Snippets"
+	],
+	"contributes": {
+		"snippets": [
+			{
+				"language": "javascript",
+				"path": "./snippets/javascript.json"
+			},
+			{
+				"language": "javascript",
+				"path": "./snippets/common.json"
+			},
+			{
+				"language": "typescript",
+				"path": "./snippets/typescript.json"
+			},
+			{
+				"language": "typescript",
+				"path": "./snippets/common.json"
+			}
+		]
+	},
+	"devDependencies": {
+		"cz-conventional-changelog": "3.1.0"
+	},
+	"config": {
+		"commitizen": {
+			"path": "./node_modules/cz-conventional-changelog"
+		}
+	},
+	"__metadata": {
+		"id": "1020f3eb-683d-46fe-8a25-21958982ba34",
+		"publisherId": "97fbed79-15ea-40ce-85b4-08446bcb236a",
+		"publisherDisplayName": "zhangpan",
+		"targetPlatform": "undefined",
+		"updated": false,
+		"isPreReleaseVersion": false,
+		"installedTimestamp": 1697412949295,
+		"preRelease": false
+	}
+}

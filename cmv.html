@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de CMV</title>
+    <link rel="stylesheet" href="cmv.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Calculadora de CMV</h1>
+        <form id="cmvForm">
+            <label for="productCost">Custo do Produto (R$):</label>
+            <input type="number" id="productCost" step="0.01" required>
+            
+            <label for="cardFee">Taxa da Máquina de Cartão (%):</label>
+            <input type="number" id="cardFee" step="0.01" required>
+            
+            <label for="bagCost">Custo da Sacola (R$):</label>
+            <input type="number" id="bagCost" step="0.01" required>
+            
+            <button type="submit">Calcular CMV</button>
+        </form>
+        <div id="result"></div>
+    </div>
+    <script src="cmv.js"></script>
+</body>
+</html>

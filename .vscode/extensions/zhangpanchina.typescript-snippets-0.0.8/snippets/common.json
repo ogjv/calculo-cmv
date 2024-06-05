@@ -1,0 +1,41 @@
+{
+  "console.log": {
+    "prefix": "cl",
+    "body": "console.log($1)$0"
+  },
+  "console.log()": {
+    "prefix": "clog",
+    "body": "console.log('%c@@@$CLIPBOARD===>', 'color:green;font-size:15px', ${1:${CLIPBOARD}})$0"
+  },
+  "console.dir()": {
+    "prefix": "cdir",
+    "body": "console.dir('%c@@@$CLIPBOARD===>', 'color:green;font-size:15px', ${1:${CLIPBOARD}})$0"
+  },
+  "console.error()": {
+    "prefix": "cerr",
+    "body": "console.error($1)$0"
+  },
+  "console.table()": {
+    "prefix": "ctab",
+    "body": "console.table(${1:${CLIPBOARD}})$0"
+  },
+  "console.clear()": {
+    "prefix": "ccle",
+    "body": [
+      "console.clear()",
+      "$0"
+    ]
+  },
+  "console.count()": {
+    "prefix": "ccou",
+    "body": "console.count('%cHow many times is line ${TM_LINE_NUMBER} executed?', 'color:green;font-size:15px')$0"
+  },
+  "console.time()": {
+    "prefix": "ctim",
+    "body": "console.time('%cTimer Init', 'color:green;font-size:15px')$0"
+  },
+  "console.timeEnd()": {
+    "prefix": "cted",
+    "body": "console.timeEnd('%cTimer Init', 'color:green;font-size:15px')$0"
+  }
+}

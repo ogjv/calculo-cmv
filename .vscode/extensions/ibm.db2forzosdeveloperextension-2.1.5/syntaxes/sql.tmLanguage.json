@@ -1,0 +1,631 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "SQL",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#datatype"
+    },
+    {
+      "include": "#special-register"
+    },
+    {
+      "include": "#dcl"
+    },
+    {
+      "include": "#ddl"
+    },
+    {
+      "include": "#dml"
+    },
+    {
+      "include": "#tcl"
+    },
+    {
+      "include": "#app"
+    },
+    {
+      "include": "#misc"
+    },
+    {
+      "include": "#pl"
+    },
+    {
+      "include": "#common"
+    }
+  ],
+  "repository": {
+    "app": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.control.app.connection",
+          "match": "\\b(?i)(CONNECT(\\s+(TO|RESET))?|RELEASE(\\s+(CURRENT|ALL(\\s+SQL)?))?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.cursor",
+          "match": "\\b(?i)(CLOSE|OPEN)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.declare",
+          "match": "\\b(?i)(BEGIN\\s+DECLARE\\s+SECTION|DECLARE|END\\s+DECLARE\\s+SECTION)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.describe",
+          "match": "\\b(?i)(DESCRIBE(\\s+(CURSOR|INPUT|OUTPUT|PROCEDURE|TABLE))?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.diagnostics",
+          "match": "\\b(?i)(GET(\\s+(CURRENT|STACKED))?\\s+DIAGNOSTICS)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.fetch",
+          "match": "\\b(?i)(FETCH(\\s+(IN)?SENSITIVE)?(\\s+WITH\\s+CONTINUE)?(\\s+(BEFORE|AFTER|(NEXT|PRIOR|FIRST|LAST)(\\s+ROWSET)?|CURRENT(\\s+(CONTINUE|ROWSET))?|(ROWSET\\s+STARTING\\s+AT\\s+)?(ABSOLUTE|RELATIVE)))?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.include",
+          "match": "\\b(?i)(INCLUDE\\s+SQL(CA|DA))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.locator",
+          "match": "\\b(?i)((FREE|HOLD)\\s+LOCATOR)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.set",
+          "match": "\\b(?i)(SET\\s+(CONNECTION|CURRENT\\s+((APPLICATION\\s+)?ENCODING\\s+SCHEME|PACKAGE\\s+PATH|PACKAGESET)))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.statement",
+          "match": "\\b(?i)(EXECUTE(\\s+IMMEDIATE)?|PREPARE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.app.whenever",
+          "match": "\\b(?i)(WHENEVER\\s+(NOT\\s+FOUND|SQL(ERROR|WARNING))\\s+(CONTINUE|GO(\\s+)?TO))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.app.cursor",
+          "match": "\\b(?i)((NO\\s+)?SCROLL|(A|IN)SENSITIVE|SENSITIVE(\\s+(DYNAMIC|STATIC))?|WITH(OUT)?\\s+HOLD|WITHOUT\\s+RETURN|WITH\\s+RETURN(\\s+TO\\s+(CALLER|CLIENT))?|WITH(OUT)?\\s+ROWSET\\s+POSITIONING)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.app.diagnostics.statement",
+          "match": "\\b(?i)(DB2_(GET_DIAGNOSTICS_DIAGNOSTICS|SQL_NESTING_LEVEL|LAST_ROW|NUMBER_(PARAMETER_MARKERS|RESULT_SETS|ROWS)|RETURN_STATUS|SQL_ATTR_CURSOR_(HOLD|ROWSET|SCROLLABLE|SENSITIVITY|TYPE))|MORE|NUMBER|RETURN_STATUS|ROW_COUNT)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.app.diagnostics.condition",
+          "match": "\\b(?i)(CATALOG_NAME|CONDITION_NUMBER|CURSOR_NAME|DB2_(ERROR_CODE(1|2|3|4)|INTERNAL_ERROR_POINTER|LINE_NUMBER|MESSAGE_ID|MODULE_DETECTING_ERROR|ORDINAL_TOKEN_n|REASON_CODE|RETURNED_SQLCODE|ROW_NUMBER|SQLERRD(_SET|1|2|3|4|5|6)|TOKEN_COUNT|AUTHENTICATION_TYPE|AUTHORIZATION_ID|CONNECTION_(STATE|STATUS)|ENCRYPTION_TYPE|SERVER_CLASS_NAME|PRODUCT_ID)|MESSAGE_TEXT|RETURNED_SQLSTATE|SERVER_NAME)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.app.prepare",
+          "match": "\\b(?i)(FOR\\s+(MULTIPLE\\s+ROWS|SINGLE\\s+ROW)|WITH(OUT)?\\s+EXTENDED\\s+INDICATORS)\\b"
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.sql",
+          "begin": "--",
+          "end": "\n"
+        },
+        {
+          "name": "comment.block.sql",
+          "begin": "/[*]",
+          "end": "[*](/)"
+        }
+      ]
+    },
+    "common": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.common.sqlda",
+          "match": "\\b(?i)((INTO|USING)\\s+DESCRIPTOR|USING\\s+(NAMES|LABELS|ANY|BOTH))\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.A",
+          "match": "\\b(?i)(ALL|ALLOW|AND|ANY|AS(\\s+LOCATOR|\\s+OF)?|ASC|ATOMIC|ATTRIBUTES)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.C",
+          "match": "\\b(?i)(CARDINALITY|CONDITION|CONNECTION|COPY|CURSOR)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.D",
+          "match": "\\b(?i)(DESC|DEFAULT|DIS(ABLE|ALLOW)|DISTINCT)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.E",
+          "match": "\\b(?i)(ENABLE|EX(CEPTION|CLUDE|PLAIN))\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.F",
+          "match": "\\b(?i)(FINAL)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.I",
+          "match": "\\b(?i)(INCLUDE|INDICATOR|IN(OUT)?|INTO|IS)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.L",
+          "match": "\\b(?i)(LIKE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.N",
+          "match": "\\b(?i)(NEW|NO|NONE|NOT|NULL)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.O",
+          "match": "\\b(?i)(OLD|ON|OR|OUT)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.P",
+          "match": "\\b(?i)(PART(ITION)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.Q",
+          "match": "\\b(?i)(QUERYNO)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.R",
+          "match": "\\b(?i)(RESTRICT|ROLE|ROW(S)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.S",
+          "match": "\\b(?i)(SQL|STATEMENT|SYSTEM)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.T",
+          "match": "\\b(?i)(TABLE|TO)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.U",
+          "match": "\\b(?i)(USING)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.V",
+          "match": "\\b(?i)(VARIABLE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.W",
+          "match": "\\b(?i)(WAIT|WHEN|WITH(OUT)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.general.Y",
+          "match": "\\b(?i)(YES)\\b"
+        },
+        {
+          "match": "\\b(?i)(([0-9]+)(K|M|G))\\b",
+          "captures": {
+            "2": {
+              "name": "constant.numeric.sql"
+            },
+            "3": {
+              "name": "constant.numeric.character.sql"
+            }
+          }
+        },
+        {
+          "match": "\\b(?i)((V)([0-9]+))\\b",
+          "captures": {
+            "2": {
+              "name": "constant.numeric.character.sql"
+            },
+            "3": {
+              "name": "constant.numeric.sql"
+            }
+          }
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.character.sql",
+          "match": "(<|>|=|!)"
+        },
+        {
+          "name": "constant.numeric.sql",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    "datatype": {
+      "name": "keyword.other.sql.common.datatype",
+      "match": "\\b(?i)((SMALL|BIG)?INT|INTEGER|DEC(IMAL|FLOAT)?|NUMERIC|FLOAT|REAL|DOUBLE(\\s+PRECISION)?|CHAR(ACTER)?(\\s+(VARYING|LARGE\\s+OBJECT))?|(LONG\\s+)?VARCHAR(?!\\s+(NULTERM|STRUCTURE))|(((DB)?C)|B)LOB|CCSID\\s+(ASCII|EBCDIC|UNICODE)|FOR\\s+(SBCS|MIXED|BIT)\\s+DATA|((LONG\\s+)?VAR)?GRAPHIC|BINARY(\\s+(VARYING|LARGE\\s+OBJECT))?|VARBINARY|DATE(?!\\s+FORMAT)|TIME(?!\\s+FORMAT)|TIMESTAMP|WITH(OUT)?\\s+TIME(\\s+)?ZONE|ROWID|XML)\\b"
+    },
+    "dcl": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.control.dcl.collection",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+(CREATE|PACKADM)\\s+(ON|IN)\\s+COLLECTION)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.database",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+(DBADM|DBCTRL|DBMAINT|CREATETAB|CREATETS|DISPLAYDB|DROP|IMAGCOPY|LOAD|RECOVERDB|REORG|REPAIR|STARTDB|STATS|STOPDB)(\\s*,\\s*(DBADM|DBCTRL|DBMAINT|CREATETAB|CREATETS|DISPLAYDB|DROP|IMAGCOPY|LOAD|RECOVERDB|REORG|REPAIR|STARTDB|STATS|STOPDB))*\\s+ON\\s+DATABASE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.function-or-procedure",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+EXECUTE\\s+ON\\s+(((SPECIFIC\\s+)?FUNCTION)|PROCEDURE))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.package",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+(ALL|((BIND|COPY|EXECUTE|RUN)(\\s*,\\s*(BIND|COPY|EXECUTE|RUN))*))\\s+ON\\s+PACKAGE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.plan",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+((BIND|EXECUTE)(\\s*,\\s*(BIND|EXECUTE))*)\\s+ON\\s+PLAN)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.schema",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+((ALTERIN|CREATEIN|DROPIN)(\\s*,\\s*(ALTERIN|CREATEIN|DROPIN))*)\\s+ON\\s+SCHEMA)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.sequence",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+((ALTER|USAGE)(\\s*,\\s*(ALTER|USAGE))*)\\s+ON\\s+SEQUENCE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.system",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+((ACCESSCTRL|ARCHIVE|BIND(ADD|AGENT)|BSDS|CREATE(ALIAS|DBA|DBC|SG|TMTAB)|CREATE_SECURE_OBJECT|DATAACCESS|DBADM(\\s+WITH(OUT)?\\s+ACCESSCTRL)?(\\s+WITH(OUT)? DATAACCESS)?|DEBUGSESSION|DISPLAY|EXPLAIN|MONITOR(1|2)|RECOVER|SQLADM|STOPALL|STOSPACE|SYS(ADM|CTRL|OPR)|TRACE)(\\s*,\\s*(ACCESSCTRL|ARCHIVE|BIND(ADD|AGENT)|BSDS|CREATE(ALIAS|DBA|DBC|SG|TMTAB)|CREATE_SECURE_OBJECT|DATAACCESS|DBADM(\\s+WITH(OUT)?\\s+ACCESSCTRL)?(\\s+WITH(OUT)? DATAACCESS)?|DEBUGSESSION|DISPLAY|EXPLAIN|MONITOR(1|2)|RECOVER|SQLADM|STOPALL|STOSPACE|SYS(ADM|CTRL|OPR)|TRACE))*)(\\s+ON\\s+SYSTEM)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.variable",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+(ALL(\\s+PRIVILEGES)?|(READ|WRITE)(\\s*,\\s*(READ|WRITE))*)\\s+ON\\s+VARIABLE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.table-or-view",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+(ALL(\\s+PRIVILEGES)?|(ALTER|DELETE|INDEX|INSERT|REFERENCES(\\s*\\(.+\\))?|SELECT|TRIGGER|UNLOAD|UPDATE(\\s*\\(.+\\))?)(\\s*,\\s*(ALTER|DELETE|INDEX|INSERT|REFERENCES(\\s*\\(.+\\))?|SELECT|TRIGGER|UNLOAD|UPDATE(\\s*\\(.+\\))?))*)\\s+ON(\\s+TABLE)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.type-or-jar",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+USAGE\\s+ON\\s+(TYPE|JAR))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl.use",
+          "match": "\\b(?i)((GRANT|REVOKE)\\s+USE\\s+OF\\s+(BUFFERPOOL|ALL\\s+BUFFERPOOLS|STOGROUP|TABLESPACE))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dcl",
+          "match": "\\b(?i)(GRANT|REVOKE(?!\\s+PRIVILEGES)|TRANSFER\\s+OWNERSHIP\\s+OF\\s+(DATABASE|INDEX|STOGROUP|TABLE(SPACE)?|VIEW))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.dcl.grant",
+          "match": "\\b(?i)(WITH\\s+GRANT\\s+OPTION)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.dcl.revoke",
+          "match": "\\b(?i)(BY(\\s+ALL)?|(NOT\\s+)?INCLUDING\\s+DEPENDENT\\s+PRIVILEGES)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.dcl",
+          "match": "\\b(?i)(PUBLIC(?!\\s+ALIAS)|REVOKE\\s+PRIVILEGES)\\b"
+        }
+      ]
+    },
+    "ddl": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.control.ddl.alter",
+          "match": "\\b(?i)(ACCELERATION\\s+WAITFORDATA|ACCELERATOR|ALTER\\s+(DATABASE|(SPECIFIC\\s+)?FUNCTION|PROCEDURE|INDEX|MASK|PERMISSION|SEQUENCE|STOGROUP|TABLE(SPACE)?|TRIGGER|TRUSTED\\s+CONTEXT|VIEW)|EXCHANGE\\s+DATA\\s+BETWEEN\\s+TABLE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.ddl.comment",
+          "match": "\\b(?i)(COMMENT\\s+ON)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.ddl.create",
+          "match": "\\b(?i)(CREATE\\s+((PUBLIC\\s+)?ALIAS|(AUX|AUXILIARY)\\s+TABLE|DATABASE|FUNCTION|GLOBAL\\s+TEMPORARY\\s+TABLE|(UNIQUE\\s+(WHERE\\s+NOT\\s+NULL\\s+)?)?INDEX|(LARGE|LOB)\\s+TABLESPACE|MASK|PERMISSION|(OR\\s+REPLACE\\s+)?PROCEDURE|ROLE|SEQUENCE|STOGROUP|SYNONYM|TABLE(SPACE)?|(OR\\s+REPLACE\\s+)?TRIGGER|TRUSTED\\s+CONTEXT|(DISTINCT\\s+)?TYPE|VARIABLE|VIEW))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.ddl.declare",
+          "match": "\\b(?i)(DECLARE\\s+GLOBAL\\s+TEMPORARY\\s+TABLE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.ddl.drop",
+          "match": "\\b(?i)(DROP(?!\\s+STORAGE))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.ddl.exchange",
+          "match": "\\b(?i)(EXCHANGE\\s+DATA\\s+BETWEEN\\s+TABLE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.ddl.label",
+          "match": "\\b(?i)(LABEL\\s+ON)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.ddl.rename",
+          "match": "\\b(?i)(RENAME)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.no",
+          "match": "\\b(?i)((NO\\s+)?(CACHE|COLLID|CYCLE|DBINFO|DEFAULT\\s+ROLE|DEFAULT\\s+SECURITY\\s+LABEL|EXTERNAL\\s+ACTION|FINAL\\s+CALL|KEY\\s+LABEL|NAMESPACE|NO(CACHE|CYCLE|(MIN|MAX)VALUE|ORDER)|ORDER(?!\\s+(BY|OF))|PACKAGE\\s+PATH|SCRATCHPAD|(MAX|MIN)VALUE))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.not",
+          "match": "\\b(?i)((NOT\\s+)?(CLUSTER|DETERMINISTIC|LOGGED|PADDED|SECURED|VARIANT|VOLATILE))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.with",
+          "match": "\\b(?i)(WITH(OUT)?\\s+(AUTHENTICATION|EXPLAIN|IMMEDIATE\\s+WRITE|KEEP\\s+DYNAMIC|ROW\\s+ATTRIBUTES))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.A",
+          "match": "\\b(?i)((ROW|COLUMN)\\s+ACCESS\\s+CONTROL|ADDRESS|AFTER|ALGORITHM|(PUBLIC\\s+)?ALIAS|ALL\\s+VERSIONS|(DIS)?ALLOW\\s+PARALLEL|APPEND|APPLCOMPAT|APPLICATION\\s+ENCODING\\s+SCHEME\\s+(ASCII|EBCDIC|UNICODE)|ARCHIVE\\s+SENSITIVE|ARCHIVE(\\s+USE)?|ARRAY|AS\\s+(IDENTITY|ROW\\s+(BEGIN|START|END)|SECURITY\\s+LABEL|TRANSACTION\\s+START\\s+ID|WORKFILE(\\s+FOR)?)|ASUTIME\\s+(NO\\s+)?LIMIT|AUDIT\\s+(ALL|CHANGES|NONE)|AUTONOMOUS)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.B",
+          "match": "\\b(?i)(BASED\\s+UPON\\s+CONNECTION\\s+USING\\s+SYSTEM\\s+AUTHID|BEFORE|BUFFERPOOL|BUSINESS_TIME\\s+WITH(OUT)?\\s+OVERLAPS)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.C",
+          "match": "\\b(?i)(CAST\\s+FROM|CCSID|CHECK|(DATA|MGMT|STOR)CLAS|CLONE|(IN|EX)CLUDING\\s+(COLUMN\\s+)?DEFAULTS|(IN|EX)CLUDING\\s+(IDENTITY|ROW\\s+CHANGE\\s+TIMESTAMP)(\\s+COLUMN\\s+ATTRIBUTES)?|(IN|EX)CLUSIVE|COLUMN|COMMIT\\s+ON\\s+RETURN|CONCENTRATE\\s+STATEMENTS\\s+(OFF|WITH\\s+LITERALS)|CONCURRENT\\s+ACCESS\\s+RESOLUTION|CONSTRAINT|CONTINUE\\s+AFTER\\s+FAILURE|CURRENT\\s+DATA)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.D",
+          "match": "\\b(?i)(DATA\\s+CAPTURE\\s+(CHANGES|NONE)|DATA\\s+CHANGE\\s+OPERATION|DATA\\s+TYPE|DATABASE|DB2SQL|((DIS)?ALLOW|DISABLE)\\s+DEBUG\\s+MODE|(DATA\\s+INITIALLY|REFRESH)\\s+DEFERRED|DEFINITION\\s+ONLY|DEGREE(\\s+ANY)?|DSSIZE|(DYNAMIC\\s+)?RESULT\\s+SET(S)?|DISTINCT\\s+TYPE|DYNAMICRULES\\s+((DEFINE|INVOKE)?(BIND|RUN)))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.E",
+          "match": "\\b(?i)(EDITPROC|ELEMENT|ENCRYPTION|ENDING(\\s+AT)?|ENFORCED(\\s+FOR\\s+ALL\\s+ACCESS)?|EXCLUDING\\s+XML\\s+TYPE\\s+MODIFIERS|EXTERNAL(\\s+NAME)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.F",
+          "match": "\\b(?i)(FENCED|FIELDPROC|FIXEDLENGTH|FOR\\s+(TABLE|SEQUENCE)|FOR\\s+COLUMN|FOR\\s+EACH\\s+ROW\\s+ON\\s+UPDATE\\s+AS\\s+ROW\\s+CHANGE\\s+TIMESTAMP|FOR\\s+EACH\\s+(STATEMENT|ROW)|FOR\\s+ROWS\\s+WHERE|FOR\\s+UPDATE\\s+CLAUSE\\s+(OPTIONAL|REQUIRED)|(DATE|TIME)\\s+FORMAT\\s+(EUR|ISO|JIS|LOCAL|USA)|FREEPAGE|(SPECIFIC\\s+)?FUNCTION)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.G",
+          "match": "\\b(?i)(GBPCACHE\\s+(ALL|CHANGED|NONE|SYSTEM)|GENERATE\\s+KEY(S)?\\s+USING\\s+XMLPATTERN|GENERATED(\\s+(ALWAYS|BY\\s+DEFAULT))?|GENERIC\\s+TABLE|GET_ACCEL_ARCHIVE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.H",
+          "match": "\\b(?i)(HASH\\s+SPACE|HUFFMAN)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.I",
+          "match": "\\b(?i)(ID|IMPLICITLY\\s+HIDDEN|IN\\s+DATABASE|INCREMENT\\s+BY|INDEX|INDEXBP|INLINE\\s+LENGTH|INSERT\\s+ALGORITHM|INSTEAD\\s+OF|ISOLATION\\s+LEVEL\\s+(CS|RR|RS|UR))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.J",
+          "match": "\\b(?i)(JOBNAME)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.K",
+          "match": "\\b(?i)((PRIMARY|FOREIGN)\\s+KEY)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.L",
+          "match": "\\b(?i)(LANGUAGE\\s+(ASSEMBLE|C|COBOL|JAVA|PLI|REXX)|LANGUAGE\\s+SQL|LOCATION|LOCKMAX(\\s+SYSTEM)?|LOCKSIZE\\s+(ANY|TABLE(SPACE)?|PAGE|ROW|LOB)|LOG\\s+(YES|NO))\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.M",
+          "match": "\\b(?i)(MAINTAINED\\s+BY\\s+(SYSTEM|USER)|MASK|MAXPARTITIONS|MAXROWS|MEMBER\\s+CLUSTER|MODE\\s+DB2SQL|MOVE\\s+TABLE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.N",
+          "match": "\\b(?i)(NEW(\\s+ROW|_TABLE)(\\s+AS)?|NO\\s+CASCADE|NOT\\s+ENFORCED|NOT\\s+NULL|(NOT\\s+)?NULL\\s+CALL|NULL\\s+KEYS|NULLS\\s+LAST|NUMPARTS)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.O",
+          "match": "\\b(?i)(OBID|OLD(\\s+ROW|_TABLE)(\\s+AS)?|(CALLED|(RETURNS\\s+NULL))\\s+ON\\s+NULL\\s+INPUT|ON\\s+COMMIT\\s+((DELETE|PRESERVE)\\s+ROWS|DROP\\s+TABLE)|ON\\s+DELETE\\s+(CASCADE|NO\\s+ACTION|RESTRICT|SET\\s+NULL|ADD\\s+EXTRA\\s+ROW)|ON\\s+ROLLBACK\\s+(DELETE|PRESERVE)\\s+ROWS|OPTHINT|ORGANIZATION|ORGANIZE\\s+BY\\s+HASH)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.P",
+          "match": "\\b(?i)(PACKAGE\\s+OWNER|PACKAGE|PAGENUM(\\s+(ABSOLUTE|RELATIVE))?|PARAMETER\\s+STYLE\\s+(GENERAL(\\s+WITH\\s+NULLS)?|JAVA|(DB2)?SQL|SIMPLE\\s+CALL(\\s+WITH\\s+NULLS)?)|PARAMETER|(ALTER\\s+PARTITIONING\\s+TO\\s+)?PARTITION(\\s+BY(\\s+(RANGE|SIZE(\\s+EVERY)?))?)?|PARTITIONED|PCTFREE|PENDING\\s+CHANGES|PERIOD\\s+(FOR\\s+)?(SYSTEM_TIME|BUSINESS_TIME)|PERMISSION|PIECESIZE|PLAN|((NO)?DEFER)\\s+PREPARE|PROCEDURE|PROGRAM(\\s+TYPE\\s+(MAIN|SUB))?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.Q",
+          "match": "\\b(?i)((PRI|SEC)QTY|QUALIFIER|QUERY\\s+ACCELERATION\\s+(ALL|ELIGIBLE|ENABLE(\\s+WITH\\s+FAILBACK)?|NONE)|QUERY\\s+OPTIMIZATION|(MATERIALIZED\\s+)?QUERY)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.R",
+          "match": "\\b(?i)(RANDOM|REFERENCING|REFERENCES|RELEASE\\s+AT\\s+(COMMIT|DEALLOCATE)|REOPT\\s+(ALWAYS|NONE|ONCE)|RESET|RESTART(\\s+WITH)?|RESTRICT\\s+ON\\s+DROP|RETURNS|ROUNDING\\s+DEC_ROUND_(CEILING|DOWN|FLOOR|HALF_(DOWN|EVEN|UP)|UP)|RUN\\s+OPTIONS)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.S",
+          "match": "\\b(?i)(SECURITY\\s+(DB2|DEFINER|USER)|SECURITY\\s+LABEL|SEGSIZE|SEQUENCE|SERVAUTH|SESSION\\s+USER|(DEFAULT|INHERIT)\\s+SPECIAL\\s+REGISTERS|SOURCE|SPECIFIC|SQL\\s+(VARCHAR|DECFLOAT|DATE|TIMESTAMP)|SQL\\s+PATH|(CONTAINS|NO)\\s+SQL|(MODIFIES|READS)\\s+SQL\\s+DATA|STANDARD\\s+CALL|START\\s+WITH|STATIC\\s+DISPATCH|STAY\\s+RESIDENT|STOGROUP(\\s+SYSDEFLT)?|STOP\\s+AFTER\\s+([0-9]+|(SYSTEM\\s+DEFAULT))\\s+FAILURES|STORES|SUMMARY|SYNONYM|SYSIBM\\.PACKAGE_(NAME|SCHEMA|VERSION)|SYSTEM\\s+AUTHID|SYSTEM\\s+PATH)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.T",
+          "match": "\\b(?i)(TABLE\\s+LIKE|(TO\\s+)?TABLESPACE|(BUSINESS|SYSTEM)_TIME\\s+SENSITIVE|(FIRST\\s+)?TO\\s+LAST|TRACKMOD|TRIGGER|TRUSTED\\s+CONTEXT|TYPE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.U",
+          "match": "\\b(?i)(UNIQUE|UPDATE\\s+OF|URI|USE\\s+CURRENTLY\\s+COMMITTED|USE\\s+FOR(\\s+(EXTERNAL\\s+SECURITY\\s+PROFILE|PUBLIC(\\s+WITH(OUT)?\\s+AUTHENTICATION)?))?|USE\\s+HISTORY\\s+TABLE|USING\\s+APPLICATION\\s+COMPATIBILITY|USING\\s+TYPE\\s+DEFAULTS)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.V",
+          "match": "\\b(?i)(VALIDATE\\s+(BIND|RUN)|VALIDPROC|VARCHAR\\s+(NULTERM|STRUCTURE)|VCAT|(ACTIVE\\s+)?VERSION|(SYSTEM\\s+)?VERSIONING|VIEW|VOLUMES)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.W",
+          "match": "\\b(?i)(WAIT\\s+FOR\\s+OUTCOME|WITH\\s+((CASCADED|LOCAL)\\s+)?CHECK\\s+OPTION|WITH\\s+DEFAULT|WITH\\s+NO\\s+DATA|WITH\\s+RESTRICT\\s+ON\\s+DROP|WITH\\s+ROLE\\s+AS\\s+OBJECT\\s+OWNER(\\s+AND\\s+QUALIFIER)?|WITH\\s+USE\\s+FOR(\\s+(EXTERNAL\\s+SECURITY\\s+PROFILE|PUBLIC(\\s+WITH(OUT)?\\s+AUTHENTICATION)?))?|WITHOUT\\s+ROLE\\s+AS\\s+OBJECT\\s+OWNER|WLM\\s+ENVIRONMENT(\\s+FOR\\s+DEBUG\\s+MODE)?|WRAPPED)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.ddl.X",
+          "match": "\\b(?i)(XMLSCHEMA)\\b"
+        },
+        {
+          "comment": "child verbs",
+          "name": "keyword.other.sql.verb.ddl",
+          "match": "\\b(?i)((DE)?ACTIVATE|ADD|ALTER|APPEND|AUDIT|COMPRESS|DEFER|DEFINE|ERASE|REGENERATE|REMOVE|RENAME|REPLACE|ROTATE)\\b"
+        }
+      ]
+    },
+    "dml": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.control.dml.1",
+          "match": "\\b(?i)(SELECT(\\s+UNPACK|\\s+DISTINCT|\\s+ALL)?|UPDATE|INSERT(\\s+INTO)?|MERGE(\\s+INTO)?|DELETE(\\s+FROM)?|TRUNCATE(\\s+TABLE)?|WHERE(\\s+CURRENT\\s+OF)?|FROM|HAVING|GROUP\\s+BY)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dml.2",
+          "match": "\\b(?i)(ORDER\\s+BY|SKIP\\s+LOCKED\\s+DATA|UNION(\\s+DISTINCT|\\s+ALL)?|EXCEPT(\\s+DISTINCT|\\s+ALL)?|INTERSECT(\\s+DISTINCT|\\s+ALL)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.dml.3",
+          "match": "\\b(?i)(FOR\\s+READ\\s+ONLY|USE\\s+AND\\s+KEEP\\s+(EXCLUSIVE|SHARE|UPDATE)\\s+LOCKS|VALUES|WITH(\\s+RR|\\s+RS|\\s+CS|\\s+UR)|FOR\\s+PORTION\\s+OF\\s+BUSINESS_TIME)\\b"
+        },
+        {
+          "match": "\\b(?i)((FETCH\\s+(FIRST|NEXT)?)\\s[0-9]+\\s+(ROW(S)?\\s+ONLY)|(FOR\\s+ROW)\\s[0-9]+\\s+(OF\\s+ROWSET)|((OPTIMIZE\\s+)?FOR|OFFSET)\\s[0-9]+\\s+(ROW(S)?))\\b",
+          "captures": {
+            "2": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "3": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "4": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "5": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "6": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "7": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "8": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "9": {
+              "name": "keyword.other.sql.control.dml.4"
+            },
+            "10": {
+              "name": "keyword.other.sql.control.dml.4"
+            }
+          }
+        },
+        {
+          "name": "keyword.other.sql.verb.dml.1",
+          "match": "\\b(?i)(ARRAY_EXISTS|(NOT\\s+)?BETWEEN|(NOT\\s+)?DISTINCT\\s+FROM|EXISTS|IS\\s+(NOT\\s+)?NULL|(IS|NOT)NULL|XMLEXISTS|(DROP|REUSE)\\s+STORAGE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.verb.dml.2",
+          "match": "\\b(?i)(UNNEST|(INNER\\s+|LEFT\\s+(OUTER\\s+)?|RIGHT\\s+(OUTER\\s+)?|FULL\\s+(OUTER\\s+)?)?JOIN|CROSS\\s+JOIN|GROUPING\\s+SETS|ROLLUP|CUBE|FOR\\s+UPDATE\\s+OF)\\b"
+        },
+        {
+          "name": "keyword.other.sql.verb.dml.3",
+          "match": "\\b(?i)((IGNORE|RESTRICT\\s+WHEN)\\s+DELETE\\s+TRIGGERS|IGNORE|IMMEDIATE|(NOT\\s+)?MATCHED)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.dml",
+          "match": "\\b(?i)(FOR\\s+(SYSTEM_TIME|BUSINESS_TIME)|INPUT\\s+SEQUENCE|ORDER\\s+OF|CARDINALITY\\s+MULTIPLIER|PASSING(\\s+BY\\s+REF)?|(WITH\\s+ORDINALITY)|OVERRIDING\\s+USER\\s+VALUE|(NOT\\s+)?ATOMIC\\s+CONTINUE\\s+ON\\s+SQLEXCEPTION)\\b"
+        }
+      ]
+    },
+    "misc": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.control.misc",
+          "match": "\\b(?i)(ALLOCATE|ASSOCIATE(\\s+RESULT\\s+SET)?\\s+LOCATOR(S)?|CALL|LOCK\\s+TABLE|REFRESH\\s+TABLE)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.misc.explain",
+          "match": "\\b(?i)(EXPLAIN\\s+(PLAN|ALL|STMTCACHE(\\s+(ALL|STMTID|STMTTOKEN))|PACKAGE|STABILIZED\\s+DYNAMIC\\s+QUERY\\s+STMTID))\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.misc.set",
+          "match": "\\b(?i)(SET\\s+CURRENT\\s+(ACCELERATOR|APPLICATION\\s+COMPATIBILITY|DEBUG\\s+MODE|DECFLOAT\\s+ROUNDING\\s+MODE|DEGREE|EXPLAIN\\s+MODE|GET_ACCEL_ARCHIVE|LC_CTYPE|LOCALE\\s+LC_CTYPE|MAINTAINED(\\s+TABLE)?\\s+TYPES(\\s+FOR\\s+OPTIMIZATION)?|OPTIMIZATION\\s+HINT|PRECISION|QUERY\\s+ACCELERATION(\\s+WAITFORDATA)?|REFRESH\\s+AGE|ROUTINE\\s+VERSION|RULES|SQLID|TEMPORAL\\s+(BUSINESS|SYSTEM)_TIME|(FUNCTION\\s+)?PATH|SCHEMA)|SET\\s+CURRENT_(LC_CTYPE|PATH|SCHEMA)|SET\\s+(ENCRYPTION\\s+PASSWORD|PATH|SCHEMA|(SESSION\\s+)?TIME(\\s+)?ZONE|SESSIONTIMEZONE)|SET\\s+(CURRENT\\s+)?LOCK\\s+TIMEOUT|SET)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.misc",
+          "match": "\\b(?i)((CURRENT\\s+FUNCTION\\s+)?PATH|CURSOR\\s+FOR\\s+RESULT\\s+SET|WITH\\s+PROCEDURE|COLLECTION|IN\\s+(SHARE|EXCLUSIVE)\\s+MODE|ENABLE\\s+WITH\\s+FAILBACK|ELIGIBLE|WITH\\s+HINT)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.misc.round",
+          "match": "\\b(?i)(ROUND_(CEILING|DOWN|FLOOR|HALF_(DOWN|EVEN|UP)|UP))\\b"
+        }
+      ]
+    },
+    "pl": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.control.pl",
+          "match": "\\b(?i)(DO|(END\\s+)?(CASE|FOR|LOOP|REPEAT|WHILE)|END|GOTO|IF|ITERATE|LEAVE|(RE)?SIGNAL|RETURN|UNTIL)\\b"
+        },
+        {
+          "name": "keyword.other.sql.control.pl.compound",
+          "match": "\\b(?i)(BEGIN((\\s+NOT)?\\s+ATOMIC)?)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.pl",
+          "match": "\\b(?i)(ELSE(IF)?|SQL(CODE|STATE(\\s+VALUE)?)|THEN)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.pl.condition",
+          "match": "\\b(?i)(SQL(EXCEPTION|WARNING)|NOT\\s+FOUND)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.pl.handler",
+          "match": "\\b(?i)((CONTINUE|EXIT)\\s+HANDLER\\s+FOR)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.pl.variable",
+          "match": "\\b(?i)(CONSTANT|RESULT_SET_LOCATOR\\s+VARYING)\\b"
+        }
+      ]
+    },
+    "special-register": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.common.special-register.current",
+          "match": "\\b(?i)(CURRENT\\s+(ACCELERATOR|APPLICATION\\s+(COMPATIBILITY|ENCODING\\s+SCHEME)|CLIENT_(ACCTNG|APPLNAME|CORR_TOKEN|USERID|WRKSTNNAME)|DATE|DEBUG\\s+MODE|DECFLOAT\\s+ROUNDING\\s+MODE|DEGREE|EXPLAIN\\s+MODE|GET_ACCEL_ARCHIVE|(LOCALE\\s+)?LC_CTYPE|MAINTAINED\\s+(TABLE\\s+)?TYPES(\\s+FOR\\s+OPTIMIZATION)?|MEMBER|OPTIMIZATION\\s+HINT|PACKAGESET|(PACKAGE\\s+)?PATH|PRECISION|QUERY\\s+ACCELERATION(\\s+WAITFORDATA)?|REFRESH\\s+AGE|ROUTINE\\s+VERSION|RULES|SCHEMA|SERVER|SQLID|TEMPORAL\\s+(BUSINESS_TIME|SYSTEM_TIME)|TIMESTAMP|TIME((\\s+)?ZONE)?))\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.special-register.current-underscore",
+          "match": "\\b(?i)(CURRENT_(DATE|LC_CTYPE|PATH|SCHEMA|SERVER|TIME(STAMP|ZONE)?))\\b"
+        },
+        {
+          "name": "keyword.other.sql.common.special-register.other",
+          "match": "\\b(?i)(CLIENT\\s+(ACCTNG|APPLNAME|USERID|WRKSTNNAME)|ENCRYPTION\\s+PASSWORD|SCHEMA|SESSION\\s+TIME(\\s+)?ZONE|(SESSION_)?USER)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.sql",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.sql",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.double.sql",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.sql",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "tcl": {
+      "patterns": [
+        {
+          "name": "keyword.other.sql.control.tcl",
+          "match": "\\b(?i)(COMMIT(\\s+WORK)?|RELEASE(\\s+TO)?\\s+SAVEPOINT|ROLLBACK(\\s+WORK)?(\\s+TO\\s+SAVEPOINT)?|SAVEPOINT)\\b"
+        },
+        {
+          "name": "keyword.other.sql.general.tcl",
+          "match": "\\b(?i)(ON\\s+ROLLBACK\\s+RETAIN(\\s+(CURSOR|LOCK)S))\\b"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.sql"
+}

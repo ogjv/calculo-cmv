@@ -1,0 +1,524 @@
+{
+  "ALTER DATABASE statement": {
+    "prefix": "ALTER DATABASE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic ALTER DATABASE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-alter-database for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "ALTER DATABASE ${1:database-name}",
+      "\tBUFFERPOOL ${2:bpname}",
+      "\tINDEXBP ${3:bpname}",
+      "\tSTOGROUP ${4:stogroup-name}",
+      "\tCCSID ${5:ccsid-value}"
+    ],
+    "description": "Sample ALTER DATABASE statement"
+  },
+  "ALTER TABLE statement": {
+    "prefix": "ALTER TABLE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic ALTER TABLE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-alter-table for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "ALTER TABLE ${1:table-name}",
+      "\tADD COLUMN ${2:column-name} ${3:data-type1} WITH DEFAULT ${4:constant}",
+      "\tALTER COLUMN ${5:column-name} SET ${6:data-type2}",
+      "\tADD ${7:constraint}"
+    ],
+    "description": "Sample ALTER TABLE statement"
+  },
+  "ALTER INDEX statement": {
+    "prefix": "ALTER INDEX statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic ALTER INDEX statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-alter-index for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "ALTER INDEX ${1:index-name}",
+      "\tBUFFERPOOL ${2:bpname}",
+      "\tADD COLUMN (${3:column-name})"
+    ],
+    "description": "Sample ALTER INDEX statement"
+  },
+  "Common table expression definition": {
+    "prefix": "WITH statement (common table expression)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic WITH SELECT statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=queries-select-statement for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "WITH ${1:table-identifier} (${2:column-identifier})",
+      "\tAS (",
+      "\t\tSELECT ${3:column-name}",
+      "\t\tFROM ${4:table-name}",
+      "\t\tWHERE ${5:search-condition}",
+      "\t\t\tAND ${6:search-condition}",
+      "\t)"
+    ],
+    "description": "Sample common table expression definition"
+  },
+  "CREATE DATABASE statement": {
+    "prefix": "CREATE DATABASE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE DATABASE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-database for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "CREATE DATABASE ${1:database-name}",
+      "\tBUFFERPOOL ${2:bpname}",
+      "\tINDEXBP ${3:bpname}",
+      "\tSTOGROUP ${4:stogroup-name}",
+      "\tCCSID ${5:ccsid-value}"
+    ],
+    "description": "Sample CREATE DATABASE statement"
+  },
+  "CREATE FUNCTION statement (compiled SQL scalar)": {
+    "prefix": "CREATE FUNCTION statement (compiled SQL scalar)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE FUNCTION statement (compiled SQL scalar)",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-function-compiled-sql-scalar for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "--#SET TERMINATOR #",
+      "CREATE FUNCTION ${1:function-name} ( VARNAME VARCHAR(128) )",
+      "\tRETURNS INTEGER",
+      "\tVERSION V1",
+      "\tDETERMINISTIC",
+      "\tNO EXTERNAL ACTION",
+      "\tREADS SQL DATA",
+      "BEGIN",
+      "\t${LINE_COMMENT} ##############################################################",
+      "\t${LINE_COMMENT} # Returns the number of tables created by SYSIBM and NAME like VARNAME",
+      "\t${LINE_COMMENT} ##############################################################",
+      "\tDECLARE VARCOUNT INTEGER;",
+      "\tSELECT COUNT(*) INTO VARCOUNT",
+      "\tFROM SYSIBM.SYSTABLES",
+      "\tWHERE CREATOR = 'SYSIBM'",
+      "\tAND NAME LIKE VARNAME;",
+      "\tRETURN (VARCOUNT);",
+      "END#",
+      "--#SET TERMINATOR ;"
+    ],
+    "description": "Sample CREATE FUNCTION statement (compiled SQL scalar)"
+  },
+  "CREATE FUNCTION statement (inlined SQL scalar)": {
+    "prefix": "CREATE FUNCTION statement (inlined SQL scalar)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE FUNCTION statement (inlined SQL scalar)",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-function-inlined-sql-scalar for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "CREATE FUNCTION ${1:function-name} ()",
+      "\tRETURNS INTEGER",
+      "\tNO EXTERNAL ACTION",
+      "\t-- #############################################################################",
+      "\t-- # Replace the expression in below",
+      "\t-- #  Note: Be sure to end expression with the terminator character",
+      "\t-- #  (usually ';')",
+      "\t-- ##############################################################################",
+      "\tRETURN 1+2+3;"
+    ],
+    "description": "Sample CREATE FUNCTION statement (inlined SQL scalar)"
+  },
+  "CREATE FUNCTION statement (SQL table)": {
+    "prefix": "CREATE FUNCTION statement (SQL table)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE FUNCTION statement (SQL table)",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-function-sql-table for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "CREATE FUNCTION ${1:function-name} ()",
+      "\tRETURNS TABLE (NAME VARCHAR(128))",
+      "\tLANGUAGE SQL",
+      "\tREADS SQL DATA",
+      "\tNO EXTERNAL ACTION",
+      "\tDETERMINISTIC",
+      "\tRETURN",
+      "\t\t-- #######################################################################",
+      "\t\t-- # Replace the SQL statement with your statement.",
+      "\t\t-- #  Note: Be sure to end statements with the terminator character",
+      "\t\t-- #  (usually ';')",
+      "\t\t-- # The example SQL statement SELECT NAME FROM SYSIBM.SYSTABLES",
+      "\t\t-- # returns all table names from SYSIBM.SYSTABLES.",
+      "\t\t-- ######################################################################",
+      "\t\tSELECT NAME FROM SYSIBM.SYSTABLES;"
+    ],
+    "description": "Sample CREATE FUNCTION statement (SQL table)"
+  },
+  "CREATE INDEX statement": {
+    "prefix": "CREATE INDEX statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE INDEX statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-index for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "CREATE INDEX ${1:index-name}",
+      "\tON ${2:table-name} (${3:column-name})",
+      "\tBUFFERPOOL ${4:bpname}"
+    ],
+    "description": "Sample CREATE INDEX statement"
+  },
+  "CREATE PROCEDURE statement (SQL - external)": {
+    "prefix": "CREATE PROCEDURE statement (SQL - external)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE PROCEDURE statement (SQL - external)",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-procedure-sql-external-deprecated for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "--#SET TERMINATOR #",
+      "CREATE PROCEDURE ${1:procedure-name} ()",
+      "\tRESULT SETS 1",
+      "\tLANGUAGE SQL",
+      "\tFENCED",
+      "\tCOLLID TEST",
+      "\tWLM ENVIRONMENT WLMENV1",
+      "\tRUN OPTIONS 'NOTEST(NONE,*,*,*)'",
+      "P1: BEGIN",
+      "\t${LINE_COMMENT} Declare cursor",
+      "\tDECLARE cursor1 CURSOR WITH RETURN FOR",
+      "\t${LINE_COMMENT} #######################################################################",
+      "\t${LINE_COMMENT} # Replace the SQL statement with your statement.",
+      "\t${LINE_COMMENT} #  Note: Be sure to end statements with the terminator character",
+      "\t${LINE_COMMENT} #  (usually ';')",
+      "\t${LINE_COMMENT} # The example SQL statement SELECT NAME FROM SYSIBM.SYSTABLES",
+      "\t${LINE_COMMENT} # returns all table names from SYSIBM.SYSTABLES.",
+      "\t${LINE_COMMENT} ######################################################################",
+      "\t\tSELECT NAME FROM SYSIBM.SYSTABLES;",
+      "\t",
+      "\t${LINE_COMMENT} Cursor left open for client application",
+      "\tOPEN cursor1;",
+      "END P1#",
+      "--#SET TERMINATOR ;"
+    ],
+    "description": "Sample CREATE PROCEDURE statement (SQL - external)"
+  },
+  "CREATE PROCEDURE statement (SQL - native)": {
+    "prefix": "CREATE PROCEDURE statement (SQL - native)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE PROCEDURE statement (SQL - native)",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-procedure-sql-native for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "--#SET TERMINATOR #",
+      "CREATE PROCEDURE ${1:procedure-name} ( VARNAME VARCHAR(128) )",
+      "\tVERSION V1",
+      "\tISOLATION LEVEL CS",
+      "\tRESULT SETS 1",
+      "\tLANGUAGE SQL",
+      "P1: BEGIN",
+      "\t${LINE_COMMENT} #######################################################################",
+      "\t${LINE_COMMENT} # Returns all tables created by VARNAME and CARDF greater than VARCOUNT",
+      "\t${LINE_COMMENT} #######################################################################",
+      "\tDECLARE VARCOUNT INTEGER DEFAULT 10000;",
+      "\t${LINE_COMMENT} Declare cursor",
+      "\tDECLARE cursor1 CURSOR WITH RETURN FOR",
+      "\t\tSELECT NAME",
+      "\t\tFROM SYSIBM.SYSTABLES",
+      "\t\tWHERE CREATOR = VARNAME",
+      "\t\t\tAND CARDF > VARCOUNT",
+      "\t\tORDER BY NAME;",
+      "\t",
+      "\t${LINE_COMMENT} Cursor left open for client application",
+      "\tOPEN cursor1;",
+      "END P1#",
+      "--#SET TERMINATOR ;"
+    ],
+    "description": "Sample CREATE PROCEDURE statement (SQL - native)"
+  },
+  "CREATE PROCEDURE statement (Java - IN/OUT parameters)": {
+    "prefix": "CREATE PROCEDURE statement (Java - IN/OUT parameters)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE PROCEDURE statement (Java - IN/OUT parameters)",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-procedure-external for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "--#SET TERMINATOR #",
+      "CREATE PROCEDURE ${1:procedure-name} ( IN VARNAME VARCHAR(128), OUT VARCOUNT INTEGER )",
+      "\tNOT DETERMINISTIC",
+      "\tLANGUAGE JAVA",
+      "\tPARAMETER STYLE JAVA",
+      "\tEXTERNAL NAME 'jar-name:package-name.class-name.method-name'",
+      "\tCOLLID TEST",
+      "\tWLM ENVIRONMENT WLMJAVA",
+      "--#SET TERMINATOR ;"
+    ],
+    "description": "Sample CREATE PROCEDURE statement (Java - IN/OUT parameters)"
+  },
+  "CREATE PROCEDURE statement (Java - return a result set)": {
+    "prefix": "CREATE PROCEDURE statement (Java - return a result set)",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE PROCEDURE statement (Java - return a result set)",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-procedure-external for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "--#SET TERMINATOR #",
+      "CREATE PROCEDURE ${1:procedure-name} ()",
+      "\tRESULT SETS 1",
+      "\tNOT DETERMINISTIC",
+      "\tLANGUAGE JAVA",
+      "\tPARAMETER STYLE JAVA",
+      "\tEXTERNAL NAME 'jar-name:package-name.class-name.method-name'",
+      "\tCOLLID TEST",
+      "\tWLM ENVIRONMENT WLMJAVA",
+      "--#SET TERMINATOR ;"
+    ],
+    "description": "Sample CREATE PROCEDURE statement (Java - return a result set)"
+  },
+  "CREATE TABLE statement": {
+    "prefix": "CREATE TABLE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE TABLE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-table for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "CREATE TABLE ${1:table-name} (",
+      "\t${2:column-name} ${3:data-type1} WITH DEFAULT ${4:constant},",
+      "\t${5:column-name} ${6:data-type2} NOT NULL",
+      ")",
+      "\tIN ${7:database-name}.${8:table-space-name}",
+      "\tCCSID ${9:ccsid-value}",
+      "\tBUFFERPOOL ${10:bpname}"
+    ],
+    "description": "Sample CREATE TABLE statement"
+  },
+  "CREATE TRIGGER statement": {
+    "prefix": "CREATE TRIGGER statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic CREATE TRIGGER (basic) statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-create-trigger-basic for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "--#SET TERMINATOR #",
+      "CREATE TRIGGER ${1:trigger-name}",
+      "\tVERSION ${2:trigger-version-id}",
+      "\t${3:trigger-activation-time}",
+      "\t${4:trigger-event}",
+      "\tON ${5:table-name}",
+      "\tREFERENCING ${6|OLD,NEW,OLD_TABLE,NEW_TABLE|} AS ${7:correlation-name}",
+      "\tFOR EACH ROW",
+      "\tBEGIN ATOMIC",
+      "\t\t${0}",
+      "\tEND#",
+      "--#SET TERMINATOR ;"
+    ],
+    "description": "Sample CREATE TRIGGER statement"
+  },
+  "DELETE statement": {
+    "prefix": "DELETE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic DELETE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-delete for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "DELETE FROM ${1:table-name}",
+      "\tWHERE ${2:search-condition}"
+    ],
+    "description": "Sample DELETE statement"
+  },
+  "GRANT FUNCTION or PROCEDURE statement": {
+    "prefix": "GRANT FUNCTION or PROCEDURE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic GRANT FUNCTION or PROCEDURE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-grant-function-procedure-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "GRANT EXECUTE ON ${1|FUNCTION,PROCEDURE|}",
+      "\tTO ${2:authorization-name}"
+    ],
+    "description": "Sample GRANT FUNCTION or PROCEDURE statement"
+  },
+  "GRANT PACKAGE statement": {
+    "prefix": "GRANT PACKAGE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic GRANT PACKAGE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-grant-package-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "GRANT ${1|ALL,BIND,EXECUTE,COPY|} ON PACKAGE ${2:collection-id}.${3:package-name}",
+      "\tTO ${4:authorization-name}"
+    ],
+    "description": "Sample GRANT PACKAGE statement"
+  },
+  "GRANT PLAN statement": {
+    "prefix": "GRANT PLAN statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic GRANT PLAN statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-grant-plan-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "GRANT ${1|BIND,EXECUTE|} ON PLAN ${2:plan-name}",
+      "\tTO ${3:authorization-name}"
+    ],
+    "description": "Sample GRANT PLAN statement"
+  },
+  "GRANT TABLE or VIEW statement": {
+    "prefix": "GRANT TABLE or VIEW statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic GRANT TABLE or VIEW statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-grant-table-view-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "GRANT ${1|ALL,SELECT,UPDATE,INSERT,DELETE,ALTER|} ON ${2:table-name}",
+      "\tTO ${3:authorization-name}"
+    ],
+    "description": "Sample GRANT TABLE or VIEW statement"
+  },
+  "GRANT TYPE statement": {
+    "prefix": "GRANT TYPE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic GRANT TYPE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-grant-type-jar-file-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "GRANT USAGE ON TYPE ${1:type-name}",
+      "\tTO ${2:authorization-name}"
+    ],
+    "description": "Sample GRANT TYPE statement"
+  },
+  "INSERT statement": {
+    "prefix": "INSERT statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic INSERT statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-insert for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "INSERT INTO ${1:table-name} (${2:column-name})",
+      "\tVALUES (${3:expression})"
+    ],
+    "description": "Sample INSERT statement"
+  },
+  "MERGE statement": {
+    "prefix": "MERGE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic MERGE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-merge for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "MERGE INTO ${1:table-name}",
+      "AS ${2:correlation-name} (${3:column-name})",
+      "USING ${4:table-reference}",
+      "ON ${5:search-condition}",
+      "WHEN MATCHED THEN",
+      "\tUPDATE SET",
+      "\t\t${6:column-name} = ${7:expression}",
+      "WHEN NOT MATCHED THEN",
+      "\tINSERT (${8:column-name})",
+      "\tVALUES (${9:expression})"
+    ],
+    "description": "Sample MERGE statement"
+  },
+  "REVOKE FUNCTION or PROCEDURE statement": {
+    "prefix": "REVOKE FUNCTION or PROCEDURE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic REVOKE FUNCTION or PROCEDURE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-revoke-function-procedure-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "REVOKE EXECUTE ON ${1|FUNCTION,PROCEDURE|}",
+      "\tFROM ${2:authorization-name}"
+    ],
+    "description": "Sample REVOKE FUNCTION or PROCEDURE statement"
+  },
+  "REVOKE PACKAGE statement": {
+    "prefix": "REVOKE PACKAGE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic REVOKE PACKAGE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-revoke-package-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "REVOKE ${1|ALL,BIND,EXECUTE,COPY|} ON PACKAGE ${2:collection-id}.${3:package-name}",
+      "\tFROM ${4:authorization-name}"
+    ],
+    "description": "Sample REVOKE PACKAGE statement"
+  },
+  "REVOKE PLAN statement": {
+    "prefix": "REVOKE PLAN statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic REVOKE PLAN statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-revoke-plan-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "REVOKE ${1|BIND,EXECUTE|} ON PLAN ${2:plan-name}",
+      "\tFROM ${3:authorization-name}"
+    ],
+    "description": "Sample REVOKE PLAN statement"
+  },
+  "REVOKE TABLE or VIEW statement": {
+    "prefix": "REVOKE TABLE or VIEW statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic REVOKE TABLE or VIEW statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-revoke-table-view-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "REVOKE ${1|ALL,SELECT,UPDATE,INSERT,DELETE,ALTER|} ON ${2:table-name}",
+      "\tFROM ${3:authorization-name}"
+    ],
+    "description": "Sample REVOKE TABLE or VIEW statement"
+  },
+  "REVOKE TYPE statement": {
+    "prefix": "REVOKE TYPE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic REVOKE TYPE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-revoke-type-jar-file-privileges for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "REVOKE USAGE ON TYPE ${1:type-name}",
+      "\tTO ${2:authorization-name}"
+    ],
+    "description": "Sample REVOKE TYPE statement"
+  },
+  "SELECT statement": {
+    "prefix": "SELECT statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic SELECT statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-select for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "SELECT ${1:column-name}",
+      "\tFROM ${2:table-name}",
+      "\tWHERE ${3:search-condition}",
+      "\t\tAND ${4:search-condition}"
+    ],
+    "description": "Sample SELECT statement"
+  },
+  "TRANSFER OWNERSHIP statement": {
+    "prefix": "TRANSFER OWNERSHIP statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic TRANSFER OWNERSHIP statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-transfer-ownership for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "TRANSFER OWNERSHIP OF ${1|DATABASE,TABLE,INDEX,VIEW|} ${2:object-name}",
+      "\tTO ${3:new-owner} REVOKE PRIVILEGES"
+    ],
+    "description": "Sample TRANSFER OWNERSHIP statement"
+  },
+  "TRUNCATE statement": {
+    "prefix": "TRUNCATE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic TRUNCATE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-truncate for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "TRUNCATE TABLE ${1:table-name}",
+      "\tREUSE STORAGE",
+      "\tRESTRICT WHEN DELETE TRIGGERS",
+      "\tIMMEDIATE"
+    ],
+    "description": "Sample TRUNCATE statement"
+  },
+  "UPDATE statement": {
+    "prefix": "UPDATE statement",
+    "body": [
+      "${LINE_COMMENT} ####################################################################",
+      "${LINE_COMMENT} # Basic UPDATE statement",
+      "${LINE_COMMENT} # See https://www.ibm.com/docs/en/db2-for-zos/13?topic=statements-update for complete syntax.",
+      "${LINE_COMMENT} ####################################################################",
+      "UPDATE ${1:table-name}",
+      "\tSET ${2:column-name} = ${3:expression}",
+      "\tWHERE ${4:search-condition}"
+    ],
+    "description": "Sample UPDATE statement"
+  }
+}

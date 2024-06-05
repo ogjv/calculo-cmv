@@ -1,0 +1,804 @@
+{
+	"name": "db2forzosdeveloperextension",
+	"displayName": "IBM Db2 for z/OS Developer Extension",
+	"description": "%db2forzosdeveloperextension.description%",
+	"publisher": "IBM",
+	"version": "2.1.5",
+	"license": "SEE LICENSE IN LICENSE.txt",
+	"homepage": "https://ibm.github.io/db2forzosdeveloperextension-about",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/IBM/db2forzosdeveloperextension-about"
+	},
+	"bugs": {
+		"url": "https://github.com/IBM/db2forzosdeveloperextension-about/issues"
+	},
+	"icon": "images/ibmdb2forzosdeveloperextension.png",
+	"engines": {
+		"vscode": "^1.59.0"
+	},
+	"categories": [
+		"Debuggers",
+		"Formatters",
+		"Programming Languages",
+		"Snippets"
+	],
+	"keywords": [
+		"Connection",
+		"Database",
+		"Db2",
+		"Db2 for z/OS",
+		"IBM Db2",
+		"IBM Z",
+		"Mainframe",
+		"Run SQL",
+		"Stored Procedure",
+		"SQL",
+		"SQL PL",
+		"SQL Procedure",
+		"SQL Syntax",
+		"User Defined Function",
+		"z/OS",
+		"Z Software",
+		"zOS",
+		"SQL notebook"
+	],
+	"activationEvents": [
+		"*"
+	],
+	"main": "./dist/client",
+	"contributes": {
+		"configuration": {
+			"type": "object",
+			"title": "%db2forzosdeveloperextension.title%",
+			"properties": {
+				"db2forzosdeveloperextension.db2sqlservice.connectionKeepAlive": {
+					"type": "number",
+					"default": 300,
+					"description": "%db2forzosdeveloperextension.db2sqlservice.connectionKeepAlive.description%",
+					"scope": "window",
+					"order": 0
+				},
+				"db2forzosdeveloperextension.db2sqlservice.dependencies": {
+					"type": "string",
+					"description": "%db2forzosdeveloperextension.db2sqlservice.dependencies.description%",
+					"scope": "window",
+					"order": 1
+				},
+				"db2forzosdeveloperextension.db2sqlservice.maxHeapSize": {
+					"type": "string",
+					"default": "256M",
+					"description": "%db2forzosdeveloperextension.db2sqlservice.maxHeapSize.description%",
+					"scope": "window",
+					"order": 2
+				},
+				"db2forzosdeveloperextension.db2sqlservice.ip": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "%db2forzosdeveloperextension.db2sqlservice.ip.description%",
+					"scope": "window",
+					"order": 3
+				},
+				"db2forzosdeveloperextension.db2sqlservice.port": {
+					"type": "string",
+					"default": "3000",
+					"description": "%db2forzosdeveloperextension.db2sqlservice.port.description%",
+					"scope": "window",
+					"order": 4
+				},
+				"db2forzosdeveloperextension.db2sqlservice.debugger.sessionManagerPort": {
+					"type": "string",
+					"default": "4555",
+					"description": "%db2forzosdeveloperextension.db2sqlservice.debugger.sessionManagerPort.description%",
+					"scope": "window",
+					"order": 5
+				},
+				"db2forzosdeveloperextension.db2sqlservice.sQL Results.characterConversion": {
+					"type": "string",
+					"default": "replace",
+					"enum": [
+						"replace",
+						"report"
+					],
+					"enumDescriptions": [
+						"%db2forzosdeveloperextension.db2sqlservice.sQL Results.characterConversion.replace.description%",
+						"%db2forzosdeveloperextension.db2sqlservice.sQL Results.characterConversion.report.description%"
+					],
+					"markdownDescription": "%db2forzosdeveloperextension.db2sqlservice.sQL Results.characterConversion.description%",
+					"scope": "window"
+				},
+				"db2forzosdeveloperextension.db2sqlservice.sQL Results.maxNumberOfRowsReturned": {
+					"type": "number",
+					"default": -1,
+					"description": "%db2forzosdeveloperextension.db2sqlservice.sQL Results.maxNumberOfRowsReturned.description%",
+					"scope": "window"
+				},
+				"db2forzosdeveloperextension.debug.logLevel": {
+					"type": "string",
+					"default": "off",
+					"enum": [
+						"trace",
+						"debug",
+						"info",
+						"warn",
+						"error",
+						"off"
+					],
+					"description": "%db2forzosdeveloperextension.debug.logLevel.description%",
+					"scope": "window"
+				},
+				"db2forzosdeveloperextension.java.home": {
+					"type": "string",
+					"description": "%db2forzosdeveloperextension.java.home.description%",
+					"scope": "application"
+				},
+				"db2forzosdeveloperextension.maxNumberOfProblems": {
+					"type": "number",
+					"default": 100,
+					"description": "%db2forzosdeveloperextension.maxNumberOfProblems.description%",
+					"scope": "resource"
+				},
+				"db2forzosdeveloperextension.trace.server": {
+					"type": "string",
+					"default": "off",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"description": "%db2forzosdeveloperextension.trace.server.description%",
+					"scope": "window"
+				},
+				"db2forzosdeveloperextension.exportOptions.delimiter": {
+					"type": "string",
+					"default": ",",
+					"description": "%db2forzosdeveloperextension.exportOptions.delimiter.description%",
+					"scope": "application"
+				},
+				"db2forzosdeveloperextension.exportOptions.quote": {
+					"type": "string",
+					"default": "\"",
+					"description": "%db2forzosdeveloperextension.exportOptions.quote.description%",
+					"scope": "application"
+				},
+				"db2forzosdeveloperextension.exportOptions.escapedQuote": {
+					"type": "string",
+					"default": "\"\"",
+					"description": "%db2forzosdeveloperextension.exportOptions.escapedQuote.description%",
+					"scope": "application"
+				},
+				"db2forzosdeveloperextension.exportOptions.trimLeadingBlanks": {
+					"type": "boolean",
+					"default": false,
+					"description": "%db2forzosdeveloperextension.exportOptions.trimLeadingBlanks.description%",
+					"scope": "application"
+				},
+				"db2forzosdeveloperextension.exportOptions.trimTrailingBlanks": {
+					"type": "boolean",
+					"default": false,
+					"description": "%db2forzosdeveloperextension.exportOptions.trimTrailingBlanks.description%",
+					"scope": "application"
+				}
+			}
+		},
+		"languages": [
+			{
+				"id": "sql",
+				"aliases": [
+					"SQL",
+					"sql"
+				],
+				"extensions": [
+					".ddl",
+					".spsql",
+					".sql",
+					".javaspsql",
+					".udfsql",
+					".isql"
+				],
+				"configuration": "./syntaxes/language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "sql",
+				"scopeName": "source.sql",
+				"path": "./syntaxes/sql.tmLanguage.json"
+			}
+		],
+		"snippets": [
+			{
+				"language": "sql",
+				"path": "./snippets/sql.code-snippets.json"
+			}
+		],
+		"breakpoints": [
+			{
+				"language": "sql"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "db2DevExtSqlSpDbg",
+				"label": "%db2forzosdeveloperextension.debug.config.name%",
+				"program": "./dist/sp-debug.js",
+				"runtime": "node",
+				"languages": [
+					"sql"
+				],
+				"configurationAttributes": {
+					"launch": {
+						"required": [
+							"program"
+						],
+						"properties": {
+							"program": {
+								"type": "string",
+								"description": "%db2forzosdeveloperextension.debug.config.program%",
+								"default": "${file}"
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "db2DevExtSqlSpDbg",
+						"request": "launch",
+						"name": "Db2 Developer Extension Stored Procedure Debug",
+						"program": "${file}"
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "%db2forzosdeveloperextension.debug.config.name%",
+						"description": "%db2forzosdeveloperextension.debug.config.description%",
+						"body": {
+							"type": "db2DevExtSqlSpDbg",
+							"request": "launch",
+							"name": "Db2 Developer Extension Stored Procedure Debug",
+							"program": "${file}"
+						}
+					}
+				]
+			}
+		],
+		"views": {
+			"db2DevExtensionActivityBar": [
+				{
+					"id": "connectionProvider",
+					"name": "%db2forzosdeveloperextension.views.db2ConnectionProvider.name%"
+				},
+				{
+					"id": "queryHistoryProvider",
+					"name": "%db2forzosdeveloperextension.views.queryHistoryProvider.name%"
+				},
+				{
+					"id": "tuningServerProvider",
+					"name": "%db2forzosdeveloperextension.views.tuningServerProvider.name%"
+				},
+				{
+					"id": "tuningHistoryProvider",
+					"name": "%db2forzosdeveloperextension.views.tuningHistoryProvider.name%"
+				}
+			]
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "db2DevExtensionActivityBar",
+					"icon": "images/app-icon-light.svg",
+					"title": "%db2forzosdeveloperextension.viewsContainers.activityBar.title%"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "connectionProvider.add",
+				"title": "%db2forzosdeveloperextension.commands.connectionAdd.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.db2connections%",
+				"icon": "$(add)"
+			},
+			{
+				"command": "connectionProvider.connect",
+				"title": "%db2forzosdeveloperextension.commands.connectionConnect.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.db2connections%",
+				"icon": {
+					"light": "images/link-light.svg",
+					"dark": "images/link-dark.svg"
+				}
+			},
+			{
+				"command": "connectionProvider.delete",
+				"title": "%db2forzosdeveloperextension.commands.connectionDelete.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.db2connections%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "connectionProvider.disconnect",
+				"title": "%db2forzosdeveloperextension.commands.connectionDisconnect.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.db2connections%",
+				"icon": {
+					"light": "images/unlink-light.svg",
+					"dark": "images/unlink-dark.svg"
+				}
+			},
+			{
+				"command": "connectionProvider.edit",
+				"title": "%db2forzosdeveloperextension.commands.connectionEdit.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.db2connections%",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "debuggerProvider.debugEditorContents",
+				"title": "%db2forzosdeveloperextension.commands.debug.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": "$(debug-alt)"
+			},
+			{
+				"command": "queryHistoryProvider.resultSummary",
+				"title": "%db2forzosdeveloperextension.commands.queryHistoryResultSummary.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": "$(preview)"
+			},
+			{
+				"command": "queryHistoryProvider.nextFailure",
+				"title": "%db2forzosdeveloperextension.commands.queryHistoryNextFailure.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": "$(no-newline)"
+			},
+			{
+				"command": "queryHistoryProvider.sort",
+				"title": "%db2forzosdeveloperextension.commands.queryHistorySort.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": {
+					"light": "images/sort-light.svg",
+					"dark": "images/sort-dark.svg"
+				}
+			},
+			{
+				"command": "queryHistoryProvider.run",
+				"title": "%db2forzosdeveloperextension.commands.queryHistoryRun.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%"
+			},
+			{
+				"command": "queryHistoryProvider.delete",
+				"title": "%db2forzosdeveloperextension.commands.queryHistoryDelete.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "queryHistoryProvider.deleteAll",
+				"title": "%db2forzosdeveloperextension.commands.queryHistoryDeleteAll.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%"
+			},
+			{
+				"command": "sqlExecution.configuration",
+				"title": "%db2forzosdeveloperextension.commands.sqlExecution.configuration.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": "$(debug-configure)"
+			},
+			{
+				"command": "sqlExecution.runAll",
+				"title": "%db2forzosdeveloperextension.commands.sqlExecution.runAll.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": "$(run-all)"
+			},
+			{
+				"command": "sqlExecution.runSelected",
+				"title": "%db2forzosdeveloperextension.commands.sqlExecution.runSelected.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%"
+			},
+			{
+				"command": "spsqlExecution.deploy",
+				"title": "%db2forzosdeveloperextension.commands.spsqlExecution.deploy.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": {
+					"light": "images/deploy-light.svg",
+					"dark": "images/deploy-dark.svg"
+				}
+			},
+			{
+				"command": "spsqlExecution.run",
+				"title": "%db2forzosdeveloperextension.commands.spsqlExecution.run.title%",
+				"category": "%db2forzosdeveloperextension.commands.category%",
+				"icon": "$(play)"
+			},
+			{
+				"command": "tuningServices.configuration",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.configuration.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%"
+			},
+			{
+				"command": "tuningServices.profiles.show",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.profiles.show.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "tuningServices.server.add",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.server.add.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": "$(add)"
+			},
+			{
+				"command": "tuningServices.server.edit",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.server.edit.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "tuningServices.server.delete",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.server.delete.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "tuningServices.history.sort",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.history.sort.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": {
+					"light": "images/sort-light.svg",
+					"dark": "images/sort-dark.svg"
+				}
+			},
+			{
+				"command": "tuningServices.history.result.summary",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.history.result.summary.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": "$(preview)"
+			},
+			{
+				"command": "tuningServices.history.result.external",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.history.result.external.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "tuningServices.history.accessPathComparison",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.history.accessPathComparison.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%"
+			},
+			{
+				"command": "tuningServices.history.accessPathComparison.selectByJobId",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.history.accessPathComparison.selectByJobId.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%"
+			},
+			{
+				"command": "tuningServices.history.delete",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.history.delete.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "tuningServices.history.delete.all",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.history.delete.all.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%"
+			},
+			{
+				"command": "tuningServices.tune.selected",
+				"title": "%db2forzosdeveloperextension.commands.tuningServices.tune.selected.title%",
+				"category": "%db2forzosdeveloperextension.commands.category.tuning%"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "connectionProvider.add",
+					"when": "view == connectionProvider",
+					"group": "navigation@0"
+				},
+				{
+					"command": "queryHistoryProvider.sort",
+					"when": "view == queryHistoryProvider",
+					"group": "navigation@0"
+				},
+				{
+					"command": "tuningServices.server.add",
+					"when": "view == tuningServerProvider",
+					"group": "navigation@0"
+				},
+				{
+					"command": "tuningServices.history.sort",
+					"when": "view == tuningHistoryProvider",
+					"group": "navigation@0"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "connectionProvider.connect",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "inline@1"
+				},
+				{
+					"command": "connectionProvider.disconnect",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "inline@2"
+				},
+				{
+					"command": "connectionProvider.edit",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "inline@3"
+				},
+				{
+					"command": "connectionProvider.delete",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "inline@4"
+				},
+				{
+					"command": "connectionProvider.connect",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "connectAndDisconnect@0"
+				},
+				{
+					"command": "connectionProvider.disconnect",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "connectAndDisconnect@1"
+				},
+				{
+					"command": "connectionProvider.edit",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "editAndDelete@0"
+				},
+				{
+					"command": "connectionProvider.delete",
+					"when": "view == connectionProvider && viewItem == viewConnectionsDb2Item",
+					"group": "editAndDelete@1"
+				},
+				{
+					"command": "queryHistoryProvider.resultSummary",
+					"when": "view == queryHistoryProvider && viewItem =~ /WithSummary/",
+					"group": "navigation@0"
+				},
+				{
+					"command": "queryHistoryProvider.nextFailure",
+					"when": "view == queryHistoryProvider && viewItem =~ /WithFailure/",
+					"group": "navigation@1"
+				},
+				{
+					"command": "queryHistoryProvider.run",
+					"when": "view == queryHistoryProvider && viewItem =~ /^QueryHistory(?!StoredProcedure)/",
+					"group": "1_run@0"
+				},
+				{
+					"command": "queryHistoryProvider.delete",
+					"when": "view == queryHistoryProvider",
+					"group": "2_delete@0"
+				},
+				{
+					"command": "queryHistoryProvider.deleteAll",
+					"when": "view == queryHistoryProvider",
+					"group": "2_delete@1"
+				},
+				{
+					"command": "queryHistoryProvider.resultSummary",
+					"when": "view == queryHistoryProvider && viewItem =~ /WithSummary/",
+					"group": "inline@1"
+				},
+				{
+					"command": "queryHistoryProvider.nextFailure",
+					"when": "view == queryHistoryProvider && viewItem =~ /WithFailure/",
+					"group": "inline@2"
+				},
+				{
+					"command": "queryHistoryProvider.delete",
+					"when": "view == queryHistoryProvider && viewItem =~ /WithSummary/",
+					"group": "inline@3"
+				},
+				{
+					"command": "tuningServices.history.result.summary",
+					"when": "view == tuningHistoryProvider && viewItem == viewTuningHistoryItem",
+					"group": "navigation@0"
+				},
+				{
+					"command": "tuningServices.history.result.external",
+					"when": "view == tuningHistoryProvider && viewItem == VE || view == tuningHistoryProvider && viewItem == APC",
+					"group": "navigation@0"
+				},
+				{
+					"command": "tuningServices.history.delete",
+					"when": "view == tuningHistoryProvider",
+					"group": "1_delete@0"
+				},
+				{
+					"command": "tuningServices.history.delete.all",
+					"when": "view == tuningHistoryProvider",
+					"group": "1_delete@1"
+				},
+				{
+					"command": "tuningServices.history.result.summary",
+					"when": "view == tuningHistoryProvider && viewItem == viewTuningHistoryItem",
+					"group": "inline@1"
+				},
+				{
+					"command": "tuningServices.history.accessPathComparison",
+					"when": "view == tuningHistoryProvider && viewItem == viewTuningHistoryItem",
+					"group": "1_apc@0"
+				},
+				{
+					"command": "tuningServices.history.accessPathComparison.selectByJobId",
+					"when": "view == tuningHistoryProvider && viewItem == viewTuningHistoryItem",
+					"group": "1_apc@1"
+				},
+				{
+					"command": "tuningServices.history.delete",
+					"when": "view == tuningHistoryProvider && viewItem == viewTuningHistoryItem",
+					"group": "inline@2"
+				},
+				{
+					"command": "tuningServices.history.result.external",
+					"when": "view == tuningHistoryProvider && viewItem == VE || view == tuningHistoryProvider && viewItem == APC",
+					"group": "inline"
+				},
+				{
+					"command": "tuningServices.profiles.show",
+					"when": "view == tuningServerProvider && viewItem == viewConnectionsTuningItem",
+					"group": "connectionProfiles"
+				},
+				{
+					"command": "tuningServices.profiles.show",
+					"when": "view == tuningServerProvider && viewItem == viewConnectionsTuningItem",
+					"group": "inline@1"
+				},
+				{
+					"command": "tuningServices.server.edit",
+					"when": "view == tuningServerProvider && viewItem == viewConnectionsTuningItem",
+					"group": "inline@2"
+				},
+				{
+					"command": "tuningServices.server.delete",
+					"when": "view == tuningServerProvider && viewItem == viewConnectionsTuningItem",
+					"group": "inline@3"
+				},
+				{
+					"command": "tuningServices.server.edit",
+					"when": "view == tuningServerProvider && viewItem == viewConnectionsTuningItem",
+					"group": "group@0"
+				},
+				{
+					"command": "tuningServices.server.delete",
+					"when": "view == tuningServerProvider && viewItem == viewConnectionsTuningItem",
+					"group": "group@1"
+				}
+			],
+			"editor/context": [
+				{
+					"command": "sqlExecution.runSelected",
+					"group": "sqlExecution@0",
+					"when": "editorHasSelection"
+				},
+				{
+					"command": "sqlExecution.runAll",
+					"group": "sqlExecution@1",
+					"when": "editorLangId == sql && resourceExtname != .spsql"
+				},
+				{
+					"command": "sqlExecution.configuration",
+					"group": "sqlExecution@2"
+				},
+				{
+					"command": "spsqlExecution.deploy",
+					"group": "spsqlExecution@1",
+					"when": "resourceExtname == .spsql || resourceExtname == .javaspsql"
+				},
+				{
+					"command": "debuggerProvider.debugEditorContents",
+					"group": "spsqlExecution@2",
+					"when": "resourceExtname == .spsql && !db2forzosdeveloperextension.hideDebug"
+				},
+				{
+					"command": "spsqlExecution.run",
+					"group": "spsqlExecution@3",
+					"when": "resourceExtname == .spsql || resourceExtname == .javaspsql"
+				},
+				{
+					"command": "tuningServices.tune.selected",
+					"group": "tuningServices@0",
+					"when": "editorHasSelection"
+				},
+				{
+					"command": "tuningServices.configuration",
+					"group": "tuningServices@1"
+				}
+			],
+			"editor/title": [
+				{
+					"command": "spsqlExecution.deploy",
+					"group": "navigation@1",
+					"when": "resourceExtname == .spsql || resourceExtname == .javaspsql"
+				},
+				{
+					"command": "debuggerProvider.debugEditorContents",
+					"group": "navigation@2",
+					"when": "resourceExtname == .spsql && !db2forzosdeveloperextension.hideDebug"
+				},
+				{
+					"command": "spsqlExecution.run",
+					"group": "navigation@3",
+					"when": "resourceExtname == .spsql || resourceExtname == .javaspsql"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "tuningServices.history.accessPathComparison",
+					"when": "false"
+				},
+				{
+					"command": "tuningServices.history.accessPathComparison.selectByJobId",
+					"when": "false"
+				}
+			]
+		},
+		"notebooks": [
+			{
+				"type": "isql",
+				"displayName": "Interactive SQL",
+				"selector": [
+					{
+						"filenamePattern": "*.isql"
+					}
+				]
+			}
+		]
+	},
+	"scripts": {
+		"build:dss": "mvn clean package -Dmaven.test.skip=true -ntp -f dss",
+		"build:ext": "webpack --config webpack.${npm_config_env}.js",
+		"build:formatter": "npm run clean --prefix sql-formatter && npm run build --prefix sql-formatter",
+		"build:ui": "npm run build --prefix ui",
+		"build:dev": "npm run clean && npm run build:dss && npm run build:ui && npm run build:formatter && npm run build:ext --env=dev",
+		"build:prod": "npm run clean && npm run build:dss && npm run build:ui && npm run build:formatter && npm run build:ext --env=prod",
+		"clean": "rm -rf ./dist && mkdir ./dist",
+		"lint": "npm run lint:editorconfig && npm run lint:eslint",
+		"lint:editorconfig": "editorconfig-checker",
+		"lint:eslint": "eslint --ext .js,.ts,.tsx .",
+		"lint:eslint:debug": "eslint --debug --ext .js,.ts,.tsx .",
+		"lint:eslint:fix": "eslint --fix --ext .js,.ts,.tsx .",
+		"package": "vsce package",
+		"preinstall": "npm ci --prefix test-util && npm ci --ignore-scripts --prefix sql-formatter",
+		"postinstall": "npm ci --prefix client && npm ci --prefix server && npm ci --prefix ui",
+		"test:client": "npm test --prefix client",
+		"test:dss": "mvn clean test -ntp -f dss",
+		"test:formatter": "npm run check --prefix sql-formatter",
+		"test:server": "npm test --prefix server",
+		"test:syntax": "vscode-tmgrammar-snap -s source.sql -g syntaxes/sql.tmLanguage.json -t 'tests/syntaxes/*.test.sql'",
+		"test:syntax:update": "vscode-tmgrammar-snap -s source.sql -g syntaxes/sql.tmLanguage.json -t 'tests/syntaxes/*.test.sql' --updateSnapshot",
+		"test:ui": "npm run test --prefix ui",
+		"vscode:prepublish": "npm run build:prod"
+	},
+	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^5.41.0",
+		"@typescript-eslint/parser": "^5.41.0",
+		"editorconfig-checker": "^4.0.2",
+		"eslint": "^8.26.0",
+		"eslint-config-airbnb": "^19.0.4",
+		"eslint-config-airbnb-base": "^15.0.0",
+		"eslint-config-airbnb-typescript": "^17.0.0",
+		"eslint-config-prettier": "^8.5.0",
+		"eslint-plugin-import": "^2.26.0",
+		"eslint-plugin-jsx-a11y": "^6.7.1",
+		"eslint-plugin-prettier": "^4.2.1",
+		"eslint-plugin-react": "^7.33.2",
+		"eslint-plugin-react-hooks": "^4.6.0",
+		"node-loader": "^2.0.0",
+		"prettier": "2.0.5",
+		"ts-loader": "^9.4.4",
+		"typescript": "^4.8.4",
+		"vsce": "^2.15.0",
+		"vscode-tmgrammar-test": "0.0.11",
+		"webpack": "^5.74.0",
+		"webpack-cli": "^4.9.2",
+		"webpack-merge": "^5.7.3"
+	},
+	"__metadata": {
+		"id": "fac11f36-836f-4751-b61f-b4dc2feda188",
+		"publisherId": "8f186bac-3651-4797-9216-ba30633f600b",
+		"publisherDisplayName": "IBM",
+		"targetPlatform": "undefined",
+		"updated": false,
+		"isPreReleaseVersion": false,
+		"hasPreReleaseVersion": false,
+		"installedTimestamp": 1713733035527,
+		"pinned": false,
+		"source": "gallery"
+	}
+}
