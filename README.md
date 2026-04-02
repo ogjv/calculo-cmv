@@ -33,6 +33,17 @@ Enquanto essas variaveis nao estiverem configuradas, o app continua funcionando 
 
 Quando o arquivo `schema.sql` for atualizado no projeto, rode o script novamente no Supabase para aplicar novas colunas, policies e funcoes.
 
+## Netlify
+
+Para publicar na Netlify:
+
+1. conecte o repositório do GitHub
+2. confirme o comando de build `npm run build`
+3. confirme o diretório publicado `dist`
+4. adicione as variaveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` nas variaveis de ambiente do site
+
+O projeto ja possui `netlify.toml` e `.nvmrc` para facilitar esse deploy.
+
 ## Formatos aceitos
 
 Arquivos `.csv`, `.xlsx` e `.xls`.
