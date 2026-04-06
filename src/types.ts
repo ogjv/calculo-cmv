@@ -58,6 +58,7 @@ export type DashboardIssue = {
   title: string;
   description: string;
   count?: number;
+  details?: string[];
 };
 
 export type SalesRow = {
@@ -134,11 +135,63 @@ export type PeriodDashboard = {
 
 export type AuthSession = {
   userId: string;
-  restaurantId: string;
-  restaurantName: string;
   email: string;
   authMode: "local" | "supabase";
+  userFullName?: string;
+  userPhotoUrl?: string;
+  globalRole?: GlobalRole;
+  activeAccountId?: string;
+  activeAccountRole?: AccountRole;
+  memberships?: RestaurantMembership[];
+  activeRole?: RestaurantRole;
+  activeRestaurantId?: string;
+  activeRestaurantName?: string;
+  activeRestaurantPhotoUrl?: string;
+  restaurantId?: string;
+  restaurantName?: string;
   profilePhotoUrl?: string;
+};
+
+export type GlobalRole = "owner" | "admin" | "user";
+export type AccountRole = "owner" | "admin" | "user";
+export type RestaurantRole = "owner" | "admin" | "viewer";
+
+export type RestaurantMembership = {
+  membershipId: string;
+  accountId?: string;
+  restaurantId: string;
+  restaurantName: string;
+  role: RestaurantRole;
+  photoUrl?: string;
+};
+
+export type AccountMember = {
+  membershipId: string;
+  accountId: string;
+  userId: string;
+  role: AccountRole;
+  fullName?: string;
+  email?: string;
+  photoUrl?: string;
+  restaurants: Array<{
+    restaurantId: string;
+    restaurantName: string;
+    role: RestaurantRole;
+  }>;
+};
+
+export type AccountInvitation = {
+  invitationId: string;
+  accountId: string;
+  email: string;
+  accountRole: AccountRole;
+  restaurantRole: RestaurantRole;
+  status: "pending" | "accepted" | "revoked";
+  createdAt: string;
+  restaurants: Array<{
+    restaurantId: string;
+    restaurantName: string;
+  }>;
 };
 
 export type UploadFeedbackItem = {

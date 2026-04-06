@@ -33,6 +33,14 @@ Enquanto essas variaveis nao estiverem configuradas, o app continua funcionando 
 
 Quando o arquivo `schema.sql` for atualizado no projeto, rode o script novamente no Supabase para aplicar novas colunas, policies e funcoes.
 
+O schema atual ja prepara a aplicacao para:
+
+- multiplos restaurantes por conta
+- papeis `owner`, `admin` e `viewer`
+- restricao de escrita por permissao
+- workspace por restaurante
+- trilha de auditoria
+
 ## Netlify
 
 Para publicar na Netlify:

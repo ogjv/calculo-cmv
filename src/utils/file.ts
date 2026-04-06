@@ -28,7 +28,11 @@ export const parseSpreadsheetFile = async (file: File): Promise<RawRow[]> => {
 
 const cellToText = (value: unknown) => String(value ?? "").trim();
 
-const normalizeCode = (value: unknown) => cellToText(value).replace(/\D/g, "").slice(0, 4);
+const normalizeCode = (value: unknown) =>
+  cellToText(value)
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/^(\d+)[.,]0+$/, "$1");
 
 const isTotalLabel = (value: string) => {
   const normalized = value

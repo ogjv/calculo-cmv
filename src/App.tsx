@@ -1,10 +1,10 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, CSSProperties } from "react";
-import type { AuthSession, DashboardData, GroupSummary, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, SalesTotalRow, UploadFeedbackItem } from "./types";
+import type { ChangeEvent, CSSProperties, DragEvent } from "react";
+import type { AccountInvitation, AccountMember, AuthSession, DashboardData, GroupSummary, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, SalesTotalRow, UploadFeedbackItem } from "./types";
 import { buildDashboardData, buildDashboardSlice, formatCurrency, formatNumber, formatPercent, mapRecipeRows, mapSalesRows } from "./utils/cmv";
 import { parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
-import { deleteLocalRestaurantAccount, loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut, updateLocalRestaurantProfile } from "./utils/auth";
-import { deleteSupabaseRestaurantAccount, getSupabaseSession, loadCloudWorkspace, registerRestaurantWithSupabase, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateSupabaseRestaurantProfile } from "./utils/cloudAuth";
+import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
+import { createAccountInvitation, createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, getSupabaseSession, hydrateSupabaseSession, loadAccountInvitations, loadAccountMembers, loadCloudWorkspace, registerRestaurantWithSupabase, removeAccountMemberAccess, revokeAccountInvitation, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateAccountMemberAccess, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "./utils/cloudAuth";
 import { isSupabaseConfigured } from "./utils/supabase";
 
 type Locale = "pt" | "es" | "en";
@@ -64,8 +64,24 @@ type ProfileFormState = {
   profilePhotoUrl?: string;
 };
 
+type UserProfileFormState = {
+  fullName: string;
+  userPhotoUrl?: string;
+};
+
+type InviteFormState = {
+  email: string;
+  accountRole: "admin" | "user";
+  restaurantRole: "admin" | "viewer";
+  restaurantIds: string[];
+};
+
+type InternalSection = "account" | "dashboard" | "restaurants" | "team";
+
 const TOTAL_VIEW = "__TOTAL__";
 const TOTAL_PERIOD = "__ALL_PERIODS__";
+const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
+const AUTH_BOOT_TIMEOUT_MS = 8000;
 
 const translations = {
   pt: {
@@ -179,6 +195,17 @@ const translations = {
     processStep2Text: "O sistema relaciona os itens por c\u00f3digo e separa lacunas automaticamente.",
     processStep3: "3. Explore o resultado",
     processStep3Text: "Navegue por total, por m\u00eas ou por grupo para ler a opera\u00e7\u00e3o com clareza.",
+    ownerFlowTitle: "Fluxo do owner",
+    ownerFlowText: "Um caminho direto para importar, cruzar e ler o restaurante ativo.",
+    ownerFlowSales: "Vendas",
+    ownerFlowSalesText: "Envie os relatórios.",
+    ownerFlowRecipes: "Fichas",
+    ownerFlowRecipesText: "Conecte a base técnica.",
+    ownerFlowRead: "Leitura",
+    ownerFlowReadText: "Confira CMV e alertas.",
+    uploadDropHint: "Arraste ou clique para enviar",
+    uploadSalesShort: "Um ou mais arquivos de vendas",
+    uploadRecipesShort: "Arquivo de fichas técnicas",
     authEyebrow: "Acesso por restaurante",
     authTitle: "Login seguro para cada restaurante.",
     authText: "Entre, acompanhe o histórico e continue a operação no mesmo ambiente.",
@@ -188,7 +215,7 @@ const translations = {
     authEmail: "E-mail",
     authPassword: "Senha",
     authSubmitLogin: "Entrar no dashboard",
-    authSubmitRegister: "Criar restaurante",
+    authSubmitRegister: "Criar conta",
     authHelp: "Nesta primeira versão, o acesso fica salvo neste navegador. No próximo passo, conectamos isso a uma base online.",
     authDemoHint: "Acesso de demonstração: ipanema@grest.com | 123456",
     authSupabaseReady: "Modo online ativo via Supabase. O restaurante poderá acessar de qualquer lugar com o mesmo login.",
@@ -200,10 +227,62 @@ const translations = {
     authGreeting: "Painel do restaurante",
     authEmptyState: "Nenhum dado salvo ainda. Importe as vendas e as fichas técnicas para começar.",
     authSettings: "Configurações da conta",
-    authSettingsText: "Edite identidade, foto e dados básicos do restaurante.",
+    authSettingsText: "Gerencie seu perfil e os restaurantes vinculados a esta conta.",
+    authUserProfile: "Perfil do usuário",
+    authUserProfileText: "Esses dados pertencem à pessoa que acessa a conta.",
+    authRestaurantProfile: "Restaurante ativo",
+    authRestaurantProfileText: "Edite nome e foto apenas do restaurante selecionado.",
+    authFullName: "Nome do usuário",
+    authAccountStatus: "Status da conta",
+    authRestaurantsCount: "Restaurantes vinculados",
+    authAccountSummary: "Resumo da conta",
+    authAccountSummaryText: "Acompanhe rapidamente seu acesso e vá para a área de conta quando precisar.",
+    authManageAccount: "Gerenciar conta",
+    navMyAccount: "Minha conta",
+    navDashboard: "Dashboard",
+    navRestaurants: "Restaurantes",
+    navTeam: "Equipe e permissões",
+    teamTitle: "Equipe e permissões",
+    teamText: "Veja quem tem acesso à conta e qual é o papel de cada pessoa.",
+    teamEmpty: "Nenhum membro adicional foi encontrado nesta conta.",
+    teamAccessModel: "Modelo de acesso",
+    teamAccessModelText: "Owner é global, Admin administra a conta e usuários comuns acessam apenas o que receberem.",
+    teamMembersTotal: "Pessoas com acesso",
+    teamAdminsTotal: "Admins da conta",
+    teamUsersTotal: "Usuários comuns",
+    teamRestaurantsTotal: "Restaurantes cobertos",
+    teamAccountRole: "Papel na conta",
+    teamRestaurantAccess: "Acesso aos restaurantes",
+    teamNoRestaurants: "Nenhum restaurante vinculado",
+    teamYou: "Você",
+    teamRoleOwner: "Owner",
+    teamRoleAdmin: "Admin",
+    teamRoleUser: "Usuário",
+    teamRoleViewer: "Leitura",
+    teamInviteTitle: "Convidar pessoa",
+    teamInviteText: "Defina o acesso da pessoa por e-mail e vincule os restaurantes liberados para ela.",
+    teamInviteEmail: "E-mail da pessoa",
+    teamInviteAccountRole: "Papel na conta",
+    teamInviteRestaurantRole: "Papel nos restaurantes",
+    teamInviteRestaurants: "Restaurantes liberados",
+    teamInviteAction: "Enviar convite",
+    teamInvitePending: "Convites pendentes",
+    teamInviteEmpty: "Nenhum convite pendente nesta conta.",
+    teamInviteRevoke: "Revogar convite",
+    teamInviteHint: "A pessoa pode criar a própria senha no cadastro. Se já tiver conta, o acesso entra no próximo login.",
+    teamInviteRestaurantOptional: "Se a pessoa foi convidada, ela pode deixar o nome do restaurante em branco no cadastro.",
+    authFullNameHint: "Use o nome da pessoa. Os restaurantes podem ser vinculados depois.",
+    teamManageMember: "Gerenciar acesso",
+    teamManageMemberText: "Ajuste papel na conta, papel nos restaurantes e remova acessos quando necessário.",
+    teamSaveMember: "Salvar acesso",
+    teamRemoveMember: "Remover acesso",
+    teamMemberUpdated: "Acesso atualizado com sucesso.",
+    teamMemberRemoved: "Acesso removido com sucesso.",
+    teamMemberImmutable: "Esse acesso não pode ser alterado por esta tela.",
+    authRestaurantOptional: "Nome do restaurante da conta principal",
     authProfilePhoto: "Foto de perfil",
     authUploadPhoto: "Enviar foto",
-    authPhotoHint: "Use PNG ou JPG. A imagem fica vinculada ao restaurante.",
+    authPhotoHint: "Use PNG ou JPG para personalizar a exibição do perfil.",
     authSaveProfile: "Salvar alterações",
     authDeleteAccount: "Excluir conta",
     authDeleteHint: "A exclusão remove o acesso e a base online deste restaurante.",
@@ -211,17 +290,40 @@ const translations = {
     authClose: "Fechar",
     authProfileUpdated: "Perfil do restaurante atualizado com sucesso.",
     authDeleteConfirm: "Tem certeza que deseja excluir esta conta? Esta ação não poderá ser desfeita.",
+    authRestaurants: "Restaurantes",
+    authRestaurantsText: "Selecione o restaurante ativo da sua conta.",
+    authRestaurantsQuick: "Troca rápida de restaurante",
+    authRestaurantsQuickText: "Mude de unidade sem abrir o painel de gestão.",
+    authRestaurantNavigator: "Seus restaurantes",
+    authRestaurantNavigatorText: "Escolha abaixo a unidade que deseja acompanhar agora.",
+    authManageRestaurants: "Gerenciar restaurantes",
+    authManageRestaurantsText: "Cadastre novas unidades ou ajuste os dados das existentes.",
+    authHideRestaurantManager: "Fechar gerenciamento",
+    authCreateRestaurant: "Novo restaurante",
+    authCreateRestaurantText: "Cadastre novas unidades dentro desta mesma conta.",
+    authCreateRestaurantAction: "Cadastrar restaurante",
+    authDeleteRestaurant: "Excluir restaurante",
+    authDeleteRestaurantHint: "A exclusão remove a base, os membros e o histórico dessa unidade.",
+    authActivate: "Ativar",
+    authActive: "Ativo",
+    authRoleOwner: "Owner",
+    authRoleAdmin: "Admin",
+    authRoleViewer: "Leitura",
+    authReadOnlyTitle: "Acesso somente leitura",
+    authReadOnlyText: "Sua conta pode consultar os dados deste restaurante, mas não pode importar ou alterar informações.",
+    authManageOnly: "Apenas usuários admin ou owner podem importar relatórios e editar esta base.",
+    authSettingsRestricted: "Apenas admin ou owner podem editar os dados deste restaurante.",
     authHeroCardTitle: "Conta própria por restaurante",
     authHeroCardText: "Acesso, histórico e base separados por unidade.",
     homeHeroBadge: "Plataforma de CMV para restaurantes",
     homeHeroTitle: "CMV, faturamento e custos em um painel executivo.",
     homeHeroText: "Uma leitura clara para decidir rápido, acompanhar períodos e agir onde a operação pede atenção.",
-    homeHeroStat1: "Base por restaurante",
-    homeHeroStat1Text: "Conta própria, histórico próprio e dashboard persistido online.",
-    homeHeroStat2: "Leitura visual executiva",
-    homeHeroStat2Text: "Gráficos, alertas e filtros pensados para decisão rápida.",
-    homeHeroStat3: "Governança do cadastro",
-    homeHeroStat3Text: "Promocionais, itens sem FT e divergências ficam evidentes."
+    homeHeroStat1: "Organização",
+    homeHeroStat1Text: "Restaurantes, históricos e bases separados com estrutura clara por unidade.",
+    homeHeroStat2: "Agilidade",
+    homeHeroStat2Text: "Fluxos simples, filtros diretos e leitura rápida para decidir sem perder tempo.",
+    homeHeroStat3: "Clareza",
+    homeHeroStat3Text: "Custos, alertas e oportunidades ficam visíveis de forma objetiva no painel."
   },
   es: {
     brandTagline: "Gesti\u00f3n para restaurantes",
@@ -236,6 +338,17 @@ const translations = {
     processEyebrow: "Flujo del sistema",
     processTitle: "C\u00f3mo funciona el an\u00e1lisis",
     processText: "Una interfaz m\u00e1s explicativa reduce errores operativos y acelera el uso por cualquier persona del equipo.",
+    ownerFlowTitle: "Flujo del owner",
+    ownerFlowText: "Un camino directo para importar, cruzar y leer el restaurante activo.",
+    ownerFlowSales: "Ventas",
+    ownerFlowSalesText: "Sube los reportes.",
+    ownerFlowRecipes: "Fichas",
+    ownerFlowRecipesText: "Conecta la base técnica.",
+    ownerFlowRead: "Lectura",
+    ownerFlowReadText: "Revisa CMV y alertas.",
+    uploadDropHint: "Arrastra o haz clic para subir",
+    uploadSalesShort: "Uno o más archivos de ventas",
+    uploadRecipesShort: "Archivo de fichas técnicas",
     total: "TOTAL",
     language: "Idioma",
     processing: "Procesando archivos y actualizando el panel...",
@@ -246,14 +359,78 @@ const translations = {
     authEmail: "Correo",
     authPassword: "Contrase\u00f1a",
     authSubmitLogin: "Entrar al panel",
-    authSubmitRegister: "Crear restaurante",
+    authSubmitRegister: "Crear cuenta",
     authLogout: "Salir",
     authSupabaseReady: "Modo online activo con Supabase.",
     authSupabaseSetup: "Modo local temporal. Configure las variables de Supabase para acceso online real.",
     authSettings: "Configuración de la cuenta",
+    authUserProfile: "Perfil del usuario",
+    authRestaurantProfile: "Restaurante activo",
+    authFullName: "Nombre del usuario",
+    authAccountStatus: "Estado de la cuenta",
+    authRestaurantsCount: "Restaurantes vinculados",
+    authAccountSummary: "Resumen de la cuenta",
+    authAccountSummaryText: "Consulta tu acceso rápidamente y abre la cuenta cuando necesites editarla.",
+    authManageAccount: "Gestionar cuenta",
+    navMyAccount: "Mi cuenta",
+    navDashboard: "Dashboard",
+    navRestaurants: "Restaurantes",
+    navTeam: "Equipo y permisos",
+    teamTitle: "Equipo y permisos",
+    teamText: "Consulta quién tiene acceso a la cuenta y qué papel ocupa cada persona.",
+    teamEmpty: "No se encontraron miembros adicionales en esta cuenta.",
+    teamAccessModel: "Modelo de acceso",
+    teamAccessModelText: "Owner es global, Admin gestiona la cuenta y los usuarios comunes acceden solo a lo que reciban.",
+    teamMembersTotal: "Personas con acceso",
+    teamAdminsTotal: "Admins de la cuenta",
+    teamUsersTotal: "Usuarios comunes",
+    teamRestaurantsTotal: "Restaurantes cubiertos",
+    teamAccountRole: "Rol en la cuenta",
+    teamRestaurantAccess: "Acceso a restaurantes",
+    teamNoRestaurants: "Sin restaurantes vinculados",
+    teamYou: "Tú",
+    teamRoleOwner: "Owner",
+    teamRoleAdmin: "Admin",
+    teamRoleUser: "Usuario",
+    teamRoleViewer: "Lectura",
+    teamInviteTitle: "Invitar persona",
+    teamInviteText: "Define el acceso por correo y vincula los restaurantes permitidos para esa persona.",
+    teamInviteEmail: "Correo de la persona",
+    teamInviteAccountRole: "Rol en la cuenta",
+    teamInviteRestaurantRole: "Rol en los restaurantes",
+    teamInviteRestaurants: "Restaurantes habilitados",
+    teamInviteAction: "Enviar invitación",
+    teamInvitePending: "Invitaciones pendientes",
+    teamInviteEmpty: "No hay invitaciones pendientes en esta cuenta.",
+    teamInviteRevoke: "Revocar invitación",
+    teamInviteHint: "La persona puede crear su propia contraseña al registrarse. Si ya tiene cuenta, el acceso se aplicará en el próximo ingreso.",
+    teamInviteRestaurantOptional: "Si la persona fue invitada, puede dejar el nombre del restaurante vacío al registrarse.",
+    authFullNameHint: "Usa el nombre de la persona. Los restaurantes pueden vincularse después.",
+    teamManageMember: "Gestionar acceso",
+    teamManageMemberText: "Ajusta el rol en la cuenta, el rol en restaurantes y elimina accesos cuando sea necesario.",
+    teamSaveMember: "Guardar acceso",
+    teamRemoveMember: "Quitar acceso",
+    teamMemberUpdated: "Acceso actualizado correctamente.",
+    teamMemberRemoved: "Acceso quitado correctamente.",
+    teamMemberImmutable: "Este acceso no puede modificarse desde esta pantalla.",
+    authRestaurantOptional: "Nombre del restaurante principal",
     authSaveProfile: "Guardar cambios",
     authDeleteAccount: "Eliminar cuenta",
-    authClose: "Cerrar"
+    authClose: "Cerrar",
+    authRestaurants: "Restaurantes",
+    authRestaurantsQuick: "Cambio rápido de restaurante",
+    authRestaurantsQuickText: "Cambia de unidad sin abrir la gestión.",
+    authRestaurantNavigator: "Tus restaurantes",
+    authRestaurantNavigatorText: "Elige abajo la unidad que deseas revisar ahora.",
+    authManageRestaurants: "Gestionar restaurantes",
+    authManageRestaurantsText: "Crea nuevas unidades o ajusta los datos de las existentes.",
+    authHideRestaurantManager: "Cerrar gestión",
+    authCreateRestaurant: "Nuevo restaurante",
+    authCreateRestaurantAction: "Crear restaurante",
+    authDeleteRestaurant: "Eliminar restaurante",
+    authActivate: "Activar",
+    authActive: "Activo",
+    authReadOnlyTitle: "Acceso de solo lectura"
   },
   en: {
     brandTagline: "Management for restaurants",
@@ -268,6 +445,17 @@ const translations = {
     processEyebrow: "System flow",
     processTitle: "How the analysis works",
     processText: "A clearer interface reduces operational mistakes and speeds up adoption across the team.",
+    ownerFlowTitle: "Owner flow",
+    ownerFlowText: "A direct path to upload, match and read the active restaurant.",
+    ownerFlowSales: "Sales",
+    ownerFlowSalesText: "Upload the reports.",
+    ownerFlowRecipes: "Recipes",
+    ownerFlowRecipesText: "Link the technical base.",
+    ownerFlowRead: "Readout",
+    ownerFlowReadText: "Review CMV and alerts.",
+    uploadDropHint: "Drag or click to upload",
+    uploadSalesShort: "One or more sales files",
+    uploadRecipesShort: "Recipe file",
     total: "TOTAL",
     language: "Language",
     processing: "Processing files and updating the dashboard...",
@@ -278,14 +466,78 @@ const translations = {
     authEmail: "Email",
     authPassword: "Password",
     authSubmitLogin: "Open dashboard",
-    authSubmitRegister: "Create restaurant",
+    authSubmitRegister: "Create account",
     authLogout: "Sign out",
     authSupabaseReady: "Online mode is active with Supabase.",
     authSupabaseSetup: "Temporary local mode. Configure the Supabase environment variables for real remote access.",
     authSettings: "Account settings",
+    authUserProfile: "User profile",
+    authRestaurantProfile: "Active restaurant",
+    authFullName: "User name",
+    authAccountStatus: "Account status",
+    authRestaurantsCount: "Linked restaurants",
+    authAccountSummary: "Account summary",
+    authAccountSummaryText: "Review your access quickly and open the account area whenever you need to edit it.",
+    authManageAccount: "Manage account",
+    navMyAccount: "My account",
+    navDashboard: "Dashboard",
+    navRestaurants: "Restaurants",
+    navTeam: "Team and permissions",
+    teamTitle: "Team and permissions",
+    teamText: "Review who has access to this account and the role assigned to each person.",
+    teamEmpty: "No additional members were found in this account.",
+    teamAccessModel: "Access model",
+    teamAccessModelText: "Owner is global, Admin manages the account and common users access only what they receive.",
+    teamMembersTotal: "People with access",
+    teamAdminsTotal: "Account admins",
+    teamUsersTotal: "Common users",
+    teamRestaurantsTotal: "Covered restaurants",
+    teamAccountRole: "Account role",
+    teamRestaurantAccess: "Restaurant access",
+    teamNoRestaurants: "No linked restaurants",
+    teamYou: "You",
+    teamRoleOwner: "Owner",
+    teamRoleAdmin: "Admin",
+    teamRoleUser: "User",
+    teamRoleViewer: "Read only",
+    teamInviteTitle: "Invite person",
+    teamInviteText: "Define access by email and link the restaurants that person can use.",
+    teamInviteEmail: "Person email",
+    teamInviteAccountRole: "Account role",
+    teamInviteRestaurantRole: "Restaurant role",
+    teamInviteRestaurants: "Allowed restaurants",
+    teamInviteAction: "Send invite",
+    teamInvitePending: "Pending invites",
+    teamInviteEmpty: "There are no pending invites in this account.",
+    teamInviteRevoke: "Revoke invite",
+    teamInviteHint: "The person can create their own password when signing up. If they already have an account, access will be applied on the next login.",
+    teamInviteRestaurantOptional: "If the person was invited, they can leave the restaurant name blank during sign-up.",
+    authFullNameHint: "Use the person's name. Restaurants can be linked later.",
+    teamManageMember: "Manage access",
+    teamManageMemberText: "Adjust account role, restaurant role and remove access when needed.",
+    teamSaveMember: "Save access",
+    teamRemoveMember: "Remove access",
+    teamMemberUpdated: "Access updated successfully.",
+    teamMemberRemoved: "Access removed successfully.",
+    teamMemberImmutable: "This access cannot be changed from this screen.",
+    authRestaurantOptional: "Primary account restaurant name",
     authSaveProfile: "Save changes",
     authDeleteAccount: "Delete account",
-    authClose: "Close"
+    authClose: "Close",
+    authRestaurants: "Restaurants",
+    authRestaurantsQuick: "Quick restaurant switch",
+    authRestaurantsQuickText: "Change units without opening management.",
+    authRestaurantNavigator: "Your restaurants",
+    authRestaurantNavigatorText: "Choose which unit you want to review right now.",
+    authManageRestaurants: "Manage restaurants",
+    authManageRestaurantsText: "Create new units or adjust the existing ones.",
+    authHideRestaurantManager: "Close management",
+    authCreateRestaurant: "New restaurant",
+    authCreateRestaurantAction: "Create restaurant",
+    authDeleteRestaurant: "Delete restaurant",
+    authActivate: "Activate",
+    authActive: "Active",
+    authReadOnlyTitle: "Read-only access"
   }
 } as const;
 
@@ -311,6 +563,45 @@ const dedupeFiles = (files: File[]) => {
     map.set(`${file.name}-${file.size}-${file.lastModified}`, file);
   }
   return [...map.values()];
+};
+
+const getPreferredRestaurant = (userId: string) => {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  return window.localStorage.getItem(`${ACTIVE_RESTAURANT_STORAGE_PREFIX}${userId}`) ?? undefined;
+};
+
+const savePreferredRestaurant = (userId: string, restaurantId: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(`${ACTIVE_RESTAURANT_STORAGE_PREFIX}${userId}`, restaurantId);
+};
+
+const applyActiveRestaurant = (session: AuthSession, restaurantId?: string): AuthSession => {
+  const memberships = session.memberships ?? [];
+  const activeMembership =
+    memberships.find((membership) => membership.restaurantId === restaurantId) ??
+    memberships.find((membership) => membership.restaurantId === session.activeRestaurantId) ??
+    memberships[0];
+
+  if (!activeMembership) {
+    return session;
+  }
+
+  return {
+    ...session,
+    activeRole: activeMembership.role,
+    activeRestaurantId: activeMembership.restaurantId,
+    activeRestaurantName: activeMembership.restaurantName,
+    activeRestaurantPhotoUrl: activeMembership.photoUrl,
+    restaurantId: activeMembership.restaurantId,
+    restaurantName: activeMembership.restaurantName,
+    profilePhotoUrl: activeMembership.photoUrl
+  };
 };
 
 const productsToSalesRows = (products: ProductSummary[]) =>
@@ -405,15 +696,39 @@ const validateColumns = (
   };
 };
 
-const getDuplicateCodes = (codes: string[]) => {
-  const map = new Map<string, number>();
-  for (const code of codes) {
-    if (!code) {
+const getDuplicateCodes = (recipes: RecipeRow[]) => {
+  const signaturesByCode = new Map<string, Set<string>>();
+  const normalizeComparableCode = (value: string) =>
+    String(value ?? "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "")
+      .replace(/^(\d+)[.,]0+$/, "$1");
+
+  for (const recipe of recipes) {
+    const normalizedCode = normalizeComparableCode(recipe.code ?? "");
+    if (!normalizedCode || !recipe.itemName.trim()) {
       continue;
     }
-    map.set(code, (map.get(code) ?? 0) + 1);
+
+    const signature = JSON.stringify({
+      place: (recipe.place ?? "").trim().toUpperCase(),
+      cost: Number(recipe.cost.toFixed(4)),
+      salePrice: recipe.salePrice ? Number(recipe.salePrice.toFixed(4)) : 0,
+      cmvPercent: recipe.cmvPercent ? Number(recipe.cmvPercent.toFixed(4)) : 0,
+      isPromotional: recipe.isPromotional,
+      group: recipe.group.trim().toUpperCase(),
+      subgroup: recipe.subgroup.trim().toUpperCase()
+    });
+
+    const current = signaturesByCode.get(normalizedCode) ?? new Set<string>();
+    current.add(signature);
+    signaturesByCode.set(normalizedCode, current);
   }
-  return [...map.entries()].filter(([, count]) => count > 1).map(([code]) => code);
+
+  return [...signaturesByCode.entries()]
+    .filter(([, signatures]) => signatures.size > 1)
+    .map(([code]) => code);
 };
 
 const readFileAsDataUrl = (file: File) =>
@@ -471,6 +786,10 @@ function IconSpark() {
       <path d="M12 4.5 13.8 9l4.7 1.8-4.7 1.8L12 17l-1.8-4.4-4.7-1.8L10.2 9 12 4.5Z" />
     </svg>
   );
+}
+
+function IconAsset({ src, alt }: { src: string; alt: string }) {
+  return <img src={src} alt={alt} className="icon-chip-image" />;
 }
 
 function BrandMark() {
@@ -532,19 +851,19 @@ function ProcessPanel() {
   const { t } = useLocale();
   const steps = [
     {
-      icon: <IconUpload />,
-      title: String(t("processStep1")),
-      text: String(t("processStep1Text"))
+      icon: <IconAsset src="/vendas.svg" alt="Vendas" />,
+      title: String(t("ownerFlowSales")),
+      text: String(t("ownerFlowSalesText"))
     },
     {
-      icon: <IconSpark />,
-      title: String(t("processStep2")),
-      text: String(t("processStep2Text"))
+      icon: <IconAsset src="/ficha-tecnica.png" alt="Fichas técnicas" />,
+      title: String(t("ownerFlowRecipes")),
+      text: String(t("ownerFlowRecipesText"))
     },
     {
-      icon: <IconChart />,
-      title: String(t("processStep3")),
-      text: String(t("processStep3Text"))
+      icon: <IconAsset src="/analise.svg" alt="Análise" />,
+      title: String(t("ownerFlowRead")),
+      text: String(t("ownerFlowReadText"))
     }
   ];
 
@@ -553,8 +872,8 @@ function ProcessPanel() {
       <div className="section-head">
         <div>
           <span className="eyebrow">{String(t("processEyebrow"))}</span>
-          <h3>{String(t("processTitle"))}</h3>
-          <p>{String(t("processText"))}</p>
+          <h3>{String(t("ownerFlowTitle"))}</h3>
+          <p>{String(t("ownerFlowText"))}</p>
         </div>
       </div>
 
@@ -760,105 +1079,110 @@ function UploadPanel({
   state,
   onUpload,
   canUploadRecipes,
+  canManageData,
   onClearAll,
   onResetFlow
 }: {
   state: UploadState;
   onUpload: (kind: "sales" | "recipes", files: File[]) => void;
   canUploadRecipes: boolean;
+  canManageData: boolean;
   onClearAll: () => void;
   onResetFlow: () => void;
 }) {
   const { t } = useLocale();
+  const [dragTarget, setDragTarget] = useState<"sales" | "recipes" | null>(null);
   const handleChange = (kind: "sales" | "recipes") => (event: ChangeEvent<HTMLInputElement>) => {
     onUpload(kind, Array.from(event.target.files ?? []));
     event.target.value = "";
   };
+
+  const handleDrop =
+    (kind: "sales" | "recipes") =>
+    (event: DragEvent<HTMLLabelElement>) => {
+      event.preventDefault();
+      setDragTarget(null);
+
+      if (!canManageData) {
+        return;
+      }
+
+      const files = Array.from(event.dataTransfer.files ?? []);
+      if (files.length === 0) {
+        return;
+      }
+
+      onUpload(kind, kind === "recipes" ? files.slice(0, 1) : files);
+    };
 
   return (
     <section className="card upload-panel">
       <div className="section-head">
         <div>
           <h3>{String(t("uploadTitle"))}</h3>
-          <p>{String(t("uploadText"))}</p>
+          <p>{String(t("uploadDropHint"))}</p>
         </div>
         <div className="panel-actions">
-          <button type="button" className="ghost-button" onClick={onResetFlow}>
+          <button type="button" className="ghost-button" onClick={onResetFlow} disabled={!canManageData}>
             Novo carregamento
           </button>
-          <button type="button" className="ghost-button danger-button" onClick={onClearAll}>
+          <button type="button" className="ghost-button danger-button" onClick={onClearAll} disabled={!canManageData}>
             Limpar base
           </button>
         </div>
       </div>
 
-      <div className="stepper">
-        <div className={`step-chip ${state.salesFileNames?.length ? "done" : "active"}`}>
-          <span>1</span>
-          <div>
-            <strong>Vendas</strong>
-            <small>{String(t("salesStepText"))}</small>
-          </div>
-        </div>
-        <div className={`step-chip ${canUploadRecipes ? "active" : ""} ${state.recipeFileName ? "done" : ""}`}>
-          <span>2</span>
-          <div>
-            <strong>{String(t("recipes"))}</strong>
-            <small>{String(t("recipesStepText"))}</small>
-          </div>
-        </div>
-        <div className={`step-chip ${state.data ? "done" : ""}`}>
-          <span>3</span>
-          <div>
-            <strong>{String(t("analysis"))}</strong>
-            <small>{String(t("analysisStepText"))}</small>
-          </div>
-        </div>
-      </div>
-
       <div className="upload-grid guided">
-        <label className="upload-box featured">
-          <div className="upload-box-top">
-            <span className="upload-order">Etapa 1</span>
-            <span className="upload-status ready">Obrigatório</span>
-          </div>
+        <label
+          className={`upload-box featured simple ${canManageData ? "" : "locked"} ${dragTarget === "sales" ? "dragging" : ""}`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            if (canManageData) {
+              setDragTarget("sales");
+            }
+          }}
+          onDragLeave={() => setDragTarget((current) => (current === "sales" ? null : current))}
+          onDrop={handleDrop("sales")}
+        >
           <span className="eyebrow">{String(t("salesUpload"))}</span>
-          <strong className="upload-title">
-            {state.salesFileNames?.length
-              ? (t("salesUploadMany") as (count: number) => string)(state.salesFileNames.length)
-              : String(t("salesUploadDefault"))}
-          </strong>
-          <small>{String(t("salesUploadHint"))}</small>
+          <strong className="upload-title">{String(t("uploadSalesShort"))}</strong>
+          <small>{String(t("uploadDropHint"))}</small>
           <div className="upload-box-footer">
-            <span className="upload-action">Selecionar arquivos</span>
+            <span className="upload-action">{String(t("uploadDropHint"))}</span>
             <span className="upload-meta">.csv .xlsx .xls</span>
           </div>
-          {state.salesFileNames?.length ? <p className="upload-file-list">{state.salesFileNames.join(" • ")}</p> : null}
-          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" multiple onChange={handleChange("sales")} />
+          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" multiple onChange={handleChange("sales")} disabled={!canManageData} />
         </label>
 
-        <label className={`upload-box ${canUploadRecipes ? "featured secondary" : "locked"}`}>
-          <div className="upload-box-top">
-            <span className="upload-order">Etapa 2</span>
-            <span className={`upload-status ${canUploadRecipes ? "ready" : "waiting"}`}>
-              {canUploadRecipes ? "Liberado" : "Aguardando"}
-            </span>
-          </div>
+        <label
+          className={`upload-box featured secondary simple ${canUploadRecipes && canManageData ? "" : "locked"} ${dragTarget === "recipes" ? "dragging" : ""}`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            if (canUploadRecipes && canManageData) {
+              setDragTarget("recipes");
+            }
+          }}
+          onDragLeave={() => setDragTarget((current) => (current === "recipes" ? null : current))}
+          onDrop={handleDrop("recipes")}
+        >
           <span className="eyebrow">{String(t("recipesUpload"))}</span>
-          <strong className="upload-title">{state.recipeFileName ?? String(t("recipesUploadDefault"))}</strong>
+          <strong className="upload-title">{String(t("uploadRecipesShort"))}</strong>
           <small>
-            {canUploadRecipes
-              ? String(t("recipesUploadHint"))
-              : String(t("recipesUploadLocked"))}
+            {canManageData
+              ? canUploadRecipes
+                ? String(t("uploadDropHint"))
+                : String(t("recipesUploadLocked"))
+              : String(t("authManageOnly"))}
           </small>
           <div className="upload-box-footer">
-            <span className="upload-action">{canUploadRecipes ? "Selecionar arquivo" : "Envie vendas primeiro"}</span>
-            <span className="upload-meta">Base de fichas</span>
+            <span className="upload-action">{canUploadRecipes && canManageData ? String(t("uploadDropHint")) : "Envie vendas primeiro"}</span>
+            <span className="upload-meta">.csv .xlsx .xls</span>
           </div>
-          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" onChange={handleChange("recipes")} disabled={!canUploadRecipes} />
+          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" onChange={handleChange("recipes")} disabled={!canUploadRecipes || !canManageData} />
         </label>
       </div>
 
+      {!canManageData ? <p className="message">{String(t("authManageOnly"))}</p> : null}
       {state.processing ? <p className="message">{String(t("processing"))}</p> : null}
       {state.error ? <p className="message error">{state.error}</p> : null}
       {!state.error && state.data ? <p className="message success">{String(t("success"))}</p> : null}
@@ -870,19 +1194,19 @@ function AuthHighlights() {
   const { t } = useLocale();
   const items = [
     {
-      icon: <IconShield />,
+      icon: <IconAsset src="/organizacao.svg" alt="Organização" />,
       title: String(t("homeHeroStat1")),
-      text: String(t("authHeroCardText"))
+      text: String(t("homeHeroStat1Text"))
     },
     {
-      icon: <IconCalendar />,
+      icon: <IconAsset src="/segundo.svg" alt="Agilidade" />,
       title: String(t("homeHeroStat2")),
-      text: String(t("historyByPeriodText"))
+      text: String(t("homeHeroStat2Text"))
     },
     {
-      icon: <IconChart />,
+      icon: <IconAsset src="/clareza.svg" alt="Clareza" />,
       title: String(t("homeHeroStat3")),
-      text: String(t("executiveReadingText"))
+      text: String(t("homeHeroStat3Text"))
     }
   ];
 
@@ -909,13 +1233,35 @@ function ProfileAvatar({
   size?: "sm" | "md" | "lg";
 }) {
   const classes = `profile-avatar ${size} ${session.profilePhotoUrl ? "has-photo" : ""}`;
+  const restaurantLabel = session.restaurantName ?? session.activeRestaurantName ?? "Restaurante";
 
   return (
     <div className={classes} aria-hidden="true">
       {session.profilePhotoUrl ? (
-        <img src={session.profilePhotoUrl} alt={session.restaurantName} />
+        <img src={session.profilePhotoUrl} alt={restaurantLabel} />
       ) : (
         <img src="/grest.png" alt="G/REST" className="brand-logo-image cutout" />
+      )}
+    </div>
+  );
+}
+
+function UserAvatar({
+  session,
+  size = "md"
+}: {
+  session: AuthSession;
+  size?: "sm" | "md" | "lg";
+}) {
+  const classes = `profile-avatar ${size} ${session.userPhotoUrl ? "has-photo" : ""}`;
+  const userLabel = session.userFullName?.trim() || session.email || "Usuário";
+
+  return (
+    <div className={classes}>
+      {session.userPhotoUrl ? (
+        <img src={session.userPhotoUrl} alt={userLabel} />
+      ) : (
+        <span>{userLabel.slice(0, 2).toUpperCase()}</span>
       )}
     </div>
   );
@@ -1055,6 +1401,7 @@ function IssuesPanel({ data }: { data: DashboardData }) {
             <strong>{issue.title}</strong>
             <p>{issue.description}</p>
             {typeof issue.count === "number" ? <p>{formatNumber(issue.count)} ocorrência(s)</p> : null}
+            {issue.details?.length ? <p>Código(s): {issue.details.join(", ")}</p> : null}
           </article>
         ))}
       </div>
@@ -1187,11 +1534,15 @@ function GroupFilterBar({
 function PeriodFilterBar({
   dashboards,
   selectedPeriod,
-  onSelect
+  onSelect,
+  onRemovePeriod,
+  canManagePeriods = false
 }: {
   dashboards: PeriodDashboard[];
   selectedPeriod: string;
   onSelect: (value: string) => void;
+  onRemovePeriod?: (value: string) => void;
+  canManagePeriods?: boolean;
 }) {
   const { t } = useLocale();
   if (dashboards.length === 0) {
@@ -1199,7 +1550,7 @@ function PeriodFilterBar({
   }
 
   return (
-    <section className="card compact-card">
+    <section className="card compact-card period-filter-card">
       <div className="section-head">
         <div>
           <h3>{String(t("periodAnalyzed"))}</h3>
@@ -1212,14 +1563,22 @@ function PeriodFilterBar({
           {String(t("total"))}
         </button>
         {dashboards.map((dashboard) => (
-          <button
-            type="button"
-            key={dashboard.key}
-            className={`filter-pill ${selectedPeriod === dashboard.key ? "active" : ""}`}
-            onClick={() => onSelect(dashboard.key)}
-          >
-            {getPeriodLabel(dashboard)}
-          </button>
+          <span key={dashboard.key} className={`filter-pill filter-pill-group ${selectedPeriod === dashboard.key ? "active" : ""}`}>
+            <button type="button" className="filter-pill-main" onClick={() => onSelect(dashboard.key)}>
+              {getPeriodLabel(dashboard)}
+            </button>
+            {canManagePeriods && onRemovePeriod ? (
+              <button
+                type="button"
+                className="filter-pill-remove"
+                onClick={() => onRemovePeriod(dashboard.key)}
+                aria-label={`Remover ${getPeriodLabel(dashboard)}`}
+                title={`Excluir ${getPeriodLabel(dashboard)}`}
+              >
+                <IconTrash />
+              </button>
+            ) : null}
+          </span>
         ))}
       </div>
     </section>
@@ -1645,28 +2004,30 @@ function AuthScreen({
   onLogin,
   onRegister,
   error,
-  isCloudEnabled
+  isCloudEnabled,
+  busy
 }: {
   locale: Locale;
   onChangeLocale: (locale: Locale) => void;
   onLogin: (email: string, password: string) => void | Promise<void>;
-  onRegister: (restaurantName: string, email: string, password: string) => void | Promise<void>;
+  onRegister: (fullName: string, email: string, password: string) => void | Promise<void>;
   error?: string;
   isCloudEnabled: boolean;
+  busy?: boolean;
 }) {
   const { t } = useLocale();
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [restaurantName, setRestaurantName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (mode === "login") {
-      onLogin(email, password);
+      await onLogin(email, password);
       return;
     }
 
-    onRegister(restaurantName, email, password);
+    await onRegister(fullName, email, password);
   };
 
   return (
@@ -1706,8 +2067,9 @@ function AuthScreen({
             <div className="auth-form">
               {mode === "register" ? (
                 <label className="auth-field">
-                  <span>{String(t("authRestaurantName"))}</span>
-                  <input value={restaurantName} onChange={(event) => setRestaurantName(event.target.value)} placeholder="Ex: Nosso Ipanema" />
+                  <span>{String(t("authFullName"))}</span>
+                  <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Ex: João Silva" />
+                  <small>{String(t("authFullNameHint"))}</small>
                 </label>
               ) : null}
 
@@ -1723,8 +2085,8 @@ function AuthScreen({
 
               {error ? <p className="message error">{error}</p> : null}
 
-              <button type="button" className="primary-button" onClick={handleSubmit}>
-                {mode === "login" ? String(t("authSubmitLogin")) : String(t("authSubmitRegister"))}
+              <button type="button" className="primary-button" onClick={() => void handleSubmit()} disabled={busy}>
+                {busy ? String(t("processing")) : mode === "login" ? String(t("authSubmitLogin")) : String(t("authSubmitRegister"))}
               </button>
 
               <p className="message">{isCloudEnabled ? String(t("authSupabaseReady")) : String(t("authSupabaseSetup"))}</p>
@@ -1741,30 +2103,35 @@ function AuthScreen({
 function WorkspaceHeader({
   session,
   onLogout,
-  onOpenSettings
+  onOpenSettings,
+  canOpenSettings
 }: {
   session: AuthSession;
   onLogout: () => void;
   onOpenSettings: () => void;
+  canOpenSettings: boolean;
 }) {
   const { t } = useLocale();
 
   return (
     <section className="card workspace-header">
       <div className="workspace-copy">
-        <ProfileAvatar session={session} size="lg" />
-        <span className="eyebrow">{String(t("authWelcome"))}</span>
-        <h2>{session.restaurantName}</h2>
-        <p>{String(t("authWorkspaceText"))}</p>
+        <UserAvatar session={session} size="lg" />
+        <span className="eyebrow">{String(t("authUserProfile"))}</span>
+        <h2>{session.userFullName ?? session.email}</h2>
+        <p>{String(t("authUserProfileText"))}</p>
       </div>
       <div className="workspace-actions">
         <div className="workspace-badge">
-          <strong>{String(t("authGreeting"))}</strong>
+          <strong>{session.userFullName ?? String(t("authGreeting"))}</strong>
           <span>{session.email}</span>
+          <span>{session.memberships?.length ?? 0} restaurante(s)</span>
         </div>
-        <button type="button" className="ghost-button" onClick={onOpenSettings}>
-          {String(t("authSettings"))}
-        </button>
+        {canOpenSettings ? (
+          <button type="button" className="ghost-button" onClick={onOpenSettings}>
+            {String(t("authSettings"))}
+          </button>
+        ) : null}
         <button type="button" className="ghost-button" onClick={onLogout}>
           {String(t("authLogout"))}
         </button>
@@ -1775,26 +2142,46 @@ function WorkspaceHeader({
 
 function AccountSettingsPanel({
   session,
-  form,
+  userForm,
+  restaurantForm,
+  newRestaurantName,
   busy,
   message,
   error,
   onClose,
-  onNameChange,
-  onPhotoSelect,
-  onSave,
-  onDelete
+  onUserNameChange,
+  onRestaurantNameChange,
+  onUserPhotoSelect,
+  onRestaurantPhotoSelect,
+  onCreateRestaurantNameChange,
+  onSaveUser,
+  onSaveRestaurant,
+  onCreateRestaurant,
+  onDeleteRestaurant,
+  onDeleteAccount,
+  onActivateRestaurant,
+  canManageRestaurants
 }: {
   session: AuthSession;
-  form: ProfileFormState;
+  userForm: UserProfileFormState;
+  restaurantForm: ProfileFormState;
+  newRestaurantName: string;
   busy: boolean;
   message?: string;
   error?: string;
   onClose: () => void;
-  onNameChange: (value: string) => void;
-  onPhotoSelect: (file: File | null) => void;
-  onSave: () => void;
-  onDelete: () => void;
+  onUserNameChange: (value: string) => void;
+  onRestaurantNameChange: (value: string) => void;
+  onUserPhotoSelect: (file: File | null) => void;
+  onRestaurantPhotoSelect: (file: File | null) => void;
+  onCreateRestaurantNameChange: (value: string) => void;
+  onSaveUser: () => void;
+  onSaveRestaurant: () => void;
+  onCreateRestaurant: () => void;
+  onDeleteRestaurant: (restaurantId: string) => void;
+  onDeleteAccount: () => void;
+  onActivateRestaurant: (restaurantId: string) => void;
+  canManageRestaurants: boolean;
 }) {
   const { t } = useLocale();
 
@@ -1811,20 +2198,345 @@ function AccountSettingsPanel({
         </button>
       </div>
 
+      <div className="account-panel-stack">
+        <section className="account-user-section">
+          <div className="section-head compact">
+            <div>
+              <span className="eyebrow">{String(t("authUserProfile"))}</span>
+              <h3>{String(t("authUserProfile"))}</h3>
+              <p>{String(t("authUserProfileText"))}</p>
+            </div>
+          </div>
+
+          <div className="account-user-grid">
+            <section className="account-identity-card">
+              <div className="account-avatar-panel">
+                <UserAvatar
+                  session={{
+                    ...session,
+                    userFullName: userForm.fullName,
+                    userPhotoUrl: userForm.userPhotoUrl
+                  }}
+                  size="lg"
+                />
+                <div>
+                  <strong>{String(t("authUserProfile"))}</strong>
+                  <p>{String(t("authUserProfileText"))}</p>
+                </div>
+              </div>
+
+              <label className="upload-box compact-upload">
+                <div className="upload-box-top">
+                  <span className="upload-order">{String(t("authProfilePhoto"))}</span>
+                  <span className="upload-status ready">{busy ? String(t("processing")) : String(t("authUploadPhoto"))}</span>
+                </div>
+                <strong className="upload-title">{userForm.userPhotoUrl ? (userForm.fullName || session.email) : String(t("authUploadPhoto"))}</strong>
+                <small>{String(t("authUserProfileText"))}</small>
+                <div className="upload-box-footer">
+                  <span className="upload-action">{String(t("authUploadPhoto"))}</span>
+                  <span className="upload-meta">.png .jpg .jpeg</span>
+                </div>
+                <input
+                  className="upload-input-hidden"
+                  type="file"
+                  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                  onChange={(event) => onUserPhotoSelect(event.target.files?.[0] ?? null)}
+                />
+              </label>
+            </section>
+
+            <section className="account-form-card">
+              <label className="auth-field">
+                <span>{String(t("authFullName"))}</span>
+                <input value={userForm.fullName} onChange={(event) => onUserNameChange(event.target.value)} />
+              </label>
+
+              <label className="auth-field">
+                <span>{String(t("authEmail"))}</span>
+                <input value={session.email} disabled />
+              </label>
+
+              <div className="user-status-grid">
+                <article className="mini-stat-card">
+                  <span>{String(t("authAccountStatus"))}</span>
+                  <strong>{session.activeRole === "owner" ? String(t("authRoleOwner")) : session.activeRole === "admin" ? String(t("authRoleAdmin")) : String(t("authRoleViewer"))}</strong>
+                </article>
+                <article className="mini-stat-card">
+                  <span>{String(t("authRestaurantsCount"))}</span>
+                  <strong>{String(session.memberships?.length ?? 0)}</strong>
+                </article>
+              </div>
+
+              {message ? <p className="message success">{message}</p> : null}
+              {error ? <p className="message error">{error}</p> : null}
+
+              <div className="panel-actions">
+                <button type="button" className="primary-button" onClick={onSaveUser} disabled={busy}>
+                  {String(t("authSaveProfile"))}
+                </button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        {canManageRestaurants ? (
+        <section className="account-restaurant-section">
+          <div className="section-head compact">
+            <div>
+              <span className="eyebrow">{String(t("authManageRestaurants"))}</span>
+              <h3>{String(t("authManageRestaurants"))}</h3>
+              <p>{String(t("authManageRestaurantsText"))}</p>
+            </div>
+          </div>
+
+          <div className="account-panel-grid">
+            <section className="account-form-card">
+              <div className="account-avatar-panel">
+                <ProfileAvatar
+                  session={{
+                    ...session,
+                    restaurantName: restaurantForm.restaurantName,
+                    profilePhotoUrl: restaurantForm.profilePhotoUrl
+                  }}
+                  size="lg"
+                />
+                <div>
+                  <strong>{String(t("authRestaurantProfile"))}</strong>
+                  <p>{String(t("authRestaurantProfileText"))}</p>
+                </div>
+              </div>
+
+              <label className="upload-box compact-upload">
+                <div className="upload-box-top">
+                  <span className="upload-order">{String(t("authProfilePhoto"))}</span>
+                  <span className="upload-status ready">{busy ? String(t("processing")) : String(t("authUploadPhoto"))}</span>
+                </div>
+                <strong className="upload-title">{restaurantForm.profilePhotoUrl ? restaurantForm.restaurantName : String(t("authUploadPhoto"))}</strong>
+                <small>{String(t("authRestaurantProfileText"))}</small>
+                <div className="upload-box-footer">
+                  <span className="upload-action">{String(t("authUploadPhoto"))}</span>
+                  <span className="upload-meta">.png .jpg .jpeg</span>
+                </div>
+                <input
+                  className="upload-input-hidden"
+                  type="file"
+                  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                  onChange={(event) => onRestaurantPhotoSelect(event.target.files?.[0] ?? null)}
+                />
+              </label>
+
+              <label className="auth-field">
+                <span>{String(t("authRestaurantName"))}</span>
+                <input value={restaurantForm.restaurantName} onChange={(event) => onRestaurantNameChange(event.target.value)} />
+              </label>
+
+              <div className="panel-actions">
+                <button type="button" className="primary-button" onClick={onSaveRestaurant} disabled={busy}>
+                  {String(t("authSaveProfile"))}
+                </button>
+              </div>
+            </section>
+
+            <section className="account-form-card restaurant-management-card">
+              <div className="restaurant-member-list">
+                {(session.memberships ?? []).map((membership) => {
+                  const isActive = membership.restaurantId === session.activeRestaurantId;
+                  const canDeleteThisRestaurant = membership.role === "owner" && (session.memberships?.length ?? 0) > 1;
+
+                  return (
+                    <article key={membership.membershipId} className={`restaurant-member-card ${isActive ? "active" : ""}`}>
+                      <div>
+                        <strong>{membership.restaurantName}</strong>
+                        <p>{membership.role === "owner" ? String(t("authRoleOwner")) : membership.role === "admin" ? String(t("authRoleAdmin")) : String(t("authRoleViewer"))}</p>
+                      </div>
+                      <div className="restaurant-member-actions">
+                        {!isActive ? (
+                          <button type="button" className="ghost-button" onClick={() => onActivateRestaurant(membership.restaurantId)}>
+                            {String(t("authActivate"))}
+                          </button>
+                        ) : null}
+                        {canDeleteThisRestaurant ? (
+                          <button
+                            type="button"
+                            className="ghost-button danger-button"
+                            onClick={() => onDeleteRestaurant(membership.restaurantId)}
+                            disabled={busy}
+                          >
+                            {String(t("authDeleteRestaurant"))}
+                          </button>
+                        ) : null}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="restaurant-create-box">
+                <div>
+                  <strong>{String(t("authCreateRestaurant"))}</strong>
+                  <p>{String(t("authCreateRestaurantText"))}</p>
+                </div>
+                <label className="auth-field">
+                  <span>{String(t("authRestaurantName"))}</span>
+                  <input value={newRestaurantName} onChange={(event) => onCreateRestaurantNameChange(event.target.value)} />
+                </label>
+                <div className="panel-actions">
+                  <button type="button" className="primary-button" onClick={onCreateRestaurant} disabled={busy}>
+                    {String(t("authCreateRestaurantAction"))}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+        ) : null}
+
+        <section className="danger-panel">
+          <div className="danger-panel-copy">
+            <span className="eyebrow">{String(t("authDangerZone"))}</span>
+            <strong>{String(t("authDeleteAccount"))}</strong>
+            <p>{String(t("authDeleteHint"))}</p>
+          </div>
+          <button type="button" className="ghost-button danger-button" onClick={onDeleteAccount} disabled={busy}>
+            {String(t("authDeleteAccount"))}
+          </button>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function RestaurantNavigatorPanel({
+  session,
+  onActivateRestaurant
+}: {
+  session: AuthSession;
+  onActivateRestaurant: (restaurantId: string) => void;
+}) {
+  const { t } = useLocale();
+
+  return (
+    <section className="card restaurant-overview-panel">
+      <section className="restaurant-account-banner">
+        <div className="restaurant-account-banner-main">
+          <UserAvatar session={session} size="md" />
+          <div>
+            <span className="eyebrow">{String(t("authAccountSummary"))}</span>
+            <strong>{session.userFullName ?? session.email}</strong>
+            <p>{String(t("authAccountSummaryText"))}</p>
+          </div>
+        </div>
+        <div className="restaurant-account-banner-meta">
+          <div className="workspace-badge">
+            <strong>{session.email}</strong>
+            <span>{session.activeRole === "owner" ? String(t("authRoleOwner")) : session.activeRole === "admin" ? String(t("authRoleAdmin")) : String(t("authRoleViewer"))}</span>
+            <span>{session.memberships?.length ?? 0} restaurante(s)</span>
+          </div>
+        </div>
+      </section>
+
+      <div className="section-head compact">
+        <div>
+          <span className="eyebrow">{String(t("authRestaurantNavigator"))}</span>
+          <h3>{String(t("authRestaurantNavigator"))}</h3>
+          <p>{String(t("authRestaurantNavigatorText"))}</p>
+        </div>
+      </div>
+
+      <div className="restaurant-navigator-grid">
+        {(session.memberships ?? []).map((membership) => {
+          const isActive = membership.restaurantId === session.activeRestaurantId;
+
+          return (
+            <button
+              key={membership.membershipId}
+              type="button"
+              className={`restaurant-tile ${isActive ? "active" : ""}`}
+              onClick={() => onActivateRestaurant(membership.restaurantId)}
+            >
+              <div className={`restaurant-tile-avatar ${membership.photoUrl ? "has-photo" : ""}`}>
+                {membership.photoUrl ? (
+                  <img src={membership.photoUrl} alt={membership.restaurantName} />
+                ) : (
+                  <span>{membership.restaurantName.slice(0, 2).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="restaurant-tile-copy">
+                <strong>{membership.restaurantName}</strong>
+                <span>
+                  {membership.role === "owner"
+                    ? String(t("authRoleOwner"))
+                    : membership.role === "admin"
+                      ? String(t("authRoleAdmin"))
+                      : String(t("authRoleViewer"))}
+                </span>
+              </div>
+              <span className={`status ${isActive ? "ok" : ""}`}>
+                {isActive ? String(t("authActive")) : String(t("authActivate"))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RestaurantManagementPanel({
+  session,
+  restaurantForm,
+  newRestaurantName,
+  busy,
+  message,
+  error,
+  onRestaurantNameChange,
+  onRestaurantPhotoSelect,
+  onCreateRestaurantNameChange,
+  onSaveRestaurant,
+  onCreateRestaurant,
+  onDeleteRestaurant,
+  onActivateRestaurant
+}: {
+  session: AuthSession;
+  restaurantForm: ProfileFormState;
+  newRestaurantName: string;
+  busy: boolean;
+  message?: string;
+  error?: string;
+  onRestaurantNameChange: (value: string) => void;
+  onRestaurantPhotoSelect: (file: File | null) => void;
+  onCreateRestaurantNameChange: (value: string) => void;
+  onSaveRestaurant: () => void;
+  onCreateRestaurant: () => void;
+  onDeleteRestaurant: (restaurantId: string) => void;
+  onActivateRestaurant: (restaurantId: string) => void;
+}) {
+  const { t } = useLocale();
+
+  return (
+    <section className="card account-panel">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">{String(t("authManageRestaurants"))}</span>
+          <h3>{String(t("authManageRestaurants"))}</h3>
+          <p>{String(t("authManageRestaurantsText"))}</p>
+        </div>
+      </div>
+
       <div className="account-panel-grid">
-        <section className="account-identity-card">
+        <section className="account-form-card">
           <div className="account-avatar-panel">
             <ProfileAvatar
               session={{
                 ...session,
-                restaurantName: form.restaurantName,
-                profilePhotoUrl: form.profilePhotoUrl
+                restaurantName: restaurantForm.restaurantName,
+                profilePhotoUrl: restaurantForm.profilePhotoUrl
               }}
               size="lg"
             />
             <div>
-              <strong>{String(t("authProfilePhoto"))}</strong>
-              <p>{String(t("authPhotoHint"))}</p>
+              <strong>{String(t("authRestaurantProfile"))}</strong>
+              <p>{String(t("authRestaurantProfileText"))}</p>
             </div>
           </div>
 
@@ -1833,8 +2545,8 @@ function AccountSettingsPanel({
               <span className="upload-order">{String(t("authProfilePhoto"))}</span>
               <span className="upload-status ready">{busy ? String(t("processing")) : String(t("authUploadPhoto"))}</span>
             </div>
-            <strong className="upload-title">{form.profilePhotoUrl ? session.restaurantName : String(t("authUploadPhoto"))}</strong>
-            <small>{String(t("authPhotoHint"))}</small>
+            <strong className="upload-title">{restaurantForm.profilePhotoUrl ? restaurantForm.restaurantName : String(t("authUploadPhoto"))}</strong>
+            <small>{String(t("authRestaurantProfileText"))}</small>
             <div className="upload-box-footer">
               <span className="upload-action">{String(t("authUploadPhoto"))}</span>
               <span className="upload-meta">.png .jpg .jpeg</span>
@@ -1843,38 +2555,592 @@ function AccountSettingsPanel({
               className="upload-input-hidden"
               type="file"
               accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-              onChange={(event) => onPhotoSelect(event.target.files?.[0] ?? null)}
+              onChange={(event) => onRestaurantPhotoSelect(event.target.files?.[0] ?? null)}
             />
           </label>
-        </section>
 
-        <section className="account-form-card">
           <label className="auth-field">
             <span>{String(t("authRestaurantName"))}</span>
-            <input value={form.restaurantName} onChange={(event) => onNameChange(event.target.value)} />
+            <input value={restaurantForm.restaurantName} onChange={(event) => onRestaurantNameChange(event.target.value)} />
           </label>
 
           {message ? <p className="message success">{message}</p> : null}
           {error ? <p className="message error">{error}</p> : null}
 
           <div className="panel-actions">
-            <button type="button" className="primary-button" onClick={onSave} disabled={busy}>
+            <button type="button" className="primary-button" onClick={onSaveRestaurant} disabled={busy}>
               {String(t("authSaveProfile"))}
             </button>
           </div>
         </section>
 
-        <section className="danger-panel">
-          <div className="danger-panel-copy">
-            <span className="eyebrow">{String(t("authDangerZone"))}</span>
-            <strong>{String(t("authDeleteAccount"))}</strong>
-            <p>{String(t("authDeleteHint"))}</p>
+        <section className="account-form-card restaurant-management-card">
+          <div className="restaurant-member-list">
+            {(session.memberships ?? []).map((membership) => {
+              const isActive = membership.restaurantId === session.activeRestaurantId;
+              const canDeleteThisRestaurant = membership.role === "owner" && (session.memberships?.length ?? 0) > 1;
+
+              return (
+                <article
+                  key={membership.membershipId}
+                  className={`restaurant-member-card ${isActive ? "active" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onActivateRestaurant(membership.restaurantId)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onActivateRestaurant(membership.restaurantId);
+                    }
+                  }}
+                >
+                  <div>
+                    <strong>{membership.restaurantName}</strong>
+                    <p>{membership.role === "owner" ? String(t("authRoleOwner")) : membership.role === "admin" ? String(t("authRoleAdmin")) : String(t("authRoleViewer"))}</p>
+                  </div>
+                  <div className="restaurant-member-actions">
+                    <span className={`status ${isActive ? "ok" : ""}`}>
+                      {isActive ? String(t("authActive")) : String(t("authActivate"))}
+                    </span>
+                    {canDeleteThisRestaurant ? (
+                      <button
+                        type="button"
+                        className="ghost-button danger-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteRestaurant(membership.restaurantId);
+                        }}
+                        disabled={busy}
+                      >
+                        {String(t("authDeleteRestaurant"))}
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
           </div>
-          <button type="button" className="ghost-button danger-button" onClick={onDelete} disabled={busy}>
-            {String(t("authDeleteAccount"))}
-          </button>
+
+          <div className="restaurant-create-box">
+            <div>
+              <strong>{String(t("authCreateRestaurant"))}</strong>
+              <p>{String(t("authCreateRestaurantText"))}</p>
+            </div>
+            <label className="auth-field">
+              <span>{String(t("authRestaurantName"))}</span>
+              <input value={newRestaurantName} onChange={(event) => onCreateRestaurantNameChange(event.target.value)} />
+            </label>
+            <div className="panel-actions">
+              <button type="button" className="primary-button" onClick={onCreateRestaurant} disabled={busy}>
+                {String(t("authCreateRestaurantAction"))}
+              </button>
+            </div>
+          </div>
         </section>
       </div>
+    </section>
+  );
+}
+
+function InternalNavigation({
+  section,
+  onChange,
+  canManageRestaurants
+}: {
+  section: InternalSection;
+  onChange: (section: InternalSection) => void;
+  canManageRestaurants: boolean;
+}) {
+  const { t } = useLocale();
+
+  const items: { key: InternalSection; label: string }[] = [
+    { key: "dashboard", label: String(t("navDashboard")) },
+    { key: "account", label: String(t("navMyAccount")) },
+    ...(canManageRestaurants ? [{ key: "restaurants" as InternalSection, label: String(t("navRestaurants")) }] : []),
+    { key: "team", label: String(t("navTeam")) }
+  ];
+
+  return (
+    <section className="card internal-nav-card">
+      <div className="filter-bar internal-nav">
+        {items.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`filter-pill ${section === item.key ? "active" : ""}`}
+            onClick={() => onChange(item.key)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TeamMemberCard({
+  session,
+  member,
+  canManageTeam,
+  onSave,
+  onRemove
+}: {
+  session: AuthSession;
+  member: AccountMember;
+  canManageTeam: boolean;
+  onSave: (input: {
+    member: AccountMember;
+    accountRole: "admin" | "user";
+    restaurantRole: "admin" | "viewer";
+    restaurantIds: string[];
+  }) => Promise<void>;
+  onRemove: (member: AccountMember) => Promise<void>;
+}) {
+  const { t } = useLocale();
+  const [accountRole, setAccountRole] = useState<"admin" | "user">(member.role === "admin" ? "admin" : "user");
+  const [restaurantRole, setRestaurantRole] = useState<"admin" | "viewer">(
+    member.restaurants.some((restaurant) => restaurant.role === "admin" || restaurant.role === "owner") ? "admin" : "viewer"
+  );
+  const [restaurantIds, setRestaurantIds] = useState<string[]>(member.restaurants.map((restaurant) => restaurant.restaurantId));
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string>();
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    setAccountRole(member.role === "admin" ? "admin" : "user");
+    setRestaurantRole(
+      member.restaurants.some((restaurant) => restaurant.role === "admin" || restaurant.role === "owner") ? "admin" : "viewer"
+    );
+    setRestaurantIds(member.restaurants.map((restaurant) => restaurant.restaurantId));
+    setMessage(undefined);
+    setError(undefined);
+  }, [member]);
+
+  const formatAccountRole = (role: AccountMember["role"]) => {
+    if (role === "owner") {
+      return String(t("teamRoleOwner"));
+    }
+
+    if (role === "admin") {
+      return String(t("teamRoleAdmin"));
+    }
+
+    return String(t("teamRoleUser"));
+  };
+
+  const formatRestaurantRole = (role: "owner" | "admin" | "viewer") => {
+    if (role === "owner") {
+      return String(t("teamRoleOwner"));
+    }
+
+    if (role === "admin") {
+      return String(t("teamRoleAdmin"));
+    }
+
+    return String(t("teamRoleViewer"));
+  };
+
+  const canEditMember =
+    canManageTeam &&
+    member.userId !== session.userId &&
+    member.role !== "owner" &&
+    !member.restaurants.some((restaurant) => restaurant.role === "owner");
+
+  const hasChanges =
+    accountRole !== (member.role === "admin" ? "admin" : "user") ||
+    restaurantRole !==
+      (member.restaurants.some((restaurant) => restaurant.role === "admin" || restaurant.role === "owner") ? "admin" : "viewer") ||
+    JSON.stringify([...restaurantIds].sort()) !==
+      JSON.stringify(member.restaurants.map((restaurant) => restaurant.restaurantId).sort());
+
+  const handleRestaurantToggle = (restaurantId: string) => {
+    setRestaurantIds((current) =>
+      current.includes(restaurantId) ? current.filter((id) => id !== restaurantId) : [...current, restaurantId]
+    );
+  };
+
+  const handleSave = async () => {
+    try {
+      setBusy(true);
+      setError(undefined);
+      setMessage(undefined);
+      await onSave({
+        member,
+        accountRole,
+        restaurantRole,
+        restaurantIds
+      });
+      setMessage(String(t("teamMemberUpdated")));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(t("teamMemberImmutable")));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    try {
+      setBusy(true);
+      setError(undefined);
+      setMessage(undefined);
+      await onRemove(member);
+      setMessage(String(t("teamMemberRemoved")));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(t("teamMemberImmutable")));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="team-member-card">
+      <div className="team-member-head">
+        <div className="team-member-identity">
+          <div className={`profile-avatar sm ${member.photoUrl ? "has-photo" : ""}`}>
+            {member.photoUrl ? (
+              <img src={member.photoUrl} alt={member.fullName ?? member.email ?? member.userId} />
+            ) : (
+              <span>{(member.fullName ?? member.email ?? member.userId).slice(0, 2).toUpperCase()}</span>
+            )}
+          </div>
+          <div>
+            <strong>{member.fullName ?? member.email ?? member.userId}</strong>
+            <p>{member.userId === session.userId ? String(t("teamYou")) : member.email ?? member.userId}</p>
+          </div>
+        </div>
+        <span className={`status-chip ${member.role === "owner" ? "danger" : member.role === "admin" ? "warning" : "good"}`}>
+          {formatAccountRole(member.role)}
+        </span>
+      </div>
+
+      <div className="team-member-meta">
+        <span className="eyebrow">{String(t("teamRestaurantAccess"))}</span>
+        <div className="team-restaurant-chips">
+          {member.restaurants.length > 0 ? (
+            member.restaurants.map((restaurant) => (
+              <span key={`${member.membershipId}-${restaurant.restaurantId}`} className="team-restaurant-chip">
+                <strong>{restaurant.restaurantName}</strong>
+                <small>{formatRestaurantRole(restaurant.role)}</small>
+              </span>
+            ))
+          ) : (
+            <span className="team-restaurant-chip muted">{String(t("teamNoRestaurants"))}</span>
+          )}
+        </div>
+      </div>
+
+      {canManageTeam ? (
+        <div className="team-member-actions">
+          <div>
+            <span className="eyebrow">{String(t("teamManageMember"))}</span>
+            <p className="team-member-actions-text">{String(t("teamManageMemberText"))}</p>
+          </div>
+
+          {canEditMember ? (
+            <>
+              <div className="team-role-grid">
+                <label className="auth-field">
+                  <span>{String(t("teamInviteAccountRole"))}</span>
+                  <select value={accountRole} onChange={(event) => setAccountRole(event.target.value as "admin" | "user")} disabled={busy}>
+                    <option value="user">{String(t("teamRoleUser"))}</option>
+                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
+                  </select>
+                </label>
+
+                <label className="auth-field">
+                  <span>{String(t("teamInviteRestaurantRole"))}</span>
+                  <select
+                    value={restaurantRole}
+                    onChange={(event) => setRestaurantRole(event.target.value as "admin" | "viewer")}
+                    disabled={busy}
+                  >
+                    <option value="viewer">{String(t("teamRoleViewer"))}</option>
+                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="team-restaurant-selector">
+                <span>{String(t("teamInviteRestaurants"))}</span>
+                <div className="team-restaurant-chips">
+                  {(session.memberships ?? []).map((membership) => (
+                    <button
+                      key={`member-${member.membershipId}-${membership.restaurantId}`}
+                      type="button"
+                      className={`team-restaurant-chip selectable ${restaurantIds.includes(membership.restaurantId) ? "selected" : ""}`}
+                      onClick={() => handleRestaurantToggle(membership.restaurantId)}
+                      disabled={busy}
+                    >
+                      <strong>{membership.restaurantName}</strong>
+                      <small>
+                        {membership.role === "owner"
+                          ? String(t("teamRoleOwner"))
+                          : membership.role === "admin"
+                            ? String(t("teamRoleAdmin"))
+                            : String(t("teamRoleViewer"))}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {error ? <p className="message error">{error}</p> : null}
+              {message ? <p className="message success">{message}</p> : null}
+
+              <div className="panel-actions">
+                <button type="button" className="primary-button" onClick={handleSave} disabled={busy || !hasChanges}>
+                  {busy ? String(t("processing")) : String(t("teamSaveMember"))}
+                </button>
+                <button type="button" className="ghost-button danger-button" onClick={handleRemove} disabled={busy}>
+                  {String(t("teamRemoveMember"))}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="message">{String(t("teamMemberImmutable"))}</p>
+          )}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function TeamPermissionsPanel({
+  session,
+  members,
+  invitations,
+  loading,
+  invitationsLoading,
+  canManageTeam,
+  inviteForm,
+  inviteBusy,
+  inviteMessage,
+  inviteError,
+  onInviteEmailChange,
+  onInviteAccountRoleChange,
+  onInviteRestaurantRoleChange,
+  onInviteRestaurantToggle,
+  onCreateInvitation,
+  onRevokeInvitation,
+  onUpdateMember,
+  onRemoveMember
+}: {
+  session: AuthSession;
+  members: AccountMember[];
+  invitations: AccountInvitation[];
+  loading: boolean;
+  invitationsLoading: boolean;
+  canManageTeam: boolean;
+  inviteForm: InviteFormState;
+  inviteBusy: boolean;
+  inviteMessage?: string;
+  inviteError?: string;
+  onInviteEmailChange: (value: string) => void;
+  onInviteAccountRoleChange: (value: "admin" | "user") => void;
+  onInviteRestaurantRoleChange: (value: "admin" | "viewer") => void;
+  onInviteRestaurantToggle: (restaurantId: string) => void;
+  onCreateInvitation: () => void;
+  onRevokeInvitation: (invitationId: string) => void;
+  onUpdateMember: (input: {
+    member: AccountMember;
+    accountRole: "admin" | "user";
+    restaurantRole: "admin" | "viewer";
+    restaurantIds: string[];
+  }) => Promise<void>;
+  onRemoveMember: (member: AccountMember) => Promise<void>;
+}) {
+  const { t } = useLocale();
+  const ownerCount = members.filter((member) => member.role === "owner").length;
+  const adminCount = members.filter((member) => member.role === "admin").length;
+  const commonUsersCount = members.filter((member) => member.role === "user").length;
+  const coveredRestaurants = new Set(
+    members.flatMap((member) => member.restaurants.map((restaurant) => restaurant.restaurantId))
+  ).size;
+
+  const formatAccountRole = (role: AccountMember["role"]) =>
+    role === "owner" ? String(t("teamRoleOwner")) : role === "admin" ? String(t("teamRoleAdmin")) : String(t("teamRoleUser"));
+
+  const formatRestaurantRole = (role: "owner" | "admin" | "viewer") =>
+    role === "owner" ? String(t("teamRoleOwner")) : role === "admin" ? String(t("teamRoleAdmin")) : String(t("teamRoleViewer"));
+
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">{String(t("navTeam"))}</span>
+          <h3>{String(t("teamTitle"))}</h3>
+          <p>{String(t("teamText"))}</p>
+        </div>
+      </div>
+
+      <div className="totals-grid">
+        <div className="totals-box compact">
+          <span className="eyebrow">{String(t("teamAccessModel"))}</span>
+          <strong>{session.globalRole === "owner" ? "OWNER" : session.globalRole === "admin" ? "ADMIN" : "USER"}</strong>
+          <p>{String(t("teamAccessModelText"))}</p>
+        </div>
+        <div className="totals-box compact">
+          <span className="eyebrow">{String(t("teamMembersTotal"))}</span>
+          <strong>{formatNumber(members.length)}</strong>
+          <p>{String(t("teamAccountRole"))}</p>
+        </div>
+        <div className="totals-box compact">
+          <span className="eyebrow">{String(t("teamAdminsTotal"))}</span>
+          <strong>{formatNumber(ownerCount + adminCount)}</strong>
+          <p>{formatNumber(ownerCount)} owner / {formatNumber(adminCount)} admin</p>
+        </div>
+        <div className="totals-box compact">
+          <span className="eyebrow">{String(t("teamUsersTotal"))}</span>
+          <strong>{formatNumber(commonUsersCount)}</strong>
+          <p>{String(t("teamRestaurantAccess"))}</p>
+        </div>
+        <div className="totals-box compact">
+          <span className="eyebrow">{String(t("teamRestaurantsTotal"))}</span>
+          <strong>{formatNumber(coveredRestaurants)}</strong>
+          <p>{String(t("authRestaurants"))}</p>
+        </div>
+      </div>
+
+      {loading ? <p className="message">{String(t("processing"))}</p> : null}
+      {!loading && members.length === 0 ? <p className="message">{String(t("teamEmpty"))}</p> : null}
+
+      {!loading && members.length > 0 ? (
+        <div className="team-members-grid">
+          {members.map((member) => (
+            <TeamMemberCard
+              key={member.membershipId}
+              session={session}
+              member={member}
+              canManageTeam={canManageTeam}
+              onSave={onUpdateMember}
+              onRemove={onRemoveMember}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {canManageTeam ? (
+        <section className="team-management-grid">
+          <article className="team-member-card">
+            <div className="section-head compact">
+              <div>
+                <span className="eyebrow">{String(t("teamInviteTitle"))}</span>
+                <h3>{String(t("teamInviteTitle"))}</h3>
+                <p>{String(t("teamInviteText"))}</p>
+              </div>
+            </div>
+
+            <div className="team-invite-form">
+              <label className="auth-field">
+                <span>{String(t("teamInviteEmail"))}</span>
+                <input
+                  value={inviteForm.email}
+                  onChange={(event) => onInviteEmailChange(event.target.value)}
+                  placeholder="nome@empresa.com"
+                />
+              </label>
+
+              <div className="team-role-grid">
+                <label className="auth-field">
+                  <span>{String(t("teamInviteAccountRole"))}</span>
+                  <select value={inviteForm.accountRole} onChange={(event) => onInviteAccountRoleChange(event.target.value as "admin" | "user")}>
+                    <option value="user">{String(t("teamRoleUser"))}</option>
+                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
+                  </select>
+                </label>
+
+                <label className="auth-field">
+                  <span>{String(t("teamInviteRestaurantRole"))}</span>
+                  <select value={inviteForm.restaurantRole} onChange={(event) => onInviteRestaurantRoleChange(event.target.value as "admin" | "viewer")}>
+                    <option value="viewer">{String(t("teamRoleViewer"))}</option>
+                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="team-restaurant-selector">
+                <span>{String(t("teamInviteRestaurants"))}</span>
+                <div className="team-restaurant-chips">
+                  {(session.memberships ?? []).map((membership) => (
+                    <button
+                      key={`invite-${membership.restaurantId}`}
+                      type="button"
+                      className={`team-restaurant-chip selectable ${inviteForm.restaurantIds.includes(membership.restaurantId) ? "selected" : ""}`}
+                      onClick={() => onInviteRestaurantToggle(membership.restaurantId)}
+                    >
+                      <strong>{membership.restaurantName}</strong>
+                      <small>
+                        {membership.role === "owner"
+                          ? String(t("teamRoleOwner"))
+                          : membership.role === "admin"
+                            ? String(t("teamRoleAdmin"))
+                            : String(t("teamRoleViewer"))}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="message">{String(t("teamInviteHint"))}</p>
+              {inviteError ? <p className="message error">{inviteError}</p> : null}
+              {inviteMessage ? <p className="message success">{inviteMessage}</p> : null}
+
+              <div className="panel-actions">
+                <button type="button" className="primary-button" onClick={onCreateInvitation} disabled={inviteBusy}>
+                  {inviteBusy ? String(t("processing")) : String(t("teamInviteAction"))}
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article className="team-member-card">
+            <div className="section-head compact">
+              <div>
+                <span className="eyebrow">{String(t("teamInvitePending"))}</span>
+                <h3>{String(t("teamInvitePending"))}</h3>
+                <p>{String(t("teamInviteHint"))}</p>
+              </div>
+            </div>
+
+            {invitationsLoading ? <p className="message">{String(t("processing"))}</p> : null}
+            {!invitationsLoading && invitations.length === 0 ? <p className="message">{String(t("teamInviteEmpty"))}</p> : null}
+
+            {!invitationsLoading && invitations.length > 0 ? (
+              <div className="team-members-grid compact">
+                {invitations.map((invitation) => (
+                  <article key={invitation.invitationId} className="team-member-card nested">
+                    <div className="team-member-head">
+                      <div>
+                        <strong>{invitation.email}</strong>
+                        <p>{formatAccountRole(invitation.accountRole)} · {formatRestaurantRole(invitation.restaurantRole)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="ghost-button danger-button"
+                        onClick={() => onRevokeInvitation(invitation.invitationId)}
+                        disabled={inviteBusy}
+                      >
+                        {String(t("teamInviteRevoke"))}
+                      </button>
+                    </div>
+                    <div className="team-restaurant-chips">
+                      {invitation.restaurants.map((restaurant) => (
+                        <span key={`${invitation.invitationId}-${restaurant.restaurantId}`} className="team-restaurant-chip">
+                          <strong>{restaurant.restaurantName}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        </section>
+      ) : (
+        <p className="message">
+          A gestão de equipe fica disponível para perfis owner/admin da conta ou do restaurante ativo.
+        </p>
+      )}
     </section>
   );
 }
@@ -1884,12 +3150,31 @@ export default function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [authError, setAuthError] = useState<string>();
   const [authLoading, setAuthLoading] = useState(true);
+  const [authHydrating, setAuthHydrating] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountMessage, setAccountMessage] = useState<string>();
   const [accountError, setAccountError] = useState<string>();
-  const [profileForm, setProfileForm] = useState<ProfileFormState>({ restaurantName: "" });
+  const [currentSection, setCurrentSection] = useState<InternalSection>("dashboard");
+  const [accountMembers, setAccountMembers] = useState<AccountMember[]>([]);
+  const [accountMembersLoading, setAccountMembersLoading] = useState(false);
+  const [accountInvitations, setAccountInvitations] = useState<AccountInvitation[]>([]);
+  const [accountInvitationsLoading, setAccountInvitationsLoading] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<string>();
+  const [inviteError, setInviteError] = useState<string>();
+  const [inviteForm, setInviteForm] = useState<InviteFormState>({
+    email: "",
+    accountRole: "user",
+    restaurantRole: "viewer",
+    restaurantIds: []
+  });
+  const [userProfileForm, setUserProfileForm] = useState<UserProfileFormState>({ fullName: "" });
+  const [restaurantProfileForm, setRestaurantProfileForm] = useState<ProfileFormState>({ restaurantName: "" });
+  const [newRestaurantName, setNewRestaurantName] = useState("");
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const [workspaceRestaurantId, setWorkspaceRestaurantId] = useState<string>();
   const [salesFiles, setSalesFiles] = useState<File[]>([]);
   const [, setRecipeFile] = useState<File | null>(null);
   const [state, setState] = useState<UploadState>({});
@@ -1897,20 +3182,126 @@ export default function App() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>(TOTAL_PERIOD);
   const [selectedView, setSelectedView] = useState<string>(TOTAL_VIEW);
   const t = <K extends keyof typeof translations.pt>(key: K) => withLocaleFallback<typeof translations.pt>(locale, key);
+  const effectiveSession = useMemo(
+    () => (session ? applyActiveRestaurant(session, getPreferredRestaurant(session.userId)) : null),
+    [session]
+  );
   const hasSalesFile = salesFiles.length > 0 || (state.periodDashboards?.length ?? 0) > 0;
+  const activeRole = effectiveSession?.activeRole ?? "owner";
+  const canManageRestaurants =
+    effectiveSession?.globalRole === "owner" ||
+    effectiveSession?.activeAccountRole === "owner" ||
+    effectiveSession?.activeAccountRole === "admin" ||
+    activeRole === "owner" ||
+    activeRole === "admin";
+  const canManageOperationalData =
+    effectiveSession?.globalRole === "owner" ||
+    effectiveSession?.activeAccountRole === "owner" ||
+    activeRole === "owner";
+  const canManageTeam =
+    effectiveSession?.globalRole === "owner" ||
+    effectiveSession?.activeAccountRole === "owner" ||
+    effectiveSession?.activeAccountRole === "admin" ||
+    activeRole === "owner" ||
+    activeRole === "admin";
   const periodDashboards = state.periodDashboards ?? [];
   const dashboard =
-    (selectedPeriod === TOTAL_PERIOD
+    selectedPeriod === TOTAL_PERIOD
       ? state.data
-      : periodDashboards.find((periodDashboard) => periodDashboard.key === selectedPeriod)?.data) ?? sampleDashboard;
-  const revenuePieData = useMemo(() => asPieData(dashboard.groups, "revenue"), [dashboard.groups]);
-  const costPieData = useMemo(() => asPieData(dashboard.groups, "cost"), [dashboard.groups]);
+      : periodDashboards.find((periodDashboard) => periodDashboard.key === selectedPeriod)?.data;
+  const hasDashboardData = Boolean(dashboard);
+  const revenuePieData = useMemo(() => (dashboard ? asPieData(dashboard.groups, "revenue") : []), [dashboard]);
+  const costPieData = useMemo(() => (dashboard ? asPieData(dashboard.groups, "cost") : []), [dashboard]);
 
   useEffect(() => {
-    if (selectedView !== TOTAL_VIEW && !dashboard.groups.some((group) => group.name === selectedView)) {
+    if (!state.recipeBase?.length) {
+      return;
+    }
+
+    const nextDuplicateCodes = getDuplicateCodes(state.recipeBase);
+    const currentDuplicateCodes = state.duplicateRecipeCodes ?? [];
+    if (JSON.stringify(nextDuplicateCodes) === JSON.stringify(currentDuplicateCodes)) {
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      duplicateRecipeCodes: nextDuplicateCodes,
+      data: current.data
+        ? {
+            ...current.data,
+            duplicateRecipeCodes: nextDuplicateCodes,
+            issues: current.data.issues.filter((issue) => issue.id !== "duplicate-recipe-codes")
+          }
+        : current.data,
+      periodDashboards: current.periodDashboards?.map((period) => ({
+        ...period,
+        data: {
+          ...period.data,
+          duplicateRecipeCodes: nextDuplicateCodes,
+          issues: period.data.issues.filter((issue) => issue.id !== "duplicate-recipe-codes")
+        }
+      }))
+    }));
+  }, [state.recipeBase, state.duplicateRecipeCodes]);
+
+  useEffect(() => {
+    if (!effectiveSession || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
+      setAccountMembers([]);
+      setAccountMembersLoading(false);
+      setAccountInvitations([]);
+      setAccountInvitationsLoading(false);
+      return;
+    }
+
+    let mounted = true;
+    setAccountMembersLoading(true);
+    setAccountInvitationsLoading(true);
+
+    void loadAccountMembers(effectiveSession.activeAccountId)
+      .then((members) => {
+        if (mounted) {
+          setAccountMembers(members);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setAccountMembers([]);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setAccountMembersLoading(false);
+        }
+      });
+
+    void loadAccountInvitations(effectiveSession.activeAccountId)
+      .then((invitations) => {
+        if (mounted) {
+          setAccountInvitations(invitations);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setAccountInvitations([]);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setAccountInvitationsLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [effectiveSession]);
+
+  useEffect(() => {
+    if (selectedView !== TOTAL_VIEW && !dashboard?.groups.some((group) => group.name === selectedView)) {
       setSelectedView(TOTAL_VIEW);
     }
-  }, [dashboard.groups, selectedView]);
+  }, [dashboard, selectedView]);
 
   useEffect(() => {
     if (selectedPeriod !== TOTAL_PERIOD && !periodDashboards.some((periodDashboard) => periodDashboard.key === selectedPeriod)) {
@@ -1919,16 +3310,34 @@ export default function App() {
   }, [periodDashboards, selectedPeriod]);
 
   useEffect(() => {
-    if (!session) {
-      setProfileForm({ restaurantName: "" });
+    if (!effectiveSession) {
+      setUserProfileForm({ fullName: "" });
+      setRestaurantProfileForm({ restaurantName: "" });
+      setInviteForm({
+        email: "",
+        accountRole: "user",
+        restaurantRole: "viewer",
+        restaurantIds: []
+      });
       return;
     }
 
-    setProfileForm({
-      restaurantName: session.restaurantName,
-      profilePhotoUrl: session.profilePhotoUrl
+    setUserProfileForm({
+      fullName: effectiveSession.userFullName ?? effectiveSession.restaurantName ?? "",
+      userPhotoUrl: effectiveSession.userPhotoUrl
     });
-  }, [session]);
+    setRestaurantProfileForm({
+      restaurantName: effectiveSession.restaurantName ?? effectiveSession.activeRestaurantName ?? "",
+      profilePhotoUrl: effectiveSession.profilePhotoUrl
+    });
+    setInviteForm((current) => ({
+      ...current,
+      restaurantIds:
+        current.restaurantIds.length > 0
+          ? current.restaurantIds
+          : (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
+    }));
+  }, [effectiveSession]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -1938,7 +3347,21 @@ export default function App() {
     }
 
     let mounted = true;
-    void getSupabaseSession()
+    const withTimeout = <T,>(promise: Promise<T>, ms: number) =>
+      new Promise<T>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error("Tempo limite ao inicializar autenticação.")), ms);
+        promise
+          .then((value) => {
+            window.clearTimeout(timer);
+            resolve(value);
+          })
+          .catch((error) => {
+            window.clearTimeout(timer);
+            reject(error);
+          });
+      });
+
+    void withTimeout(getSupabaseSession(), AUTH_BOOT_TIMEOUT_MS)
       .then((nextSession) => {
         if (!mounted) {
           return;
@@ -1946,9 +3369,10 @@ export default function App() {
 
         setSession(nextSession);
       })
-      .catch(() => {
+      .catch((error) => {
         if (mounted) {
           setSession(null);
+          setAuthError(error instanceof Error ? error.message : "Não foi possível inicializar a autenticação.");
         }
       })
       .finally(() => {
@@ -1973,24 +3397,83 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
+    if (!session || session.authMode !== "supabase") {
+      setAuthHydrating(false);
+      return;
+    }
+
+    if ((session.memberships?.length ?? 0) > 0 && (session.activeRestaurantId ?? session.restaurantId)) {
+      setAuthHydrating(false);
+      return;
+    }
+
+    let mounted = true;
+    setAuthHydrating(true);
+
+    void hydrateSupabaseSession(session)
+      .then((nextSession) => {
+        if (!mounted || !nextSession) {
+          return;
+        }
+
+        setSession((current) => {
+          if (!current || current.userId !== nextSession.userId) {
+            return current;
+          }
+
+          const preferredRestaurantId = getPreferredRestaurant(nextSession.userId);
+          return applyActiveRestaurant(nextSession, preferredRestaurantId);
+        });
+        setAuthError(undefined);
+      })
+      .catch((error) => {
+        if (!mounted) {
+          return;
+        }
+
+        setAuthError(error instanceof Error ? error.message : "Não foi possível carregar os restaurantes da conta.");
+      })
+      .finally(() => {
+        if (mounted) {
+          setAuthHydrating(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [session]);
+
+  useEffect(() => {
+    if (!effectiveSession) {
       setWorkspaceReady(false);
+      setWorkspaceRestaurantId(undefined);
       setSalesFiles([]);
       setRecipeFile(null);
       setState({});
       setUploadFeedback([]);
       setSelectedPeriod(TOTAL_PERIOD);
       setSelectedView(TOTAL_VIEW);
+      setAuthLoading(false);
+      return;
+    }
+
+    if (effectiveSession.authMode === "supabase" && !(effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId)) {
+      setWorkspaceReady(false);
+      setWorkspaceRestaurantId(undefined);
       return;
     }
 
     let mounted = true;
+    const targetRestaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId ?? "";
+    setWorkspaceReady(false);
+    setWorkspaceRestaurantId(undefined);
     const loadWorkspace = async () => {
       try {
         const workspace =
-          session.authMode === "supabase"
-            ? await loadCloudWorkspace(session.userId)
-            : loadRestaurantWorkspace<PersistedWorkspace>(session.restaurantId);
+          effectiveSession.authMode === "supabase"
+            ? await loadCloudWorkspace(targetRestaurantId)
+            : loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
 
         if (!mounted) {
           return;
@@ -2004,6 +3487,7 @@ export default function App() {
         setUploadFeedback(workspace?.uploadFeedback ?? []);
         setSelectedPeriod(workspace?.selectedPeriod ?? TOTAL_PERIOD);
         setSelectedView(workspace?.selectedView ?? TOTAL_VIEW);
+        setWorkspaceRestaurantId(targetRestaurantId);
         setWorkspaceReady(true);
       } catch (error) {
         if (!mounted) {
@@ -2011,6 +3495,7 @@ export default function App() {
         }
 
         setAuthError(error instanceof Error ? error.message : "Não foi possível carregar a base do restaurante.");
+        setWorkspaceRestaurantId(targetRestaurantId);
         setWorkspaceReady(true);
       }
     };
@@ -2020,10 +3505,15 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [session]);
+  }, [effectiveSession]);
 
   useEffect(() => {
-    if (!session || !workspaceReady) {
+    if (!effectiveSession || !workspaceReady) {
+      return;
+    }
+
+    const restaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId;
+    if (!restaurantId || workspaceRestaurantId !== restaurantId) {
       return;
     }
 
@@ -2035,13 +3525,13 @@ export default function App() {
       selectedView
     };
 
-    if (session.authMode === "supabase") {
-      void saveCloudWorkspace(session.userId, workspace).catch(() => undefined);
+    if (effectiveSession.authMode === "supabase") {
+      void saveCloudWorkspace(restaurantId, workspace).catch(() => undefined);
       return;
     }
 
-    saveRestaurantWorkspace<PersistedWorkspace>(session.restaurantId, workspace);
-  }, [locale, selectedPeriod, selectedView, session, state, uploadFeedback, workspaceReady]);
+    saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
+  }, [effectiveSession, locale, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
 
   const createPeriodDashboardsFromImports = (
     fileNames: string[],
@@ -2081,8 +3571,8 @@ export default function App() {
       ...current,
       data: nextData,
       periodDashboards: nextPeriods,
-      salesFileNames: nextPeriods.map((period) => period.label),
-      recipeFileName: options?.recipeFileName ?? current.recipeFileName,
+      salesFileNames: undefined,
+      recipeFileName: undefined,
       recipeBase: options?.recipeBase ?? current.recipeBase,
       duplicateRecipeCodes: options?.duplicateRecipeCodes ?? current.duplicateRecipeCodes,
       validations: options?.validations ?? current.validations,
@@ -2107,7 +3597,7 @@ export default function App() {
     }
 
     const recipes = state.recipeBase;
-    const duplicateRecipeCodes = state.duplicateRecipeCodes ?? getDuplicateCodes(recipes.map((recipe) => recipe.code));
+    const duplicateRecipeCodes = state.duplicateRecipeCodes ?? getDuplicateCodes(recipes);
     let validations = state.validations?.filter((item) => item.kind === "recipes") ?? [];
 
     try {
@@ -2199,7 +3689,7 @@ export default function App() {
         throw new Error("Nenhuma linha válida foi encontrada no arquivo de fichas técnicas.");
       }
 
-      const duplicateRecipeCodes = getDuplicateCodes(recipes.map((recipe) => recipe.code));
+      const duplicateRecipeCodes = getDuplicateCodes(recipes);
       const rebuiltPeriods = periodDashboards.map((period) => ({
         key: period.key,
         label: period.label,
@@ -2276,6 +3766,10 @@ export default function App() {
   };
 
   const handleUpload = (kind: "sales" | "recipes", files: File[]) => {
+    if (!canManageOperationalData) {
+      return;
+    }
+
     if (files.length === 0) {
       return;
     }
@@ -2298,6 +3792,17 @@ export default function App() {
   };
 
   const handleRemovePeriod = (periodKey: string) => {
+    const targetPeriod = periodDashboards.find((period) => period.key === periodKey);
+    const targetLabel = targetPeriod ? getPeriodLabel(targetPeriod) : periodKey;
+    if (typeof window !== "undefined") {
+      const shouldRemove = window.confirm(
+        `Deseja excluir apenas o período ${targetLabel}?\n\nEssa ação remove somente os dados desse mês da análise atual e não pode ser desfeita.`
+      );
+      if (!shouldRemove) {
+        return;
+      }
+    }
+
     rebuildFromPeriods(periodDashboards.filter((period) => period.key !== periodKey));
   };
 
@@ -2323,25 +3828,36 @@ export default function App() {
 
   const handleLogin = async (email: string, password: string) => {
     try {
+      setAuthSubmitting(true);
+      setAuthError(undefined);
       const nextSession = isSupabaseConfigured
         ? await signInWithSupabase(email, password)
         : signIn(email, password);
+      if (!(nextSession.activeRestaurantId ?? nextSession.restaurantId)) {
+        throw new Error("Login efetuado, mas nenhum restaurante ativo foi encontrado para esta conta.");
+      }
       setSession(nextSession);
       setAuthError(undefined);
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Não foi possível entrar.");
+    } finally {
+      setAuthSubmitting(false);
     }
   };
 
-  const handleRegister = async (restaurantName: string, email: string, password: string) => {
+  const handleRegister = async (fullName: string, email: string, password: string) => {
     try {
+      setAuthSubmitting(true);
+      setAuthError(undefined);
       const nextSession = isSupabaseConfigured
-        ? await registerRestaurantWithSupabase({ restaurantName, email, password })
-        : registerRestaurant({ restaurantName, email, password });
+        ? await registerRestaurantWithSupabase({ fullName, email, password })
+        : registerRestaurant({ fullName, email, password });
       setSession(nextSession);
       setAuthError(undefined);
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Não foi possível criar o acesso.");
+    } finally {
+      setAuthSubmitting(false);
     }
   };
 
@@ -2357,14 +3873,174 @@ export default function App() {
     }
   };
 
-  const handlePhotoSelect = async (file: File | null) => {
+  const handleSelectRestaurant = (restaurantId: string) => {
+    if (!session) {
+      return;
+    }
+
+    savePreferredRestaurant(session.userId, restaurantId);
+    setWorkspaceReady(false);
+    setWorkspaceRestaurantId(undefined);
+    setSalesFiles([]);
+    setRecipeFile(null);
+    setState({});
+    setUploadFeedback([]);
+    setSelectedPeriod(TOTAL_PERIOD);
+    setSelectedView(TOTAL_VIEW);
+    setSession((current) => (current ? applyActiveRestaurant(current, restaurantId) : current));
+    setAccountPanelOpen(false);
+    setAccountError(undefined);
+    setAccountMessage(undefined);
+  };
+
+  const refreshTeamData = async (currentSession: AuthSession) => {
+    if (currentSession.authMode !== "supabase" || !currentSession.activeAccountId) {
+      setAccountMembers([]);
+      setAccountInvitations([]);
+      return;
+    }
+
+    setAccountMembersLoading(true);
+    setAccountInvitationsLoading(true);
+
+    try {
+      const [members, invitations] = await Promise.all([
+        loadAccountMembers(currentSession.activeAccountId),
+        loadAccountInvitations(currentSession.activeAccountId)
+      ]);
+      setAccountMembers(members);
+      setAccountInvitations(invitations);
+    } finally {
+      setAccountMembersLoading(false);
+      setAccountInvitationsLoading(false);
+    }
+  };
+
+  const handleInviteRestaurantToggle = (restaurantId: string) => {
+    setInviteForm((current) => ({
+      ...current,
+      restaurantIds: current.restaurantIds.includes(restaurantId)
+        ? current.restaurantIds.filter((id) => id !== restaurantId)
+        : [...current.restaurantIds, restaurantId]
+    }));
+  };
+
+  const handleCreateInvitation = async () => {
+    if (!effectiveSession || effectiveSession.authMode !== "supabase") {
+      return;
+    }
+
+    if (!effectiveSession.activeAccountId) {
+      setInviteError("Não foi possível identificar a conta ativa deste usuário. Atualize o vínculo da conta no banco antes de enviar convites.");
+      return;
+    }
+
+    try {
+      setInviteBusy(true);
+      setInviteError(undefined);
+      setInviteMessage(undefined);
+      await createAccountInvitation({
+        email: inviteForm.email,
+        accountRole: inviteForm.accountRole,
+        restaurantRole: inviteForm.restaurantRole,
+        restaurantIds: inviteForm.restaurantIds
+      });
+      await refreshTeamData(effectiveSession);
+      setInviteMessage("Convite criado com sucesso.");
+      setInviteForm({
+        email: "",
+        accountRole: "user",
+        restaurantRole: "viewer",
+        restaurantIds: (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
+      });
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : "Não foi possível criar o convite.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId: string) => {
+    if (!effectiveSession || effectiveSession.authMode !== "supabase") {
+      return;
+    }
+
+    try {
+      setInviteBusy(true);
+      setInviteError(undefined);
+      setInviteMessage(undefined);
+      await revokeAccountInvitation(invitationId);
+      await refreshTeamData(effectiveSession);
+      setInviteMessage("Convite revogado com sucesso.");
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : "Não foi possível revogar o convite.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleUpdateMember = async ({
+    member,
+    accountRole,
+    restaurantRole,
+    restaurantIds
+  }: {
+    member: AccountMember;
+    accountRole: "admin" | "user";
+    restaurantRole: "admin" | "viewer";
+    restaurantIds: string[];
+  }) => {
+    if (!effectiveSession || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
+      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
+    }
+
+    await updateAccountMemberAccess({
+      accountId: effectiveSession.activeAccountId,
+      userId: member.userId,
+      accountRole,
+      restaurantRole,
+      restaurantIds
+    });
+    await refreshTeamData(effectiveSession);
+  };
+
+  const handleRemoveMember = async (member: AccountMember) => {
+    if (!effectiveSession || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
+      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
+    }
+
+    await removeAccountMemberAccess({
+      accountId: effectiveSession.activeAccountId,
+      userId: member.userId
+    });
+    await refreshTeamData(effectiveSession);
+  };
+
+  const handleUserPhotoSelect = async (file: File | null) => {
     if (!file) {
       return;
     }
 
     try {
       const imageData = await readFileAsDataUrl(file);
-      setProfileForm((current) => ({
+      setUserProfileForm((current) => ({
+        ...current,
+        userPhotoUrl: imageData
+      }));
+      setAccountError(undefined);
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem.");
+    }
+  };
+
+  const handleRestaurantPhotoSelect = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const imageData = await readFileAsDataUrl(file);
+      setRestaurantProfileForm((current) => ({
         ...current,
         profilePhotoUrl: imageData
       }));
@@ -2374,7 +4050,7 @@ export default function App() {
     }
   };
 
-  const handleSaveAccount = async () => {
+  const handleSaveUserAccount = async () => {
     if (!session) {
       return;
     }
@@ -2386,13 +4062,101 @@ export default function App() {
 
       const nextSession =
         session.authMode === "supabase"
-          ? await updateSupabaseRestaurantProfile(session, profileForm)
-          : updateLocalRestaurantProfile(session, profileForm);
+          ? await updateSupabaseUserProfile(session, userProfileForm)
+          : updateLocalUserProfile(session, userProfileForm);
+
+      setSession(nextSession);
+      if (nextSession.authMode === "supabase") {
+        await refreshTeamData(nextSession);
+      }
+      setAccountMessage(String(t("authProfileUpdated")));
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleSaveRestaurantAccount = async () => {
+    if (!session) {
+      return;
+    }
+
+    try {
+      setAccountBusy(true);
+      setAccountError(undefined);
+      setAccountMessage(undefined);
+
+      const nextSession =
+        session.authMode === "supabase"
+          ? await updateSupabaseRestaurantProfile(session, restaurantProfileForm)
+          : updateLocalRestaurantProfile(session, restaurantProfileForm);
 
       setSession(nextSession);
       setAccountMessage(String(t("authProfileUpdated")));
     } catch (error) {
       setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleCreateRestaurant = async () => {
+    if (!session) {
+      return;
+    }
+
+    try {
+      setAccountBusy(true);
+      setAccountError(undefined);
+      setAccountMessage(undefined);
+
+      const nextSession =
+        session.authMode === "supabase"
+          ? await createSupabaseRestaurantForCurrentUser(session, newRestaurantName)
+          : createLocalRestaurantForAccount(session, newRestaurantName);
+
+      const nextRestaurantId = nextSession.activeRestaurantId ?? nextSession.restaurantId;
+      if (nextRestaurantId) {
+        savePreferredRestaurant(nextSession.userId, nextRestaurantId);
+      }
+      setSession(nextSession);
+      setNewRestaurantName("");
+      setAccountMessage("Restaurante cadastrado com sucesso.");
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : "Não foi possível cadastrar o restaurante.");
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const handleDeleteRestaurant = async (restaurantId: string) => {
+    if (!session) {
+      return;
+    }
+
+    if (!window.confirm("Tem certeza que deseja excluir este restaurante? Esta ação remove a base dessa unidade.")) {
+      return;
+    }
+
+    try {
+      setAccountBusy(true);
+      setAccountError(undefined);
+      setAccountMessage(undefined);
+
+      const nextSession =
+        session.authMode === "supabase"
+          ? await deleteSupabaseRestaurantFromAccount(session, restaurantId)
+          : deleteLocalRestaurantFromAccount(session, restaurantId);
+
+      const nextRestaurantId = nextSession.activeRestaurantId ?? nextSession.restaurantId;
+      if (nextRestaurantId) {
+        savePreferredRestaurant(nextSession.userId, nextRestaurantId);
+      }
+      setSession(nextSession);
+      setAccountMessage("Restaurante excluído com sucesso.");
+    } catch (error) {
+      setAccountError(error instanceof Error ? error.message : "Não foi possível excluir o restaurante.");
     } finally {
       setAccountBusy(false);
     }
@@ -2423,19 +4187,23 @@ export default function App() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || authHydrating) {
     return (
       <LocaleContext.Provider value={locale}>
         <div className="app-shell refined auth-shell">
           <section className="card">
-            <p className="message">{String(t("processing"))}</p>
+            <p className="message">
+              {authLoading
+                ? "Inicializando acesso e verificando a sua conta..."
+                : "Carregando restaurantes e permissões da sua conta..."}
+            </p>
           </section>
         </div>
       </LocaleContext.Provider>
     );
   }
 
-  if (!session) {
+  if (!effectiveSession) {
     return (
       <LocaleContext.Provider value={locale}>
         <AuthScreen
@@ -2445,6 +4213,7 @@ export default function App() {
           onRegister={handleRegister}
           error={authError}
           isCloudEnabled={isSupabaseConfigured}
+          busy={authSubmitting}
         />
       </LocaleContext.Provider>
     );
@@ -2453,65 +4222,73 @@ export default function App() {
   return (
     <LocaleContext.Provider value={locale}>
     <div className="app-shell refined">
-      <header className="hero refined-hero">
-        <div className="hero-copy">
-          <BrandMark />
-          <div className="hero-copy-block">
-            <span className="eyebrow">{String(t("homeHeroBadge"))}</span>
-            <h1>{String(t("homeHeroTitle"))}</h1>
-            <p>
-              {String(t("homeHeroText"))}
-            </p>
-          </div>
-          <HeroHighlights />
-        </div>
-        <div className="hero-side">
-          <div className="hero-panel">
-            <LanguageSwitcher locale={locale} onChange={setLocale} />
-            <div className="hero-panel-top">
-              <span className="eyebrow">{String(t("heroGainEyebrow"))}</span>
-              <h2>{String(t("heroGainTitle"))}</h2>
-              <p>{String(t("heroGainText"))}</p>
-            </div>
-            <div className="hero-metric-stack">
-              <div className="hero-metric-card">
-                <span className="icon-chip warm">
-                  <IconChart />
-                </span>
-                <div>
-                  <strong>{String(t("homeHeroStat1"))}</strong>
-                  <p>{String(t("homeHeroStat1Text"))}</p>
-                </div>
-              </div>
-              <div className="hero-metric-card">
-                <span className="icon-chip cool">
-                  <IconCalendar />
-                </span>
-                <div>
-                  <strong>{String(t("homeHeroStat2"))}</strong>
-                  <p>{String(t("homeHeroStat2Text"))}</p>
-                </div>
-              </div>
-              <div className="hero-metric-card">
-                <span className="icon-chip strong">
-                  <IconShield />
-                </span>
-                <div>
-                  <strong>{String(t("homeHeroStat3"))}</strong>
-                  <p>{String(t("homeHeroStat3Text"))}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="content">
-        <WorkspaceHeader session={session} onLogout={handleLogout} onOpenSettings={() => setAccountPanelOpen(true)} />
+        <section className="card workspace-topbar">
+          <BrandMark />
+          <div className="workspace-topbar-actions">
+            <LanguageSwitcher locale={locale} onChange={setLocale} />
+          </div>
+        </section>
+        <InternalNavigation section={currentSection} onChange={setCurrentSection} canManageRestaurants={Boolean(canManageRestaurants)} />
+        {currentSection === "account" ? (
+          <WorkspaceHeader
+            session={effectiveSession}
+            onLogout={handleLogout}
+            onOpenSettings={() => setAccountPanelOpen(true)}
+            canOpenSettings
+          />
+        ) : null}
+        {currentSection === "dashboard" ? (
+          <RestaurantNavigatorPanel
+            session={effectiveSession}
+            onActivateRestaurant={handleSelectRestaurant}
+          />
+        ) : null}
+        {currentSection === "restaurants" && canManageRestaurants ? (
+          <RestaurantManagementPanel
+            session={effectiveSession}
+            restaurantForm={restaurantProfileForm}
+            newRestaurantName={newRestaurantName}
+            busy={accountBusy}
+            message={accountMessage}
+            error={accountError}
+            onRestaurantNameChange={(value) => setRestaurantProfileForm((current) => ({ ...current, restaurantName: value }))}
+            onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
+            onCreateRestaurantNameChange={setNewRestaurantName}
+            onSaveRestaurant={handleSaveRestaurantAccount}
+            onCreateRestaurant={handleCreateRestaurant}
+            onDeleteRestaurant={handleDeleteRestaurant}
+            onActivateRestaurant={handleSelectRestaurant}
+          />
+        ) : null}
+        {currentSection === "team" ? (
+          <TeamPermissionsPanel
+            session={effectiveSession}
+            members={accountMembers}
+            invitations={accountInvitations}
+            loading={accountMembersLoading}
+            invitationsLoading={accountInvitationsLoading}
+            canManageTeam={Boolean(canManageTeam)}
+            inviteForm={inviteForm}
+            inviteBusy={inviteBusy}
+            inviteMessage={inviteMessage}
+            inviteError={inviteError}
+            onInviteEmailChange={(value) => setInviteForm((current) => ({ ...current, email: value }))}
+            onInviteAccountRoleChange={(value) => setInviteForm((current) => ({ ...current, accountRole: value }))}
+            onInviteRestaurantRoleChange={(value) => setInviteForm((current) => ({ ...current, restaurantRole: value }))}
+            onInviteRestaurantToggle={handleInviteRestaurantToggle}
+            onCreateInvitation={() => void handleCreateInvitation()}
+            onRevokeInvitation={(invitationId) => void handleRevokeInvitation(invitationId)}
+            onUpdateMember={handleUpdateMember}
+            onRemoveMember={handleRemoveMember}
+          />
+        ) : null}
         {accountPanelOpen ? (
           <AccountSettingsPanel
-            session={session}
-            form={profileForm}
+            session={effectiveSession}
+            userForm={userProfileForm}
+            restaurantForm={restaurantProfileForm}
+            newRestaurantName={newRestaurantName}
             busy={accountBusy}
             message={accountMessage}
             error={accountError}
@@ -2519,15 +4296,28 @@ export default function App() {
               setAccountPanelOpen(false);
               setAccountMessage(undefined);
               setAccountError(undefined);
-              setProfileForm({
-                restaurantName: session.restaurantName,
-                profilePhotoUrl: session.profilePhotoUrl
+              setUserProfileForm({
+                fullName: effectiveSession.userFullName ?? effectiveSession.restaurantName ?? "",
+                userPhotoUrl: effectiveSession.userPhotoUrl
               });
+              setRestaurantProfileForm({
+                restaurantName: effectiveSession.restaurantName ?? effectiveSession.activeRestaurantName ?? "",
+                profilePhotoUrl: effectiveSession.profilePhotoUrl
+              });
+              setNewRestaurantName("");
             }}
-            onNameChange={(value) => setProfileForm((current) => ({ ...current, restaurantName: value }))}
-            onPhotoSelect={handlePhotoSelect}
-            onSave={handleSaveAccount}
-            onDelete={handleDeleteAccount}
+            onUserNameChange={(value) => setUserProfileForm((current) => ({ ...current, fullName: value }))}
+            onRestaurantNameChange={(value) => setRestaurantProfileForm((current) => ({ ...current, restaurantName: value }))}
+            onUserPhotoSelect={handleUserPhotoSelect}
+            onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
+            onCreateRestaurantNameChange={setNewRestaurantName}
+            onSaveUser={handleSaveUserAccount}
+            onSaveRestaurant={handleSaveRestaurantAccount}
+            onCreateRestaurant={handleCreateRestaurant}
+            onDeleteRestaurant={handleDeleteRestaurant}
+            onDeleteAccount={handleDeleteAccount}
+            onActivateRestaurant={handleSelectRestaurant}
+            canManageRestaurants={false}
           />
         ) : null}
         {authError ? (
@@ -2535,57 +4325,96 @@ export default function App() {
             <p className="message error">{authError}</p>
           </section>
         ) : null}
-        <ProcessPanel />
-        <UploadPanel
-          state={state}
-          onUpload={handleUpload}
-          canUploadRecipes={hasSalesFile}
-          onClearAll={handleClearAll}
-          onResetFlow={handleResetFlow}
-        />
-        <UploadFeedbackPanel items={uploadFeedback} periods={periodDashboards} onRemovePeriod={handleRemovePeriod} />
-        <ValidationPanel validations={state.validations ?? []} />
-        <PeriodBanner period={dashboard.reportPeriod} selectedPeriod={selectedPeriod} dashboards={periodDashboards} />
-        <KPIGrid data={dashboard} />
-        <IssuesPanel data={dashboard} />
-        <PeriodFilterBar dashboards={periodDashboards} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} />
-        <GroupFilterBar groups={dashboard.groups} selectedView={selectedView} onSelect={setSelectedView} />
+        {currentSection === "dashboard" ? (
+          <>
+            {canManageOperationalData ? <ProcessPanel /> : null}
+            {canManageOperationalData ? (
+              <UploadPanel
+                state={state}
+                onUpload={handleUpload}
+                canUploadRecipes={hasSalesFile}
+                canManageData={canManageOperationalData}
+                onClearAll={handleClearAll}
+                onResetFlow={handleResetFlow}
+              />
+            ) : null}
+            {!hasDashboardData ? (
+              <section className="card">
+                <div className="section-head">
+                  <div>
+                    <h3>{String(t("authEmptyState"))}</h3>
+                    <p>{String(t("authRestaurantNavigatorText"))}</p>
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <>
+                {!canManageOperationalData ? (
+                  <section className="card">
+                    <div className="section-head">
+                      <div>
+                        <h3>{String(t("authReadOnlyTitle"))}</h3>
+                        <p>{String(t("authReadOnlyText"))}</p>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+                {dashboard ? (
+                  <>
+                    
+                    <ValidationPanel validations={state.validations ?? []} />
+                    <KPIGrid data={dashboard} />
+                    <IssuesPanel data={dashboard} />
+                    <PeriodFilterBar
+                      dashboards={periodDashboards}
+                      selectedPeriod={selectedPeriod}
+                      onSelect={setSelectedPeriod}
+                      onRemovePeriod={canManageOperationalData ? handleRemovePeriod : undefined}
+                      canManagePeriods={canManageOperationalData}
+                    />
+                    <GroupFilterBar groups={dashboard.groups} selectedView={selectedView} onSelect={setSelectedView} />
 
-        <section className="analytics-grid wide">
-          <DonutChartCard
-            title={String(t("chartSalesTitle"))}
-            subtitle={String(t("chartSalesText"))}
-            data={revenuePieData}
-            activeName={selectedView === TOTAL_VIEW ? undefined : selectedView}
-            onSelect={setSelectedView}
-          />
-          <DonutChartCard
-            title={String(t("chartCostTitle"))}
-            subtitle={String(t("chartCostText"))}
-            data={costPieData}
-            activeName={selectedView === TOTAL_VIEW ? undefined : selectedView}
-            onSelect={setSelectedView}
-          />
-        </section>
+                    <section className="analytics-grid wide">
+                      <DonutChartCard
+                        title={String(t("chartSalesTitle"))}
+                        subtitle={String(t("chartSalesText"))}
+                        data={revenuePieData}
+                        activeName={selectedView === TOTAL_VIEW ? undefined : selectedView}
+                        onSelect={setSelectedView}
+                      />
+                      <DonutChartCard
+                        title={String(t("chartCostTitle"))}
+                        subtitle={String(t("chartCostText"))}
+                        data={costPieData}
+                        activeName={selectedView === TOTAL_VIEW ? undefined : selectedView}
+                        onSelect={setSelectedView}
+                      />
+                    </section>
 
-        <section className="analytics-grid wide">
-          <CMVStatusPanel products={dashboard.products} />
-          <CMVGroupBars
-            groups={dashboard.groups}
-            activeName={selectedView === TOTAL_VIEW ? undefined : selectedView}
-            onSelect={setSelectedView}
-          />
-        </section>
+                    <section className="analytics-grid wide">
+                      <CMVStatusPanel products={dashboard.products} />
+                      <CMVGroupBars
+                        groups={dashboard.groups}
+                        activeName={selectedView === TOTAL_VIEW ? undefined : selectedView}
+                        onSelect={setSelectedView}
+                      />
+                    </section>
 
-        {selectedView === TOTAL_VIEW ? (
-          <TotalOverviewPanel groups={dashboard.groups} onSelect={setSelectedView} />
-        ) : (
-          <GroupExplorer groupName={selectedView} products={dashboard.products} onClear={() => setSelectedView(TOTAL_VIEW)} />
-        )}
-        <ProductHighlights products={dashboard.products} />
-        <PromotionalItemsPanel products={dashboard.products} />
-        <MissingRecipesPanel products={dashboard.products} />
-        <SalesTotalsPanel totals={dashboard.importedSalesTotals} />
+                    {selectedView === TOTAL_VIEW ? (
+                      <TotalOverviewPanel groups={dashboard.groups} onSelect={setSelectedView} />
+                    ) : (
+                      <GroupExplorer groupName={selectedView} products={dashboard.products} onClear={() => setSelectedView(TOTAL_VIEW)} />
+                    )}
+                    <ProductHighlights products={dashboard.products} />
+                    <PromotionalItemsPanel products={dashboard.products} />
+                    <MissingRecipesPanel products={dashboard.products} />
+                    <SalesTotalsPanel totals={dashboard.importedSalesTotals} />
+                  </>
+                ) : null}
+              </>
+            )}
+          </>
+        ) : null}
       </main>
     </div>
     </LocaleContext.Provider>

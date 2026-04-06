@@ -20,7 +20,12 @@ const normalizeKey = (value: unknown) =>
     .toLowerCase();
 
 const normalizeHeader = (value: string) => normalizeKey(value).replace(/[^a-z0-9]+/g, "");
-const normalizeCode = (value: unknown) => String(value ?? "").replace(/\D/g, "").slice(0, 4);
+const normalizeCode = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/^(\d+)[.,]0+$/, "$1");
 const roundToTwo = (value: number) => Math.round(value * 100) / 100;
 
 const parseLocaleNumber = (value: string) => {
@@ -215,9 +220,10 @@ const summarizeProducts = (
     issues.push({
       id: "duplicate-recipe-codes",
       tone: "danger",
-      title: "Códigos duplicados nas fichas técnicas",
-      description: "Há mais de uma ficha técnica usando o mesmo código, o que pode distorcer o cruzamento.",
-      count: duplicateRecipeCodes.length
+      title: "Códigos vinculados a itens diferentes",
+      description: "Há códigos de ficha técnica sendo usados por mais de um item de cardápio, o que pode distorcer o cruzamento.",
+      count: duplicateRecipeCodes.length,
+      details: duplicateRecipeCodes.slice(0, 10)
     });
   }
 
@@ -278,6 +284,10 @@ export const buildDashboardData = (
       const unitCost = recipe?.cost ?? 0;
       const totalCost = roundToTwo(unitCost * sale.quantity);
       const grossProfit = roundToTwo(sale.revenue - totalCost);
+      const realizedCmvPercent = sale.revenue > 0 ? roundToTwo((totalCost / sale.revenue) * 100) : 0;
+      const theoreticalCmvPercent =
+        recipe?.cmvPercent ??
+        (recipe?.salePrice && recipe.salePrice > 0 ? roundToTwo((unitCost / recipe.salePrice) * 100) : 0);
 
       return {
         code: sale.code,
@@ -288,7 +298,7 @@ export const buildDashboardData = (
         revenue: sale.revenue,
         cost: totalCost,
         grossProfit,
-        cmvPercent: sale.revenue > 0 ? roundToTwo((totalCost / sale.revenue) * 100) : 0,
+        cmvPercent: theoreticalCmvPercent || realizedCmvPercent,
         matchedRecipe: Boolean(recipe),
         isPromotional: Boolean(recipe?.isPromotional)
       };
