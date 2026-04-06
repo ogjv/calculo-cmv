@@ -1531,6 +1531,23 @@ input {
   padding: 18px;
 }
 
+.subgroup-card .table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.subgroup-card table {
+  min-width: 640px;
+}
+
+.subgroup-card th,
+.subgroup-card td {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  vertical-align: middle;
+}
+
 .totals-box.compact strong {
   font-size: 1.45rem;
 }
@@ -1948,5 +1965,25 @@ th {
 
   table {
     min-width: 0;
+  }
+
+  .subgroup-head {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .subgroup-card {
+    padding: 16px;
+  }
+
+  .subgroup-card table {
+    min-width: 560px;
+  }
+
+  .subgroup-card th,
+  .subgroup-card td {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
   }
 }
