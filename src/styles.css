@@ -1536,12 +1536,29 @@ input {
   -webkit-overflow-scrolling: touch;
 }
 
+.insight-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .subgroup-card table {
   min-width: 640px;
 }
 
+.insight-table-wrap table {
+  min-width: 700px;
+}
+
 .subgroup-card th,
 .subgroup-card td {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  vertical-align: middle;
+}
+
+.insight-table-wrap th,
+.insight-table-wrap td {
   white-space: nowrap;
   word-break: normal;
   overflow-wrap: normal;
@@ -1985,5 +2002,38 @@ th {
     white-space: nowrap;
     word-break: normal;
     overflow-wrap: normal;
+  }
+
+  .insight-table-wrap table {
+    min-width: 620px;
+  }
+
+  .insight-table-wrap th,
+  .insight-table-wrap td {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .ranking-labels,
+  .meta-inline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ranking-row {
+    gap: 10px;
+  }
+
+  .ranking-labels strong,
+  .ranking-labels span,
+  .meta-inline small {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+  }
+
+  .bar-track {
+    height: 10px;
   }
 }

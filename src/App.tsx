@@ -1730,7 +1730,7 @@ function MissingRecipesPanel({ products }: { products: ProductSummary[] }) {
         </div>
       </div>
 
-      <div className="table-wrap">
+      <div className="table-wrap insight-table-wrap">
         <table>
           <thead>
             <tr>
@@ -1784,7 +1784,7 @@ function PromotionalItemsPanel({ products }: { products: ProductSummary[] }) {
         </div>
       </div>
 
-      <div className="table-wrap">
+      <div className="table-wrap insight-table-wrap">
         <table>
           <thead>
             <tr>
