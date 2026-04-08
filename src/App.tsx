@@ -71,8 +71,7 @@ type UserProfileFormState = {
 
 type InviteFormState = {
   email: string;
-  accountRole: "admin" | "user";
-  restaurantRole: "admin" | "viewer";
+  featureIds: string[];
   restaurantIds: string[];
 };
 
@@ -80,8 +79,10 @@ type InternalSection = "account" | "dashboard" | "restaurants" | "team";
 
 const TOTAL_VIEW = "__TOTAL__";
 const TOTAL_PERIOD = "__ALL_PERIODS__";
+const DEFAULT_INVITE_FEATURE = "cmv_dashboard";
 const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
 const AUTH_BOOT_TIMEOUT_MS = 8000;
+const INTERNAL_SECTIONS: InternalSection[] = ["dashboard", "account", "restaurants", "team"];
 
 const translations = {
   pt: {
@@ -262,6 +263,8 @@ const translations = {
     teamInviteTitle: "Convidar pessoa",
     teamInviteText: "Defina o acesso da pessoa por e-mail e vincule os restaurantes liberados para ela.",
     teamInviteEmail: "E-mail da pessoa",
+    teamInviteFeatures: "Funcionalidades liberadas",
+    teamFeatureDashboard: "Dashboard de CMV",
     teamInviteAccountRole: "Papel na conta",
     teamInviteRestaurantRole: "Papel nos restaurantes",
     teamInviteRestaurants: "Restaurantes liberados",
@@ -273,7 +276,7 @@ const translations = {
     teamInviteRestaurantOptional: "Se a pessoa foi convidada, ela pode deixar o nome do restaurante em branco no cadastro.",
     authFullNameHint: "Use o nome da pessoa. Os restaurantes podem ser vinculados depois.",
     teamManageMember: "Gerenciar acesso",
-    teamManageMemberText: "Ajuste papel na conta, papel nos restaurantes e remova acessos quando necessário.",
+    teamManageMemberText: "Ajuste as funcionalidades liberadas, os restaurantes vinculados e remova acessos quando necessário.",
     teamSaveMember: "Salvar acesso",
     teamRemoveMember: "Remover acesso",
     teamMemberUpdated: "Acesso atualizado com sucesso.",
@@ -396,6 +399,8 @@ const translations = {
     teamInviteTitle: "Invitar persona",
     teamInviteText: "Define el acceso por correo y vincula los restaurantes permitidos para esa persona.",
     teamInviteEmail: "Correo de la persona",
+    teamInviteFeatures: "Funciones habilitadas",
+    teamFeatureDashboard: "Dashboard de CMV",
     teamInviteAccountRole: "Rol en la cuenta",
     teamInviteRestaurantRole: "Rol en los restaurantes",
     teamInviteRestaurants: "Restaurantes habilitados",
@@ -407,7 +412,7 @@ const translations = {
     teamInviteRestaurantOptional: "Si la persona fue invitada, puede dejar el nombre del restaurante vacío al registrarse.",
     authFullNameHint: "Usa el nombre de la persona. Los restaurantes pueden vincularse después.",
     teamManageMember: "Gestionar acceso",
-    teamManageMemberText: "Ajusta el rol en la cuenta, el rol en restaurantes y elimina accesos cuando sea necesario.",
+    teamManageMemberText: "Ajusta las funciones habilitadas, los restaurantes vinculados y elimina accesos cuando sea necesario.",
     teamSaveMember: "Guardar acceso",
     teamRemoveMember: "Quitar acceso",
     teamMemberUpdated: "Acceso actualizado correctamente.",
@@ -503,6 +508,8 @@ const translations = {
     teamInviteTitle: "Invite person",
     teamInviteText: "Define access by email and link the restaurants that person can use.",
     teamInviteEmail: "Person email",
+    teamInviteFeatures: "Enabled features",
+    teamFeatureDashboard: "CMV Dashboard",
     teamInviteAccountRole: "Account role",
     teamInviteRestaurantRole: "Restaurant role",
     teamInviteRestaurants: "Allowed restaurants",
@@ -514,7 +521,7 @@ const translations = {
     teamInviteRestaurantOptional: "If the person was invited, they can leave the restaurant name blank during sign-up.",
     authFullNameHint: "Use the person's name. Restaurants can be linked later.",
     teamManageMember: "Manage access",
-    teamManageMemberText: "Adjust account role, restaurant role and remove access when needed.",
+    teamManageMemberText: "Adjust enabled features, linked restaurants and remove access when needed.",
     teamSaveMember: "Save access",
     teamRemoveMember: "Remove access",
     teamMemberUpdated: "Access updated successfully.",
@@ -565,6 +572,45 @@ const dedupeFiles = (files: File[]) => {
   return [...map.values()];
 };
 
+const normalizeDisplayProductKey = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const mergeProductsForDisplay = (products: ProductSummary[]) =>
+  [...products
+    .reduce((map, item) => {
+      const normalizedCode = item.code.trim().toUpperCase();
+      const normalizedName = normalizeDisplayProductKey(item.itemName);
+      const key = `${normalizedCode || "__NO_CODE__"}::${normalizedName}`;
+      const current = map.get(key);
+
+      if (!current) {
+        map.set(key, { ...item });
+        return map;
+      }
+
+      const previousRevenue = current.revenue;
+      const nextRevenue = current.revenue + item.revenue;
+
+      current.quantity += item.quantity;
+      current.revenue = nextRevenue;
+      current.cost += item.cost;
+      current.grossProfit += item.grossProfit;
+      current.matchedRecipe = current.matchedRecipe || item.matchedRecipe;
+      current.isPromotional = current.isPromotional || item.isPromotional;
+      current.cmvPercent =
+        nextRevenue > 0
+          ? Number((((current.cmvPercent * previousRevenue) + (item.cmvPercent * item.revenue)) / nextRevenue).toFixed(2))
+          : Number(Math.max(current.cmvPercent, item.cmvPercent).toFixed(2));
+
+      return map;
+    }, new Map<string, ProductSummary>())
+    .values()];
+
 const getPreferredRestaurant = (userId: string) => {
   if (typeof window === "undefined") {
     return undefined;
@@ -580,6 +626,9 @@ const savePreferredRestaurant = (userId: string, restaurantId: string) => {
 
   window.localStorage.setItem(`${ACTIVE_RESTAURANT_STORAGE_PREFIX}${userId}`, restaurantId);
 };
+
+const isInternalSection = (value: string | undefined): value is InternalSection =>
+  Boolean(value && INTERNAL_SECTIONS.includes(value as InternalSection));
 
 const applyActiveRestaurant = (session: AuthSession, restaurantId?: string): AuthSession => {
   const memberships = session.memberships ?? [];
@@ -1005,6 +1054,8 @@ const asPieData = (rows: GroupSummary[], metric: "revenue" | "cost"): PieDatum[]
 
 function KPIGrid({ data }: { data: DashboardData }) {
   const { t } = useLocale();
+  const unmatchedProducts = mergeProductsForDisplay(data.products.filter((item) => !item.matchedRecipe));
+  const promotionalProducts = mergeProductsForDisplay(data.promotionalProducts);
   const cards = [
     { label: String(t("kpiRevenue")), value: formatCurrency(data.totalRevenue), hint: (t("soldItems") as (count: string) => string)(formatNumber(data.totalQuantity)) },
     { label: String(t("kpiCost")), value: formatCurrency(data.totalCost), hint: (t("costHint") as (value: string) => string)(formatPercent(data.averageCMV)) },
@@ -1015,12 +1066,12 @@ function KPIGrid({ data }: { data: DashboardData }) {
     },
     {
       label: String(t("kpiMissingFt")),
-      value: formatNumber(data.products.filter((item) => !item.matchedRecipe).length),
+      value: formatNumber(unmatchedProducts.length),
       hint: (t("coverage") as (value: string) => string)(formatPercent(data.coveragePercent))
     },
     {
       label: String(t("kpiPromo")),
-      value: formatNumber(data.promotionalProducts.length),
+      value: formatNumber(promotionalProducts.length),
       hint: String(t("promoHint"))
     }
   ];
@@ -1706,7 +1757,7 @@ function CMVGroupBars({ groups, onSelect, activeName }: { groups: GroupSummary[]
 
 function MissingRecipesPanel({ products }: { products: ProductSummary[] }) {
   const { t } = useLocale();
-  const unmatchedProducts = products.filter((item) => !item.matchedRecipe);
+  const unmatchedProducts = mergeProductsForDisplay(products.filter((item) => !item.matchedRecipe));
   const unmatchedRevenue = unmatchedProducts.reduce((sum, item) => sum + item.revenue, 0);
 
   if (unmatchedProducts.length === 0) {
@@ -1760,7 +1811,7 @@ function MissingRecipesPanel({ products }: { products: ProductSummary[] }) {
 
 function PromotionalItemsPanel({ products }: { products: ProductSummary[] }) {
   const { t } = useLocale();
-  const promotionalProducts = products.filter((item) => item.isPromotional);
+  const promotionalProducts = mergeProductsForDisplay(products.filter((item) => item.isPromotional));
   const promotionalCost = promotionalProducts.reduce((sum, item) => sum + item.cost, 0);
 
   if (promotionalProducts.length === 0) {
@@ -1917,8 +1968,14 @@ function GroupExplorer({
 function ProductHighlights({ products }: { products: ProductSummary[] }) {
   const { t } = useLocale();
   const validProducts = products.filter((item) => item.matchedRecipe && !item.isPromotional);
-  const topRevenue = validProducts.slice().sort((a, b) => b.revenue - a.revenue).slice(0, 6);
-  const highestCMV = validProducts.slice().sort((a, b) => b.cmvPercent - a.cmvPercent).slice(0, 6);
+  const highlightedProducts = mergeProductsForDisplay(validProducts);
+
+  const topRevenue = highlightedProducts.slice().sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+  const highestCMV = highlightedProducts
+    .filter((item) => item.revenue > 0 && item.quantity > 0)
+    .slice()
+    .sort((a, b) => b.cmvPercent - a.cmvPercent)
+    .slice(0, 6);
 
   return (
     <section className="analytics-grid">
@@ -2697,20 +2754,14 @@ function TeamMemberCard({
   onRemove: (member: AccountMember) => Promise<void>;
 }) {
   const { t } = useLocale();
-  const [accountRole, setAccountRole] = useState<"admin" | "user">(member.role === "admin" ? "admin" : "user");
-  const [restaurantRole, setRestaurantRole] = useState<"admin" | "viewer">(
-    member.restaurants.some((restaurant) => restaurant.role === "admin" || restaurant.role === "owner") ? "admin" : "viewer"
-  );
+  const [featureIds, setFeatureIds] = useState<string[]>([DEFAULT_INVITE_FEATURE]);
   const [restaurantIds, setRestaurantIds] = useState<string[]>(member.restaurants.map((restaurant) => restaurant.restaurantId));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    setAccountRole(member.role === "admin" ? "admin" : "user");
-    setRestaurantRole(
-      member.restaurants.some((restaurant) => restaurant.role === "admin" || restaurant.role === "owner") ? "admin" : "viewer"
-    );
+    setFeatureIds([DEFAULT_INVITE_FEATURE]);
     setRestaurantIds(member.restaurants.map((restaurant) => restaurant.restaurantId));
     setMessage(undefined);
     setError(undefined);
@@ -2743,13 +2794,11 @@ function TeamMemberCard({
   const canEditMember =
     canManageTeam &&
     member.userId !== session.userId &&
-    member.role !== "owner" &&
-    !member.restaurants.some((restaurant) => restaurant.role === "owner");
+    member.role === "user" &&
+    !member.restaurants.some((restaurant) => restaurant.role === "owner" || restaurant.role === "admin");
 
   const hasChanges =
-    accountRole !== (member.role === "admin" ? "admin" : "user") ||
-    restaurantRole !==
-      (member.restaurants.some((restaurant) => restaurant.role === "admin" || restaurant.role === "owner") ? "admin" : "viewer") ||
+    JSON.stringify([...featureIds].sort()) !== JSON.stringify([DEFAULT_INVITE_FEATURE]) ||
     JSON.stringify([...restaurantIds].sort()) !==
       JSON.stringify(member.restaurants.map((restaurant) => restaurant.restaurantId).sort());
 
@@ -2759,15 +2808,24 @@ function TeamMemberCard({
     );
   };
 
+  const handleFeatureToggle = (featureId: string) => {
+    setFeatureIds((current) =>
+      current.includes(featureId) ? current.filter((id) => id !== featureId) : [...current, featureId]
+    );
+  };
+
   const handleSave = async () => {
     try {
       setBusy(true);
       setError(undefined);
       setMessage(undefined);
+      if (featureIds.length === 0) {
+        throw new Error("Selecione ao menos uma funcionalidade.");
+      }
       await onSave({
         member,
-        accountRole,
-        restaurantRole,
+        accountRole: "user",
+        restaurantRole: "viewer",
         restaurantIds
       });
       setMessage(String(t("teamMemberUpdated")));
@@ -2838,26 +2896,19 @@ function TeamMemberCard({
 
           {canEditMember ? (
             <>
-              <div className="team-role-grid">
-                <label className="auth-field">
-                  <span>{String(t("teamInviteAccountRole"))}</span>
-                  <select value={accountRole} onChange={(event) => setAccountRole(event.target.value as "admin" | "user")} disabled={busy}>
-                    <option value="user">{String(t("teamRoleUser"))}</option>
-                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
-                  </select>
-                </label>
-
-                <label className="auth-field">
-                  <span>{String(t("teamInviteRestaurantRole"))}</span>
-                  <select
-                    value={restaurantRole}
-                    onChange={(event) => setRestaurantRole(event.target.value as "admin" | "viewer")}
+              <div className="team-restaurant-selector">
+                <span>{String(t("teamInviteFeatures"))}</span>
+                <div className="team-restaurant-chips">
+                  <button
+                    type="button"
+                    className={`team-restaurant-chip selectable ${featureIds.includes(DEFAULT_INVITE_FEATURE) ? "selected" : ""}`}
+                    onClick={() => handleFeatureToggle(DEFAULT_INVITE_FEATURE)}
                     disabled={busy}
                   >
-                    <option value="viewer">{String(t("teamRoleViewer"))}</option>
-                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
-                  </select>
-                </label>
+                    <strong>{String(t("teamFeatureDashboard"))}</strong>
+                    <small>{String(t("teamRoleUser"))}</small>
+                  </button>
+                </div>
               </div>
 
               <div className="team-restaurant-selector">
@@ -2917,8 +2968,7 @@ function TeamPermissionsPanel({
   inviteMessage,
   inviteError,
   onInviteEmailChange,
-  onInviteAccountRoleChange,
-  onInviteRestaurantRoleChange,
+  onInviteFeatureToggle,
   onInviteRestaurantToggle,
   onCreateInvitation,
   onRevokeInvitation,
@@ -2936,8 +2986,7 @@ function TeamPermissionsPanel({
   inviteMessage?: string;
   inviteError?: string;
   onInviteEmailChange: (value: string) => void;
-  onInviteAccountRoleChange: (value: "admin" | "user") => void;
-  onInviteRestaurantRoleChange: (value: "admin" | "viewer") => void;
+  onInviteFeatureToggle: (featureId: string) => void;
   onInviteRestaurantToggle: (restaurantId: string) => void;
   onCreateInvitation: () => void;
   onRevokeInvitation: (invitationId: string) => void;
@@ -3040,22 +3089,18 @@ function TeamPermissionsPanel({
                 />
               </label>
 
-              <div className="team-role-grid">
-                <label className="auth-field">
-                  <span>{String(t("teamInviteAccountRole"))}</span>
-                  <select value={inviteForm.accountRole} onChange={(event) => onInviteAccountRoleChange(event.target.value as "admin" | "user")}>
-                    <option value="user">{String(t("teamRoleUser"))}</option>
-                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
-                  </select>
-                </label>
-
-                <label className="auth-field">
-                  <span>{String(t("teamInviteRestaurantRole"))}</span>
-                  <select value={inviteForm.restaurantRole} onChange={(event) => onInviteRestaurantRoleChange(event.target.value as "admin" | "viewer")}>
-                    <option value="viewer">{String(t("teamRoleViewer"))}</option>
-                    <option value="admin">{String(t("teamRoleAdmin"))}</option>
-                  </select>
-                </label>
+              <div className="team-restaurant-selector">
+                <span>{String(t("teamInviteFeatures"))}</span>
+                <div className="team-restaurant-chips">
+                  <button
+                    type="button"
+                    className={`team-restaurant-chip selectable ${inviteForm.featureIds.includes(DEFAULT_INVITE_FEATURE) ? "selected" : ""}`}
+                    onClick={() => onInviteFeatureToggle(DEFAULT_INVITE_FEATURE)}
+                  >
+                    <strong>{String(t("teamFeatureDashboard"))}</strong>
+                    <small>{String(t("teamRoleUser"))}</small>
+                  </button>
+                </div>
               </div>
 
               <div className="team-restaurant-selector">
@@ -3112,7 +3157,7 @@ function TeamPermissionsPanel({
                     <div className="team-member-head">
                       <div>
                         <strong>{invitation.email}</strong>
-                        <p>{formatAccountRole(invitation.accountRole)} · {formatRestaurantRole(invitation.restaurantRole)}</p>
+                        <p>{formatAccountRole(invitation.accountRole)} · {String(t("teamFeatureDashboard"))}</p>
                       </div>
                       <button
                         type="button"
@@ -3166,8 +3211,7 @@ export default function App() {
   const [inviteError, setInviteError] = useState<string>();
   const [inviteForm, setInviteForm] = useState<InviteFormState>({
     email: "",
-    accountRole: "user",
-    restaurantRole: "viewer",
+    featureIds: [DEFAULT_INVITE_FEATURE],
     restaurantIds: []
   });
   const [userProfileForm, setUserProfileForm] = useState<UserProfileFormState>({ fullName: "" });
@@ -3315,8 +3359,7 @@ export default function App() {
       setRestaurantProfileForm({ restaurantName: "" });
       setInviteForm({
         email: "",
-        accountRole: "user",
-        restaurantRole: "viewer",
+        featureIds: [DEFAULT_INVITE_FEATURE],
         restaurantIds: []
       });
       return;
@@ -3332,12 +3375,19 @@ export default function App() {
     });
     setInviteForm((current) => ({
       ...current,
+      featureIds: current.featureIds.length > 0 ? current.featureIds : [DEFAULT_INVITE_FEATURE],
       restaurantIds:
         current.restaurantIds.length > 0
           ? current.restaurantIds
           : (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
     }));
   }, [effectiveSession]);
+
+  useEffect(() => {
+    if (currentSection === "restaurants" && !canManageRestaurants) {
+      setCurrentSection("dashboard");
+    }
+  }, [canManageRestaurants, currentSection]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -3454,6 +3504,7 @@ export default function App() {
       setUploadFeedback([]);
       setSelectedPeriod(TOTAL_PERIOD);
       setSelectedView(TOTAL_VIEW);
+      setCurrentSection("dashboard");
       setAuthLoading(false);
       return;
     }
@@ -3466,14 +3517,28 @@ export default function App() {
 
     let mounted = true;
     const targetRestaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId ?? "";
+    const localWorkspace = loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
     setWorkspaceReady(false);
     setWorkspaceRestaurantId(undefined);
+
+    if (localWorkspace) {
+      setLocale(localWorkspace.locale ?? "pt");
+      setState((localWorkspace.state as UploadState | undefined) ?? {});
+      setUploadFeedback(localWorkspace.uploadFeedback ?? []);
+      setSelectedPeriod(localWorkspace.selectedPeriod ?? TOTAL_PERIOD);
+      setSelectedView(localWorkspace.selectedView ?? TOTAL_VIEW);
+      setCurrentSection(isInternalSection(localWorkspace.currentSection) ? localWorkspace.currentSection : "dashboard");
+      setWorkspaceRestaurantId(targetRestaurantId);
+      setWorkspaceReady(true);
+    }
+
     const loadWorkspace = async () => {
       try {
-        const workspace =
+        const cloudWorkspace =
           effectiveSession.authMode === "supabase"
             ? await loadCloudWorkspace(targetRestaurantId)
-            : loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
+            : localWorkspace;
+        const workspace = cloudWorkspace ?? localWorkspace;
 
         if (!mounted) {
           return;
@@ -3487,6 +3552,7 @@ export default function App() {
         setUploadFeedback(workspace?.uploadFeedback ?? []);
         setSelectedPeriod(workspace?.selectedPeriod ?? TOTAL_PERIOD);
         setSelectedView(workspace?.selectedView ?? TOTAL_VIEW);
+        setCurrentSection(isInternalSection(workspace?.currentSection) ? workspace.currentSection : "dashboard");
         setWorkspaceRestaurantId(targetRestaurantId);
         setWorkspaceReady(true);
       } catch (error) {
@@ -3522,16 +3588,18 @@ export default function App() {
       state: state as PersistedWorkspace["state"],
       uploadFeedback,
       selectedPeriod,
-      selectedView
+      selectedView,
+      currentSection
     };
+
+    saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
 
     if (effectiveSession.authMode === "supabase") {
       void saveCloudWorkspace(restaurantId, workspace).catch(() => undefined);
       return;
     }
 
-    saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
-  }, [effectiveSession, locale, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
+  }, [currentSection, effectiveSession, locale, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
 
   const createPeriodDashboardsFromImports = (
     fileNames: string[],
@@ -3925,6 +3993,15 @@ export default function App() {
     }));
   };
 
+  const handleInviteFeatureToggle = (featureId: string) => {
+    setInviteForm((current) => ({
+      ...current,
+      featureIds: current.featureIds.includes(featureId)
+        ? current.featureIds.filter((id) => id !== featureId)
+        : [...current.featureIds, featureId]
+    }));
+  };
+
   const handleCreateInvitation = async () => {
     if (!effectiveSession || effectiveSession.authMode !== "supabase") {
       return;
@@ -3935,22 +4012,26 @@ export default function App() {
       return;
     }
 
+    if (inviteForm.featureIds.length === 0) {
+      setInviteError("Selecione ao menos uma funcionalidade para este convite.");
+      return;
+    }
+
     try {
       setInviteBusy(true);
       setInviteError(undefined);
       setInviteMessage(undefined);
       await createAccountInvitation({
         email: inviteForm.email,
-        accountRole: inviteForm.accountRole,
-        restaurantRole: inviteForm.restaurantRole,
+        accountRole: "user",
+        restaurantRole: "viewer",
         restaurantIds: inviteForm.restaurantIds
       });
       await refreshTeamData(effectiveSession);
       setInviteMessage("Convite criado com sucesso.");
       setInviteForm({
         email: "",
-        accountRole: "user",
-        restaurantRole: "viewer",
+        featureIds: [DEFAULT_INVITE_FEATURE],
         restaurantIds: (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
       });
     } catch (error) {
@@ -4274,8 +4355,7 @@ export default function App() {
             inviteMessage={inviteMessage}
             inviteError={inviteError}
             onInviteEmailChange={(value) => setInviteForm((current) => ({ ...current, email: value }))}
-            onInviteAccountRoleChange={(value) => setInviteForm((current) => ({ ...current, accountRole: value }))}
-            onInviteRestaurantRoleChange={(value) => setInviteForm((current) => ({ ...current, restaurantRole: value }))}
+            onInviteFeatureToggle={handleInviteFeatureToggle}
             onInviteRestaurantToggle={handleInviteRestaurantToggle}
             onCreateInvitation={() => void handleCreateInvitation()}
             onRevokeInvitation={(invitationId) => void handleRevokeInvitation(invitationId)}

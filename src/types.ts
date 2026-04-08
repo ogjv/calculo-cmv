@@ -218,4 +218,5 @@ export type PersistedWorkspace = {
   uploadFeedback: UploadFeedbackItem[];
   selectedPeriod: string;
   selectedView: string;
+  currentSection?: "account" | "dashboard" | "restaurants" | "team";
 };

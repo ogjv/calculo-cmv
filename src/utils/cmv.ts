@@ -26,6 +26,7 @@ const normalizeCode = (value: unknown) =>
     .toUpperCase()
     .replace(/\s+/g, "")
     .replace(/^(\d+)[.,]0+$/, "$1");
+const normalizeItemName = (value: unknown) => normalizeKey(value).replace(/[^a-z0-9]+/g, "");
 const roundToTwo = (value: number) => Math.round(value * 100) / 100;
 
 const parseLocaleNumber = (value: string) => {
@@ -277,10 +278,20 @@ export const buildDashboardData = (
   duplicateRecipeCodes: string[] = []
 ): DashboardData => {
   const recipeMap = new Map(recipes.map((recipe) => [recipe.code, recipe]));
+  const recipeNameMap = new Map<string, RecipeRow>();
+
+  for (const recipe of recipes) {
+    const normalizedItemName = normalizeItemName(recipe.itemName);
+    if (!normalizedItemName || recipeNameMap.has(normalizedItemName)) {
+      continue;
+    }
+
+    recipeNameMap.set(normalizedItemName, recipe);
+  }
 
   const products = sales
     .map<ProductSummary>((sale) => {
-      const recipe = recipeMap.get(sale.code);
+      const recipe = recipeMap.get(sale.code) ?? recipeNameMap.get(normalizeItemName(sale.itemName));
       const unitCost = recipe?.cost ?? 0;
       const totalCost = roundToTwo(unitCost * sale.quantity);
       const grossProfit = roundToTwo(sale.revenue - totalCost);
