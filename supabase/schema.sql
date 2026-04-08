@@ -271,6 +271,24 @@ begin
 end;
 $$;
 
+create or replace function public.list_restaurants_for_global_owner()
+returns table (
+  id uuid,
+  account_id uuid,
+  name text,
+  photo_url text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select restaurant.id, restaurant.account_id, restaurant.name, restaurant.photo_url
+  from public.restaurants restaurant
+  where public.is_global_owner()
+  order by restaurant.created_at asc;
+$$;
+
 create or replace function public.delete_my_account()
 returns void
 language plpgsql
@@ -298,6 +316,7 @@ declare
   next_restaurant_id uuid;
   next_account_id uuid;
   next_account_slug text;
+  next_restaurant_role public.restaurant_role;
 begin
   current_user_id := auth.uid();
 
@@ -337,8 +356,13 @@ begin
   values (next_account_id, restaurant_slug, restaurant_name, restaurant_photo_url, current_user_id)
   returning id into next_restaurant_id;
 
+  next_restaurant_role := case
+    when public.is_global_owner() then 'owner'::public.restaurant_role
+    else 'admin'::public.restaurant_role
+  end;
+
   insert into public.restaurant_memberships (restaurant_id, user_id, role, invited_by)
-  values (next_restaurant_id, current_user_id, 'owner', current_user_id);
+  values (next_restaurant_id, current_user_id, next_restaurant_role, current_user_id);
 
   return next_restaurant_id;
 end;
@@ -360,6 +384,7 @@ declare
   target_account_id uuid;
   base_slug text;
   next_slug text;
+  next_restaurant_role public.restaurant_role;
 begin
   current_user_id := auth.uid();
 
@@ -397,8 +422,13 @@ begin
   values (target_account_id, next_slug, restaurant_name, restaurant_photo_url, current_user_id)
   returning id into next_restaurant_id;
 
+  next_restaurant_role := case
+    when public.is_global_owner() then 'owner'::public.restaurant_role
+    else 'admin'::public.restaurant_role
+  end;
+
   insert into public.restaurant_memberships (restaurant_id, user_id, role, invited_by)
-  values (next_restaurant_id, current_user_id, 'owner', current_user_id);
+  values (next_restaurant_id, current_user_id, next_restaurant_role, current_user_id);
 
   return next_restaurant_id;
 end;
@@ -413,6 +443,7 @@ as $$
 declare
   current_user_id uuid;
   membership_count integer;
+  target_account_id uuid;
 begin
   current_user_id := auth.uid();
 
@@ -420,14 +451,29 @@ begin
     raise exception 'Usuário não autenticado.';
   end if;
 
+  select restaurant.account_id
+    into target_account_id
+  from public.restaurants restaurant
+  where restaurant.id = target_restaurant_id;
+
+  if target_account_id is null then
+    raise exception 'Restaurante não encontrado.';
+  end if;
+
+  if not (
+    public.is_global_owner()
+    or public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[])
+  ) then
+    raise exception 'Apenas admin ou owner podem excluir este restaurante.';
+  end if;
+
   if not exists (
     select 1
     from public.restaurant_memberships membership
     where membership.restaurant_id = target_restaurant_id
       and membership.user_id = current_user_id
-      and membership.role = 'owner'
   ) then
-    raise exception 'Apenas o owner pode excluir este restaurante.';
+    raise exception 'Você precisa estar vinculado a este restaurante para excluí-lo.';
   end if;
 
   select count(*)
@@ -450,6 +496,22 @@ begin
   return target_restaurant_id;
 end;
 $$;
+
+update public.account_memberships membership
+set role = 'admin',
+    updated_at = timezone('utc', now())
+from public.user_profiles profile
+where profile.user_id = membership.user_id
+  and coalesce(profile.global_role, 'user') <> 'owner'
+  and membership.role = 'owner';
+
+update public.restaurant_memberships membership
+set role = 'admin',
+    updated_at = timezone('utc', now())
+from public.user_profiles profile
+where profile.user_id = membership.user_id
+  and coalesce(profile.global_role, 'user') <> 'owner'
+  and membership.role = 'owner';
 
 create or replace function public.create_account_invitation_for_current_user(
   target_email text,
@@ -1049,6 +1111,8 @@ revoke all on function public.delete_my_account() from public;
 grant execute on function public.delete_my_account() to authenticated;
 revoke all on function public.bootstrap_restaurant_for_current_user(text, text, text) from public;
 grant execute on function public.bootstrap_restaurant_for_current_user(text, text, text) to authenticated;
+revoke all on function public.list_restaurants_for_global_owner() from public;
+grant execute on function public.list_restaurants_for_global_owner() to authenticated;
 revoke all on function public.create_restaurant_for_current_user(text, text, text) from public;
 grant execute on function public.create_restaurant_for_current_user(text, text, text) to authenticated;
 revoke all on function public.delete_restaurant_for_current_user(uuid) from public;

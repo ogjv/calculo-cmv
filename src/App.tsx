@@ -1,5 +1,6 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, CSSProperties, DragEvent } from "react";
+import { useRef } from "react";
 import type { AccountInvitation, AccountMember, AuthSession, DashboardData, GroupSummary, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, SalesTotalRow, UploadFeedbackItem } from "./types";
 import { buildDashboardData, buildDashboardSlice, formatCurrency, formatNumber, formatPercent, mapRecipeRows, mapSalesRows } from "./utils/cmv";
 import { parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
@@ -3225,13 +3226,30 @@ export default function App() {
   const [uploadFeedback, setUploadFeedback] = useState<UploadFeedbackItem[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(TOTAL_PERIOD);
   const [selectedView, setSelectedView] = useState<string>(TOTAL_VIEW);
+  const latestWorkspaceRestaurantIdRef = useRef<string>();
+  const latestStateRef = useRef<UploadState>({});
+  const latestUploadFeedbackRef = useRef<UploadFeedbackItem[]>([]);
   const t = <K extends keyof typeof translations.pt>(key: K) => withLocaleFallback<typeof translations.pt>(locale, key);
   const effectiveSession = useMemo(
     () => (session ? applyActiveRestaurant(session, getPreferredRestaurant(session.userId)) : null),
     [session]
   );
+  latestWorkspaceRestaurantIdRef.current = workspaceRestaurantId;
+  latestStateRef.current = state;
+  latestUploadFeedbackRef.current = uploadFeedback;
   const hasSalesFile = salesFiles.length > 0 || (state.periodDashboards?.length ?? 0) > 0;
-  const activeRole = effectiveSession?.activeRole ?? "owner";
+  const hasPersistedWorkspaceContent = (workspace?: PersistedWorkspace | null) =>
+    Boolean(
+      workspace &&
+        (
+          ((workspace.state?.periodDashboards?.length ?? 0) > 0) ||
+          ((workspace.state?.recipeBase?.length ?? 0) > 0) ||
+          ((workspace.state?.salesFileNames?.length ?? 0) > 0) ||
+          ((workspace.uploadFeedback?.length ?? 0) > 0) ||
+          workspace.state?.processing
+        )
+    );
+  const activeRole = effectiveSession?.activeRole ?? "viewer";
   const canManageRestaurants =
     effectiveSession?.globalRole === "owner" ||
     effectiveSession?.activeAccountRole === "owner" ||
@@ -3495,6 +3513,43 @@ export default function App() {
   }, [session]);
 
   useEffect(() => {
+    if (!session || session.authMode !== "supabase") {
+      return;
+    }
+
+    const refreshSessionAccess = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      void hydrateSupabaseSession(session)
+        .then((nextSession) => {
+          if (!nextSession) {
+            return;
+          }
+
+          setSession((current) => {
+            if (!current || current.userId !== nextSession.userId) {
+              return current;
+            }
+
+            const preferredRestaurantId = getPreferredRestaurant(nextSession.userId);
+            return applyActiveRestaurant(nextSession, preferredRestaurantId);
+          });
+        })
+        .catch(() => undefined);
+    };
+
+    window.addEventListener("focus", refreshSessionAccess);
+    document.addEventListener("visibilitychange", refreshSessionAccess);
+
+    return () => {
+      window.removeEventListener("focus", refreshSessionAccess);
+      document.removeEventListener("visibilitychange", refreshSessionAccess);
+    };
+  }, [session]);
+
+  useEffect(() => {
     if (!effectiveSession) {
       setWorkspaceReady(false);
       setWorkspaceRestaurantId(undefined);
@@ -3541,6 +3596,23 @@ export default function App() {
         const workspace = cloudWorkspace ?? localWorkspace;
 
         if (!mounted) {
+          return;
+        }
+
+        const currentWorkspaceHasContent =
+          latestWorkspaceRestaurantIdRef.current === targetRestaurantId &&
+          hasPersistedWorkspaceContent({
+            locale,
+            state: latestStateRef.current as PersistedWorkspace["state"],
+            uploadFeedback: latestUploadFeedbackRef.current,
+            selectedPeriod,
+            selectedView,
+            currentSection
+          });
+
+        if (currentWorkspaceHasContent) {
+          setWorkspaceRestaurantId(targetRestaurantId);
+          setWorkspaceReady(true);
           return;
         }
 

@@ -82,6 +82,32 @@ type AccountInvitationRestaurantRow = {
     | null;
 };
 
+const normalizeAccountRoleForProfile = (
+  role: "owner" | "admin" | "user" | undefined,
+  globalRole: "owner" | "admin" | "user" | undefined
+): "owner" | "admin" | "user" | undefined => {
+  if (!role) {
+    return role;
+  }
+
+  if (globalRole !== "owner" && role === "owner") {
+    return "admin";
+  }
+
+  return role;
+};
+
+const normalizeRestaurantRoleForProfile = (
+  role: "owner" | "admin" | "viewer",
+  globalRole: "owner" | "admin" | "user" | undefined
+): "owner" | "admin" | "viewer" => {
+  if (globalRole !== "owner" && role === "owner") {
+    return "admin";
+  }
+
+  return role;
+};
+
 const slugify = (value: string) =>
   value
     .normalize("NFD")
@@ -177,6 +203,29 @@ const loadMemberships = async (userId: string) => {
     .filter((membership): membership is RestaurantMembership => Boolean(membership));
 };
 
+const loadAllRestaurantsForGlobalOwner = async () => {
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase.rpc("list_restaurants_for_global_owner");
+
+  if (error) {
+    throw asError(error, "NÃ£o foi possÃ­vel carregar os restaurantes do sistema.");
+  }
+
+  return ((data ?? []) as Array<{ id: string; account_id?: string | null; name: string; photo_url?: string | null }>).map(
+    (restaurant) => ({
+      membershipId: `global-owner-${restaurant.id}`,
+      accountId: restaurant.account_id ?? undefined,
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      role: "owner" as const,
+      photoUrl: restaurant.photo_url ?? undefined
+    })
+  );
+};
+
 const loadAccountMemberships = async (userId: string) => {
   if (!supabase) {
     return [];
@@ -258,13 +307,12 @@ const createInitialRestaurantForUser = async (user: User, restaurantName?: strin
 const ensurePrimaryRestaurantContext = async (user: User, restaurantNameOverride?: string) => {
   await ensureUserProfile(user);
   await acceptPendingAccountInvitations();
-  const memberships = await loadMemberships(user.id);
-
-  if (memberships.length > 0) {
-    return memberships;
+  void restaurantNameOverride;
+  const profile = await loadUserProfile(user.id);
+  if (profile?.global_role === "owner") {
+    return loadAllRestaurantsForGlobalOwner();
   }
 
-  await createInitialRestaurantForUser(user, restaurantNameOverride);
   return loadMemberships(user.id);
 };
 
@@ -286,12 +334,22 @@ const toAuthSession = async (
     memberships?: RestaurantMembership[];
   }
 ): Promise<AuthSession> => {
-  const memberships = options?.memberships ?? (await ensurePrimaryRestaurantContext(user));
   const profile = await loadUserProfile(user.id);
+  const memberships =
+    profile?.global_role === "owner"
+      ? await loadAllRestaurantsForGlobalOwner()
+      : options?.memberships ?? (await ensurePrimaryRestaurantContext(user));
   const accountMemberships = await loadAccountMemberships(user.id);
+  const normalizedMemberships =
+    profile?.global_role === "owner"
+      ? memberships
+      : memberships.map((membership) => ({
+          ...membership,
+          role: normalizeRestaurantRoleForProfile(membership.role, profile?.global_role ?? undefined)
+        }));
   const activeMembership =
-    memberships.find((membership) => membership.restaurantId === options?.activeRestaurantId) ??
-    memberships[0];
+    normalizedMemberships.find((membership) => membership.restaurantId === options?.activeRestaurantId) ??
+    normalizedMemberships[0];
   const resolvedActiveAccountId = activeMembership?.accountId ?? accountMemberships[0]?.account_id;
   const activeAccountMembership = accountMemberships.find(
     (membership) => membership.account_id === resolvedActiveAccountId
@@ -310,8 +368,11 @@ const toAuthSession = async (
     userPhotoUrl:
       profile?.photo_url ??
       (typeof user.user_metadata.photo_url === "string" ? user.user_metadata.photo_url : undefined),
-    memberships,
-    activeAccountRole: profile?.global_role === "owner" ? "owner" : activeAccountMembership?.role,
+    memberships: normalizedMemberships,
+    activeAccountRole:
+      profile?.global_role === "owner"
+        ? "owner"
+        : normalizeAccountRoleForProfile(activeAccountMembership?.role, profile?.global_role ?? undefined),
     activeRole: activeMembership?.role,
     activeRestaurantId: activeMembership?.restaurantId,
     activeRestaurantName: activeMembership?.restaurantName,
@@ -345,7 +406,7 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
   const userIds = [...new Set(memberships.map((item) => item.user_id))];
   const { data: profiles, error: profilesError } = await supabase
     .from("user_profiles")
-    .select("user_id, email, full_name, photo_url")
+    .select("user_id, global_role, email, full_name, photo_url")
     .in("user_id", userIds);
 
   if (profilesError) {
@@ -353,10 +414,15 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
   }
 
   const profileMap = new Map(
-    ((profiles ?? []) as Array<{ user_id: string; email?: string | null; full_name: string | null; photo_url: string | null }>).map((item) => [
-      item.user_id,
-      item
-    ])
+    (
+      (profiles ?? []) as Array<{
+        user_id: string;
+        global_role?: "owner" | "admin" | "user" | null;
+        email?: string | null;
+        full_name: string | null;
+        photo_url: string | null;
+      }>
+    ).map((item) => [item.user_id, item])
   );
 
   const { data: restaurantMemberships, error: restaurantMembershipsError } = await supabase
@@ -384,10 +450,11 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
     }
 
     const current = restaurantsByUser.get(membership.user_id) ?? [];
+    const profile = profileMap.get(membership.user_id);
     current.push({
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
-      role: membership.role
+      role: normalizeRestaurantRoleForProfile(membership.role, profile?.global_role ?? undefined)
     });
     restaurantsByUser.set(membership.user_id, current);
   });
@@ -398,7 +465,7 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
       membershipId: membership.id,
       accountId: membership.account_id,
       userId: membership.user_id,
-      role: membership.role,
+      role: normalizeAccountRoleForProfile(membership.role, profile?.global_role ?? undefined) ?? membership.role,
       fullName: profile?.full_name ?? undefined,
       email: profile?.email ?? undefined,
       photoUrl: profile?.photo_url ?? undefined,
