@@ -677,7 +677,7 @@ export const getSupabaseSession = async () => {
     return null;
   }
 
-  return toBaseAuthSession(user);
+  return toAuthSession(user);
 };
 
 export const hydrateSupabaseSession = async (
@@ -722,7 +722,9 @@ export const subscribeToSupabaseAuth = (callback: (session: AuthSession | null) 
       return;
     }
 
-    callback(toBaseAuthSession(user));
+    void toAuthSession(user)
+      .then((nextSession) => callback(nextSession))
+      .catch(() => callback(toBaseAuthSession(user)));
   });
 
   return () => subscription.unsubscribe();

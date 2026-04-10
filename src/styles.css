@@ -1323,6 +1323,38 @@ input {
   gap: 8px;
 }
 
+.strategic-grid {
+  margin-top: 10px;
+}
+
+.strategic-thresholds {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  color: var(--muted);
+}
+
+.strategic-card.good {
+  background: rgba(238, 250, 245, 0.9);
+}
+
+.strategic-card.mid {
+  background: rgba(255, 247, 222, 0.92);
+}
+
+.strategic-card.bad {
+  background: rgba(255, 238, 233, 0.92);
+}
+
+.strategic-row {
+  padding-top: 8px;
+  border-top: 1px solid rgba(65, 47, 26, 0.08);
+}
+
+.strategic-meta {
+  flex-wrap: wrap;
+}
+
 .issue-card strong {
   font-size: 1.02rem;
 }

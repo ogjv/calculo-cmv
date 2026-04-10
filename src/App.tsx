@@ -82,7 +82,7 @@ const TOTAL_VIEW = "__TOTAL__";
 const TOTAL_PERIOD = "__ALL_PERIODS__";
 const DEFAULT_INVITE_FEATURE = "cmv_dashboard";
 const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
-const AUTH_BOOT_TIMEOUT_MS = 8000;
+const AUTH_BOOT_TIMEOUT_MS = 30000;
 const INTERNAL_SECTIONS: InternalSection[] = ["dashboard", "account", "restaurants", "team"];
 
 const translations = {
@@ -159,6 +159,20 @@ const translations = {
     topSalesText: "Os protagonistas do faturamento.",
     topCmvTitle: "Itens com maior CMV",
     topCmvText: "Onde vale investigar custo, pre\u00e7o ou ficha t\u00e9cnica.",
+    strategicMatrixTitle: "Leitura estrat\u00e9gica do card\u00e1pio",
+    strategicMatrixText: "Cruza volume e margem para destacar onde promover, corrigir ou proteger resultado.",
+    strategicHighPotentialTitle: "Alto potencial",
+    strategicHighPotentialText: "Itens com margem alta e poucas vendas. Bons candidatos para ganhar destaque comercial.",
+    strategicLowReturnTitle: "Volume sem Retorno",
+    strategicLowReturnText: "Itens com muita venda e margem baixa. Pedem revis\u00e3o de pre\u00e7o, custo ou ficha.",
+    strategicProfitEnginesTitle: "Motores de Lucro",
+    strategicProfitEnginesText: "Itens com muita venda e margem alta. S\u00e3o os mais valiosos para proteger e ampliar.",
+    strategicAttentionTitle: "Pontos de Aten\u00e7\u00e3o",
+    strategicAttentionText: "Itens com pouca venda e margem baixa. Merecem ajuste, reformula\u00e7\u00e3o ou sa\u00edda do card\u00e1pio.",
+    strategicHighSalesCut: (value: string) => `Venda alta a partir de ${value} un.`,
+    strategicHighMarginCut: (value: string) => `Margem alta a partir de ${value}`,
+    strategicLowMarginCut: (value: string) => `Margem baixa at\u00e9 ${value}`,
+    strategicEmpty: "Nenhum item caiu nesta classifica\u00e7\u00e3o no per\u00edodo.",
     promoTitle: "Itens promocionais",
     promoText: "Itens com pre\u00e7o simb\u00f3lico. O custo \u00e9 considerado, mas o CMV n\u00e3o entra na classifica\u00e7\u00e3o.",
     promoDetected: "Promo\u00e7\u00f5es identificadas",
@@ -611,6 +625,34 @@ const mergeProductsForDisplay = (products: ProductSummary[]) =>
       return map;
     }, new Map<string, ProductSummary>())
     .values()];
+
+const getMedian = (values: number[]) => {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sorted = values.slice().sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+};
+
+const getPercentile = (values: number[], percentile: number) => {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sorted = values.slice().sort((a, b) => a - b);
+  const index = (sorted.length - 1) * percentile;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+
+  if (lowerIndex === upperIndex) {
+    return sorted[lowerIndex];
+  }
+
+  const weight = index - lowerIndex;
+  return sorted[lowerIndex] * (1 - weight) + sorted[upperIndex] * weight;
+};
 
 const getPreferredRestaurant = (userId: string) => {
   if (typeof window === "undefined") {
@@ -2024,6 +2066,114 @@ function ProductHighlights({ products }: { products: ProductSummary[] }) {
           ))}
         </div>
       </section>
+    </section>
+  );
+}
+
+function StrategicProductMatrix({ products }: { products: ProductSummary[] }) {
+  const { t } = useLocale();
+  const validProducts = mergeProductsForDisplay(
+    products.filter((item) => item.matchedRecipe && !item.isPromotional && item.revenue > 0 && item.quantity > 0)
+  );
+
+  if (validProducts.length === 0) {
+    return null;
+  }
+
+  const enrichedProducts = validProducts.map((item) => ({
+    ...item,
+    marginPercent: item.revenue > 0 ? ((item.grossProfit / item.revenue) * 100) : 0
+  }));
+  const quantityCut = getMedian(enrichedProducts.map((item) => item.quantity));
+  const highMarginCut = getPercentile(enrichedProducts.map((item) => item.marginPercent), 0.65);
+  const lowMarginCut = getPercentile(enrichedProducts.map((item) => item.marginPercent), 0.35);
+  const sortByOpportunity = (left: typeof enrichedProducts[number], right: typeof enrichedProducts[number]) =>
+    (right.revenue * right.marginPercent) - (left.revenue * left.marginPercent);
+
+  const cards = [
+    {
+      key: "high-potential",
+      title: String(t("strategicHighPotentialTitle")),
+      text: String(t("strategicHighPotentialText")),
+      tone: "good",
+      items: enrichedProducts
+        .filter((item) => item.quantity < quantityCut && item.marginPercent >= highMarginCut)
+        .sort(sortByOpportunity)
+        .slice(0, 4)
+    },
+    {
+      key: "low-return",
+      title: String(t("strategicLowReturnTitle")),
+      text: String(t("strategicLowReturnText")),
+      tone: "bad",
+      items: enrichedProducts
+        .filter((item) => item.quantity >= quantityCut && item.marginPercent <= lowMarginCut)
+        .sort((a, b) => (b.quantity * (100 - b.marginPercent)) - (a.quantity * (100 - a.marginPercent)))
+        .slice(0, 4)
+    },
+    {
+      key: "profit-engines",
+      title: String(t("strategicProfitEnginesTitle")),
+      text: String(t("strategicProfitEnginesText")),
+      tone: "good",
+      items: enrichedProducts
+        .filter((item) => item.quantity >= quantityCut && item.marginPercent >= highMarginCut)
+        .sort(sortByOpportunity)
+        .slice(0, 4)
+    },
+    {
+      key: "attention-points",
+      title: String(t("strategicAttentionTitle")),
+      text: String(t("strategicAttentionText")),
+      tone: "mid",
+      items: enrichedProducts
+        .filter((item) => item.quantity < quantityCut && item.marginPercent <= lowMarginCut)
+        .sort((a, b) => (b.revenue - b.grossProfit) - (a.revenue - a.grossProfit))
+        .slice(0, 4)
+    }
+  ];
+
+  return (
+    <section className="card">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("strategicMatrixTitle"))}</h3>
+          <p>{String(t("strategicMatrixText"))}</p>
+        </div>
+        <div className="strategic-thresholds">
+          <small>{(t("strategicHighSalesCut") as (value: string) => string)(formatNumber(quantityCut))}</small>
+          <small>{(t("strategicHighMarginCut") as (value: string) => string)(formatPercent(highMarginCut))}</small>
+          <small>{(t("strategicLowMarginCut") as (value: string) => string)(formatPercent(lowMarginCut))}</small>
+        </div>
+      </div>
+
+      <div className="issue-grid strategic-grid">
+        {cards.map((card) => (
+          <article key={card.key} className={`issue-card strategic-card ${card.tone}`}>
+            <span className="eyebrow">{card.title}</span>
+            <p>{card.text}</p>
+
+            {card.items.length > 0 ? (
+              <div className="ranking-list">
+                {card.items.map((item) => (
+                  <div key={`${card.key}-${item.code}`} className="ranking-row strategic-row">
+                    <div className="ranking-labels">
+                      <span>{item.itemName}</span>
+                      <strong>{formatPercent(item.marginPercent)}</strong>
+                    </div>
+                    <div className="meta-inline strategic-meta">
+                      <small>{formatNumber(item.quantity)} un.</small>
+                      <small>{formatCurrency(item.revenue)}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="message">{String(t("strategicEmpty"))}</p>
+            )}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -4558,6 +4708,7 @@ export default function App() {
                       <GroupExplorer groupName={selectedView} products={dashboard.products} onClear={() => setSelectedView(TOTAL_VIEW)} />
                     )}
                     <ProductHighlights products={dashboard.products} />
+                    <StrategicProductMatrix products={dashboard.products} />
                     <PromotionalItemsPanel products={dashboard.products} />
                     <MissingRecipesPanel products={dashboard.products} />
                     <SalesTotalsPanel totals={dashboard.importedSalesTotals} />
