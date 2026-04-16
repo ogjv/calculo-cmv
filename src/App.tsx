@@ -1,14 +1,15 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, CSSProperties, DragEvent } from "react";
 import { useRef } from "react";
-import type { AccountInvitation, AccountMember, AuthSession, DashboardData, GroupSummary, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, SalesTotalRow, UploadFeedbackItem } from "./types";
+import type { AccountInvitation, AccountMember, AuthSession, DashboardData, DreImportData, DrePeriodData, GroupSummary, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, SalesTotalRow, UploadFeedbackItem } from "./types";
 import { buildDashboardData, buildDashboardSlice, formatCurrency, formatNumber, formatPercent, mapRecipeRows, mapSalesRows } from "./utils/cmv";
-import { parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
+import { parseDreSpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
 import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
 import { createAccountInvitation, createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, getSupabaseSession, hydrateSupabaseSession, loadAccountInvitations, loadAccountMembers, loadCloudWorkspace, registerRestaurantWithSupabase, removeAccountMemberAccess, revokeAccountInvitation, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateAccountMemberAccess, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "./utils/cloudAuth";
 import { isSupabaseConfigured } from "./utils/supabase";
 
 type Locale = "pt" | "es" | "en";
+type ThemeMode = "light" | "dark";
 
 const sampleSales = [
   { codigo: "1001", produto: "Pizza Margherita", qte: 42, total: 1764, grupo: "Pizzas", subgrupo: "Tradicionais" },
@@ -40,6 +41,8 @@ const sampleDashboard = buildDashboardData(mapSalesRows(sampleSales), mapRecipeR
 });
 
 const piePalette = ["#1f7a5a", "#e09f3e", "#d95d39", "#457b9d", "#8d6a9f", "#c36f6f", "#49796b", "#7b8cde"];
+const drePalette = ["#2f6f5e", "#c9823a", "#b84e3f", "#496f9f", "#8b6f47", "#6f7785", "#a55c7a", "#5f7f4f"];
+const shortMonthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 type UploadState = {
   salesFileNames?: string[];
@@ -76,14 +79,29 @@ type InviteFormState = {
   restaurantIds: string[];
 };
 
-type InternalSection = "account" | "dashboard" | "restaurants" | "team";
+type InternalSection = "account" | "dashboard" | "dre" | "restaurants" | "team";
 
 const TOTAL_VIEW = "__TOTAL__";
 const TOTAL_PERIOD = "__ALL_PERIODS__";
+const DEFAULT_DRE_PERIOD = "__LATEST_DRE__";
 const DEFAULT_INVITE_FEATURE = "cmv_dashboard";
 const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
+const THEME_STORAGE_KEY = "grest.theme";
 const AUTH_BOOT_TIMEOUT_MS = 30000;
-const INTERNAL_SECTIONS: InternalSection[] = ["dashboard", "account", "restaurants", "team"];
+const INTERNAL_SECTIONS: InternalSection[] = ["dashboard", "dre", "account", "restaurants", "team"];
+
+const getInitialTheme = (): ThemeMode => {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedTheme === "light" || storedTheme === "dark") {
+    return storedTheme;
+  }
+
+  return "light";
+};
 
 const translations = {
   pt: {
@@ -101,6 +119,9 @@ const translations = {
     processText: "Uma interface mais explicativa reduz erro operacional e acelera o uso por qualquer pessoa da equipe.",
     total: "TOTAL",
     language: "Idioma",
+    theme: "Tema",
+    themeLight: "Claro",
+    themeDark: "Escuro",
     processing: "Processando arquivos e atualizando o dashboard...",
     success: "Arquivos processados com sucesso.",
     sales: "Vendas",
@@ -224,11 +245,11 @@ const translations = {
     uploadDropHint: "Arraste ou clique para enviar",
     uploadSalesShort: "Um ou mais arquivos de vendas",
     uploadRecipesShort: "Arquivo de fichas técnicas",
-    authEyebrow: "Acesso por restaurante",
-    authTitle: "Login seguro para cada restaurante.",
-    authText: "Entre, acompanhe o histórico e continue a operação no mesmo ambiente.",
+    authEyebrow: "G/REST",
+    authTitle: "Analise os números do seu restaurante de onde estiver.",
+    authText: "Acesso limpo, seguro e conectado aos dados da sua operação.",
     authLoginTab: "Entrar",
-    authRegisterTab: "Criar acesso",
+    authRegisterTab: "Criar conta",
     authRestaurantName: "Nome do restaurante",
     authEmail: "E-mail",
     authPassword: "Senha",
@@ -258,8 +279,66 @@ const translations = {
     authManageAccount: "Gerenciar conta",
     navMyAccount: "Minha conta",
     navDashboard: "Dashboard",
+    navDre: "Análise de DRE",
     navRestaurants: "Restaurantes",
     navTeam: "Equipe e permissões",
+    dreTitle: "Análise de DRE",
+    dreText: "Ambiente preparado para importar, estruturar e comparar a Demonstração do Resultado do Exercício da unidade selecionada.",
+    dreEmptyTitle: "Módulo de DRE em preparação",
+    dreEmptyText: "Em breve, esta área vai organizar receitas, custos, despesas e resultado operacional em uma leitura gerencial.",
+    dreStepImport: "Importar DRE",
+    dreStepClassify: "Classificar contas",
+    dreStepAnalyze: "Analisar resultado",
+    dreUploadTitle: "Importar modelo de DRE",
+    dreUploadHint: "Use o arquivo Excel no padrão de DRE analítico. O sistema identifica seções, subdivisões, linhas, totais e percentuais.",
+    dreUploadAction: "Selecionar Excel",
+    dreProcessing: "Lendo DRE e organizando a estrutura...",
+    dreParsedTitle: "Leitura estruturada",
+    dreParsedText: "Prévia do que foi identificado no arquivo importado.",
+    dreRestaurant: "Restaurante",
+    drePeriod: "Período",
+    dreSelectPeriod: "Selecionar mês",
+    dreSections: "Seções",
+    dreSummary: "Resumo",
+    dreGroups: "subdivisões",
+    dreLines: "linhas",
+    dreResultMap: "Mapa do resultado",
+    dreResultMapText: "Receitas, saídas e saldo final em uma leitura direta.",
+    dreRevenue: "Receitas",
+    dreOutflows: "Saídas",
+    dreFinalBalance: "Saldo final",
+    dreSectionChart: "Peso por seção",
+    dreSectionChartText: "Compare onde a DRE concentra dinheiro.",
+    dreGroupHeatmap: "Maiores subdivisões",
+    dreGroupHeatmapText: "Os grupos com maior impacto dentro das seções.",
+    dreParticipationTitle: "Participação por grupo",
+    dreParticipationText: "Cada pizza mostra como as subdivisões compõem o total daquela seção.",
+    dreStrategicTitle: "Leituras estratégicas",
+    dreStrategicText: "Sinais rápidos para apoiar decisão: concentração, pressão de custo e margem.",
+    dreLargestExpense: "Maior pressão de despesa",
+    dreRevenueConcentration: "Concentração de receita",
+    dreFinalMargin: "Margem final",
+    dreExpenseRatio: "Despesas sobre receita",
+    dreRestaurantDiagnostics: "Diagnóstico do restaurante",
+    dreRestaurantDiagnosticsText: "Indicadores práticos para entender margem, peso operacional e prioridades de ação.",
+    dreFinalMarginCard: "Margem final",
+    dreOperationalMarginCard: "Margem operacional",
+    dreInputsOnRevenue: "Insumos sobre receita",
+    drePeopleOnRevenue: "Pessoal sobre receita",
+    dreStructureOnRevenue: "Estrutura sobre receita",
+    dreAttentionPoints: "Top pontos de atenção",
+    dreHealthy: "Saudável",
+    dreAttention: "Atenção",
+    dreCritical: "Crítico",
+    dreNoData: "Sem dados suficientes",
+    dreMenuMixTitle: "Mix de receitas do cardápio",
+    dreMenuMixText: "Abertura dos itens que compõem a receita do cardápio.",
+    dreCardFeesTitle: "Tarifas de cartões",
+    dreCardFeesText: "Detalhamento das taxas e tarifas ligadas aos meios de pagamento.",
+    dreRevenueVsExpenses: "Receita vs Despesas",
+    dreRevenueVsExpensesText: "Comparativo direto entre entrada e saída no período importado.",
+    dreOperationalResultChart: "Resultado operacional",
+    dreOperationalResultChartText: "Leitura do resultado operacional da competência.",
     teamTitle: "Equipe e permissões",
     teamText: "Veja quem tem acesso à conta e qual é o papel de cada pessoa.",
     teamEmpty: "Nenhum membro adicional foi encontrado nesta conta.",
@@ -371,10 +450,16 @@ const translations = {
     uploadRecipesShort: "Archivo de fichas técnicas",
     total: "TOTAL",
     language: "Idioma",
+    theme: "Tema",
+    themeLight: "Claro",
+    themeDark: "Oscuro",
     processing: "Procesando archivos y actualizando el panel...",
     success: "Archivos procesados con \u00e9xito.",
+    authEyebrow: "G/REST",
+    authTitle: "Analiza los números de tu restaurante desde donde estés.",
+    authText: "Acceso limpio, seguro y conectado a los datos de tu operación.",
     authLoginTab: "Ingresar",
-    authRegisterTab: "Crear acceso",
+    authRegisterTab: "Crear cuenta",
     authRestaurantName: "Restaurante",
     authEmail: "Correo",
     authPassword: "Contrase\u00f1a",
@@ -394,8 +479,66 @@ const translations = {
     authManageAccount: "Gestionar cuenta",
     navMyAccount: "Mi cuenta",
     navDashboard: "Dashboard",
+    navDre: "Análisis de PyG",
     navRestaurants: "Restaurantes",
     navTeam: "Equipo y permisos",
+    dreTitle: "Análisis de PyG",
+    dreText: "Entorno preparado para importar, estructurar y comparar el estado de resultados de la unidad seleccionada.",
+    dreEmptyTitle: "Módulo de PyG en preparación",
+    dreEmptyText: "Pronto esta área organizará ingresos, costos, gastos y resultado operativo en una lectura gerencial.",
+    dreStepImport: "Importar PyG",
+    dreStepClassify: "Clasificar cuentas",
+    dreStepAnalyze: "Analizar resultado",
+    dreUploadTitle: "Importar modelo de PyG",
+    dreUploadHint: "Usa el archivo Excel en el patrón analítico. El sistema identifica secciones, subdivisiones, líneas, totales y porcentajes.",
+    dreUploadAction: "Seleccionar Excel",
+    dreProcessing: "Leyendo PyG y organizando la estructura...",
+    dreParsedTitle: "Lectura estructurada",
+    dreParsedText: "Vista previa de lo identificado en el archivo importado.",
+    dreRestaurant: "Restaurante",
+    drePeriod: "Periodo",
+    dreSelectPeriod: "Seleccionar mes",
+    dreSections: "Secciones",
+    dreSummary: "Resumen",
+    dreGroups: "subdivisiones",
+    dreLines: "líneas",
+    dreResultMap: "Mapa del resultado",
+    dreResultMapText: "Ingresos, salidas y saldo final en una lectura directa.",
+    dreRevenue: "Ingresos",
+    dreOutflows: "Salidas",
+    dreFinalBalance: "Saldo final",
+    dreSectionChart: "Peso por sección",
+    dreSectionChartText: "Compara dónde el PyG concentra dinero.",
+    dreGroupHeatmap: "Mayores subdivisiones",
+    dreGroupHeatmapText: "Los grupos con mayor impacto dentro de las secciones.",
+    dreParticipationTitle: "Participación por grupo",
+    dreParticipationText: "Cada gráfico muestra cómo las subdivisiones componen el total de esa sección.",
+    dreStrategicTitle: "Lecturas estratégicas",
+    dreStrategicText: "Señales rápidas para decidir: concentración, presión de costo y margen.",
+    dreLargestExpense: "Mayor presión de gasto",
+    dreRevenueConcentration: "Concentración de ingresos",
+    dreFinalMargin: "Margen final",
+    dreExpenseRatio: "Gastos sobre ingresos",
+    dreRestaurantDiagnostics: "Diagnóstico del restaurante",
+    dreRestaurantDiagnosticsText: "Indicadores prácticos para entender margen, peso operativo y prioridades de acción.",
+    dreFinalMarginCard: "Margen final",
+    dreOperationalMarginCard: "Margen operativo",
+    dreInputsOnRevenue: "Insumos sobre ingresos",
+    drePeopleOnRevenue: "Personal sobre ingresos",
+    dreStructureOnRevenue: "Estructura sobre ingresos",
+    dreAttentionPoints: "Principales puntos de atención",
+    dreHealthy: "Saludable",
+    dreAttention: "Atención",
+    dreCritical: "Crítico",
+    dreNoData: "Sin datos suficientes",
+    dreMenuMixTitle: "Mix de ingresos del menú",
+    dreMenuMixText: "Apertura de los ítems que componen los ingresos del menú.",
+    dreCardFeesTitle: "Tarifas de tarjetas",
+    dreCardFeesText: "Detalle de tasas y tarifas relacionadas con medios de pago.",
+    dreRevenueVsExpenses: "Ingresos vs Gastos",
+    dreRevenueVsExpensesText: "Comparativo directo entre entradas y salidas del periodo importado.",
+    dreOperationalResultChart: "Resultado operativo",
+    dreOperationalResultChartText: "Lectura del resultado operativo de la competencia.",
     teamTitle: "Equipo y permisos",
     teamText: "Consulta quién tiene acceso a la cuenta y qué papel ocupa cada persona.",
     teamEmpty: "No se encontraron miembros adicionales en esta cuenta.",
@@ -480,10 +623,16 @@ const translations = {
     uploadRecipesShort: "Recipe file",
     total: "TOTAL",
     language: "Language",
+    theme: "Theme",
+    themeLight: "Light",
+    themeDark: "Dark",
     processing: "Processing files and updating the dashboard...",
     success: "Files processed successfully.",
+    authEyebrow: "G/REST",
+    authTitle: "Analyze your restaurant numbers from anywhere.",
+    authText: "A clean, secure access layer connected to your operation data.",
     authLoginTab: "Sign in",
-    authRegisterTab: "Create access",
+    authRegisterTab: "Create account",
     authRestaurantName: "Restaurant name",
     authEmail: "Email",
     authPassword: "Password",
@@ -503,8 +652,66 @@ const translations = {
     authManageAccount: "Manage account",
     navMyAccount: "My account",
     navDashboard: "Dashboard",
+    navDre: "P&L analysis",
     navRestaurants: "Restaurants",
     navTeam: "Team and permissions",
+    dreTitle: "P&L analysis",
+    dreText: "Environment prepared to import, structure and compare the selected unit's profit and loss statement.",
+    dreEmptyTitle: "P&L module in preparation",
+    dreEmptyText: "Soon this area will organize revenue, costs, expenses and operating result into a management view.",
+    dreStepImport: "Import P&L",
+    dreStepClassify: "Classify accounts",
+    dreStepAnalyze: "Analyze result",
+    dreUploadTitle: "Import P&L model",
+    dreUploadHint: "Use the analytical P&L Excel template. The system identifies sections, subdivisions, lines, totals and percentages.",
+    dreUploadAction: "Select Excel",
+    dreProcessing: "Reading P&L and organizing the structure...",
+    dreParsedTitle: "Structured reading",
+    dreParsedText: "Preview of what was identified in the imported file.",
+    dreRestaurant: "Restaurant",
+    drePeriod: "Period",
+    dreSelectPeriod: "Select month",
+    dreSections: "Sections",
+    dreSummary: "Summary",
+    dreGroups: "subdivisions",
+    dreLines: "lines",
+    dreResultMap: "Result map",
+    dreResultMapText: "Revenue, outflows and final balance in a direct read.",
+    dreRevenue: "Revenue",
+    dreOutflows: "Outflows",
+    dreFinalBalance: "Final balance",
+    dreSectionChart: "Weight by section",
+    dreSectionChartText: "Compare where the P&L concentrates money.",
+    dreGroupHeatmap: "Largest subdivisions",
+    dreGroupHeatmapText: "The highest-impact groups inside each section.",
+    dreParticipationTitle: "Participation by group",
+    dreParticipationText: "Each pie shows how subdivisions make up that section total.",
+    dreStrategicTitle: "Strategic readings",
+    dreStrategicText: "Quick signals for decision-making: concentration, cost pressure and margin.",
+    dreLargestExpense: "Largest expense pressure",
+    dreRevenueConcentration: "Revenue concentration",
+    dreFinalMargin: "Final margin",
+    dreExpenseRatio: "Expenses over revenue",
+    dreRestaurantDiagnostics: "Restaurant diagnostics",
+    dreRestaurantDiagnosticsText: "Practical indicators to understand margin, operational weight and action priorities.",
+    dreFinalMarginCard: "Final margin",
+    dreOperationalMarginCard: "Operating margin",
+    dreInputsOnRevenue: "Inputs over revenue",
+    drePeopleOnRevenue: "People over revenue",
+    dreStructureOnRevenue: "Structure over revenue",
+    dreAttentionPoints: "Top attention points",
+    dreHealthy: "Healthy",
+    dreAttention: "Attention",
+    dreCritical: "Critical",
+    dreNoData: "Not enough data",
+    dreMenuMixTitle: "Menu revenue mix",
+    dreMenuMixText: "Breakdown of the items that make up menu revenue.",
+    dreCardFeesTitle: "Card fees",
+    dreCardFeesText: "Breakdown of fees related to payment methods.",
+    dreRevenueVsExpenses: "Revenue vs Expenses",
+    dreRevenueVsExpensesText: "Direct comparison between inflow and outflow for the imported period.",
+    dreOperationalResultChart: "Operating result",
+    dreOperationalResultChartText: "Operating result reading for the period.",
     teamTitle: "Team and permissions",
     teamText: "Review who has access to this account and the role assigned to each person.",
     teamEmpty: "No additional members were found in this account.",
@@ -686,8 +893,14 @@ const applyActiveRestaurant = (session: AuthSession, restaurantId?: string): Aut
     return session;
   }
 
+  const scopedMemberships =
+    session.globalRole === "owner" || !activeMembership.accountId
+      ? memberships
+      : memberships.filter((membership) => membership.accountId === activeMembership.accountId);
+
   return {
     ...session,
+    memberships: scopedMemberships,
     activeRole: activeMembership.role,
     activeRestaurantId: activeMembership.restaurantId,
     activeRestaurantName: activeMembership.restaurantName,
@@ -696,6 +909,19 @@ const applyActiveRestaurant = (session: AuthSession, restaurantId?: string): Aut
     restaurantName: activeMembership.restaurantName,
     profilePhotoUrl: activeMembership.photoUrl
   };
+};
+
+const getWorkspaceSessionKey = (session?: AuthSession | null) => {
+  if (!session) {
+    return undefined;
+  }
+
+  const restaurantId = session.activeRestaurantId ?? session.restaurantId;
+  if (!restaurantId) {
+    return `${session.userId}:${session.authMode}:pending`;
+  }
+
+  return `${session.userId}:${session.authMode}:${restaurantId}`;
 };
 
 const productsToSalesRows = (products: ProductSummary[]) =>
@@ -944,51 +1170,6 @@ function HeroHighlights() {
   );
 }
 
-function ProcessPanel() {
-  const { t } = useLocale();
-  const steps = [
-    {
-      icon: <IconAsset src="/vendas.svg" alt="Vendas" />,
-      title: String(t("ownerFlowSales")),
-      text: String(t("ownerFlowSalesText"))
-    },
-    {
-      icon: <IconAsset src="/ficha-tecnica.png" alt="Fichas técnicas" />,
-      title: String(t("ownerFlowRecipes")),
-      text: String(t("ownerFlowRecipesText"))
-    },
-    {
-      icon: <IconAsset src="/analise.svg" alt="Análise" />,
-      title: String(t("ownerFlowRead")),
-      text: String(t("ownerFlowReadText"))
-    }
-  ];
-
-  return (
-    <section className="card process-panel">
-      <div className="section-head">
-        <div>
-          <span className="eyebrow">{String(t("processEyebrow"))}</span>
-          <h3>{String(t("ownerFlowTitle"))}</h3>
-          <p>{String(t("ownerFlowText"))}</p>
-        </div>
-      </div>
-
-      <div className="process-grid">
-        {steps.map((step) => (
-          <article key={step.title} className="process-card">
-            <span className="icon-chip soft">{step.icon}</span>
-            <div>
-              <strong>{step.title}</strong>
-              <p>{step.text}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function LanguageSwitcher({
   locale,
   onChange
@@ -1004,17 +1185,53 @@ function LanguageSwitcher({
   ];
 
   return (
-    <div className="language-switcher" aria-label={String(t("language"))}>
+    <div className="language-switcher pill-selector language-pill-selector" aria-label={String(t("language"))}>
       <span className="eyebrow">{String(t("language"))}</span>
-      <div className="language-switcher-pills">
+      <div className="language-toggle-track" data-active-locale={locale}>
         {options.map((option) => (
           <button
             key={option.value}
             type="button"
-            className={`language-pill ${locale === option.value ? "active" : ""}`}
+            className={`language-toggle-button ${locale === option.value ? "active" : ""}`}
             onClick={() => onChange(option.value)}
+            aria-pressed={locale === option.value}
           >
             {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThemeSwitcher({
+  theme,
+  onChange
+}: {
+  theme: ThemeMode;
+  onChange: (theme: ThemeMode) => void;
+}) {
+  const { t } = useLocale();
+  const options: Array<{ value: ThemeMode; label: string }> = [
+    { value: "light", label: String(t("themeLight")) },
+    { value: "dark", label: String(t("themeDark")) }
+  ];
+
+  return (
+    <div className="theme-switcher icon-theme-switcher" aria-label={String(t("theme"))}>
+      <span className="eyebrow">{String(t("theme"))}</span>
+      <div className="theme-toggle-track" data-active-theme={theme}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={`theme-toggle-button ${theme === option.value ? "active" : ""}`}
+            onClick={() => onChange(option.value)}
+            title={option.label}
+            aria-label={option.label}
+            aria-pressed={theme === option.value}
+          >
+            {option.value === "light" ? <IconSun /> : <IconMoon />}
           </button>
         ))}
       </div>
@@ -1419,6 +1636,67 @@ function IconLogout() {
   );
 }
 
+function IconSun() {
+  return (
+    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.8v2" />
+      <path d="M12 19.2v2" />
+      <path d="m4.9 4.9 1.4 1.4" />
+      <path d="m17.7 17.7 1.4 1.4" />
+      <path d="M2.8 12h2" />
+      <path d="M19.2 12h2" />
+      <path d="m4.9 19.1 1.4-1.4" />
+      <path d="m17.7 6.3 1.4-1.4" />
+    </svg>
+  );
+}
+
+function IconMoon() {
+  return (
+    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
+      <path d="M20.2 15.3A7.9 7.9 0 0 1 8.7 3.8 8.6 8.6 0 1 0 20.2 15.3Z" />
+    </svg>
+  );
+}
+
+function IconMail() {
+  return (
+    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
+      <path d="M4.5 7.5A2.5 2.5 0 0 1 7 5h10a2.5 2.5 0 0 1 2.5 2.5v9A2.5 2.5 0 0 1 17 19H7a2.5 2.5 0 0 1-2.5-2.5v-9Z" />
+      <path d="m5.5 7 6.5 5 6.5-5" />
+    </svg>
+  );
+}
+
+function IconLock() {
+  return (
+    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
+      <path d="M7 10V8a5 5 0 0 1 10 0v2" />
+      <path d="M6.5 10h11A1.5 1.5 0 0 1 19 11.5v6A1.5 1.5 0 0 1 17.5 19h-11A1.5 1.5 0 0 1 5 17.5v-6A1.5 1.5 0 0 1 6.5 10Z" />
+      <path d="M12 14v2" />
+    </svg>
+  );
+}
+
+function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+      <path d="M5 20c.8-3.4 3.3-5.2 7-5.2s6.2 1.8 7 5.2" />
+    </svg>
+  );
+}
+
+function IconArrowRight() {
+  return (
+    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
+      <path d="M5 12h13" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
 function IconCamera() {
   return (
     <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
@@ -1447,6 +1725,20 @@ function IconDashboardNav() {
       <rect x="13" y="4" width="7" height="4" rx="2" />
       <rect x="13" y="10" width="7" height="10" rx="2" />
       <rect x="4" y="13" width="7" height="7" rx="2" />
+    </svg>
+  );
+}
+
+function IconDreNav() {
+  return (
+    <svg viewBox="0 0 24 24" className="ui-icon ui-icon-solid" aria-hidden="true">
+      <path d="M6.375 6C6.375 5.65482 6.65482 5.375 7 5.375H13C13.3452 5.375 13.625 5.65482 13.625 6C13.625 6.34518 13.3452 6.625 13 6.625H7C6.65482 6.625 6.375 6.34518 6.375 6Z" />
+      <path d="M6.375 10C6.375 9.65482 6.65482 9.375 7 9.375H11C11.3452 9.375 11.625 9.65482 11.625 10C11.625 10.3452 11.3452 10.625 11 10.625H7C6.65482 10.625 6.375 10.3452 6.375 10Z" />
+      <path d="M15 9.375C14.6548 9.375 14.375 9.65482 14.375 10C14.375 10.3452 14.6548 10.625 15 10.625H17C17.3452 10.625 17.625 10.3452 17.625 10C17.625 9.65482 17.3452 9.375 17 9.375H15Z" />
+      <path d="M6.375 13C6.375 12.6548 6.65482 12.375 7 12.375H12C12.3452 12.375 12.625 12.6548 12.625 13C12.625 13.3452 12.3452 13.625 12 13.625H7C6.65482 13.625 6.375 13.3452 6.375 13Z" />
+      <path d="M15 12.375C14.6548 12.375 14.375 12.6548 14.375 13C14.375 13.3452 14.6548 13.625 15 13.625H17C17.3452 13.625 17.625 13.3452 17.625 13C17.625 12.6548 17.3452 12.375 17 12.375H15Z" />
+      <path fillRule="evenodd" clipRule="evenodd" d="M4.625 3C4.625 2.79289 4.79289 2.625 5 2.625H15.375V6C15.375 6.89746 16.1025 7.625 17 7.625H19.375V13.375C19.375 13.5131 19.4869 13.625 19.625 13.625H20.375C20.5131 13.625 20.625 13.5131 20.625 13.375V6.78076L16.3004 1.375H5C4.10254 1.375 3.375 2.10254 3.375 3V19C3.375 19.8975 4.10254 20.625 5 20.625H15.75C15.8881 20.625 16 20.5131 16 20.375V19.625C16 19.4869 15.8881 19.375 15.75 19.375H5C4.79289 19.375 4.625 19.2071 4.625 19V3ZM18.6996 6.375L16.625 3.78174V6C16.625 6.20711 16.7929 6.375 17 6.375H18.6996Z" />
+      <path d="M18.9403 20.9511C18.6027 20.9511 18.2794 20.891 17.9703 20.7709C17.6613 20.6507 17.401 20.4905 17.1892 20.2902C16.9832 20.0899 16.8602 19.8725 16.8201 19.6378L18.0223 19.3047C18.148 19.2699 18.2763 19.3414 18.3563 19.4445C18.3909 19.4891 18.431 19.5307 18.4768 19.5692C18.5912 19.6607 18.74 19.7122 18.9231 19.7237C19.0662 19.7294 19.1921 19.6922 19.3008 19.6121C19.4153 19.5263 19.4725 19.4147 19.4725 19.2773C19.4725 19.1915 19.4381 19.1085 19.3695 19.0284C19.3065 18.9483 19.2064 18.8911 19.069 18.8567L18.2536 18.6507C17.9732 18.5763 17.7329 18.4648 17.5326 18.316C17.338 18.1672 17.1892 17.9841 17.0862 17.7666C16.9832 17.5492 16.9317 17.306 16.9317 17.037C16.9317 16.5105 17.1063 16.0985 17.4553 15.801C17.8101 15.5034 18.3051 15.3546 18.9403 15.3546C19.2779 15.3546 19.5755 15.3975 19.833 15.4834C20.0962 15.5692 20.3223 15.7066 20.5111 15.8954C20.65 16.0302 20.77 16.1957 20.8709 16.3918C20.9384 16.5227 20.8608 16.677 20.7192 16.7174L19.8188 16.9739C19.6816 17.0129 19.534 16.9269 19.4406 16.8191C19.4194 16.7946 19.3957 16.77 19.3695 16.7452C19.2665 16.6364 19.1234 16.5821 18.9403 16.5821C18.7686 16.5821 18.6341 16.6221 18.5369 16.7022C18.4453 16.7766 18.3995 16.8882 18.3995 17.037C18.3995 17.1286 18.4367 17.2087 18.5111 17.2774C18.5912 17.346 18.7028 17.4004 18.8459 17.4404L19.6613 17.655C20.0733 17.7638 20.3938 17.9669 20.6227 18.2645C20.8573 18.5563 20.9746 18.8968 20.9746 19.2859C20.9746 19.6407 20.8916 19.944 20.7257 20.1958C20.5655 20.4418 20.3337 20.6307 20.0304 20.7623C19.7271 20.8882 19.3637 20.9511 18.9403 20.9511ZM18.598 22.0413C18.46 22.0413 18.348 21.9293 18.348 21.7913V20.3503H19.5841V21.7913C19.5841 21.9293 19.4721 22.0413 19.3341 22.0413H18.598ZM18.348 16.1529V14.7119C18.348 14.5739 18.46 14.4619 18.598 14.4619H19.3341C19.4721 14.4619 19.5841 14.5739 19.5841 14.7119V16.1529H18.348Z" />
     </svg>
   );
 }
@@ -1653,7 +1945,7 @@ function DonutChartCard({
               />
             );
           })}
-          <circle cx={cx} cy={cy} r={innerRadius - 6} fill="#fff8ef" />
+          <circle cx={cx} cy={cy} r={innerRadius - 6} fill="var(--donut-hole)" />
           <foreignObject
             x={cx - innerRadius + 6}
             y={cy - innerRadius + 6}
@@ -2323,6 +2615,8 @@ function SalesTotalsPanel({ totals }: { totals: SalesTotalRow[] }) {
 function AuthScreen({
   locale,
   onChangeLocale,
+  theme,
+  onChangeTheme,
   onLogin,
   onRegister,
   error,
@@ -2331,6 +2625,8 @@ function AuthScreen({
 }: {
   locale: Locale;
   onChangeLocale: (locale: Locale) => void;
+  theme: ThemeMode;
+  onChangeTheme: (theme: ThemeMode) => void;
   onLogin: (email: string, password: string) => void | Promise<void>;
   onRegister: (fullName: string, email: string, password: string) => void | Promise<void>;
   error?: string;
@@ -2353,68 +2649,94 @@ function AuthScreen({
   };
 
   return (
-    <div className="app-shell refined auth-shell">
-      <section className="hero refined-hero auth-hero">
-        <div className="hero-copy">
+    <div className="app-shell refined auth-shell auth-shell-minimal">
+      <section className="auth-card-premium">
+        <div className="auth-brand-panel">
           <BrandMark />
-          <div className="hero-copy-block">
-            <span className="eyebrow">{String(t("authEyebrow"))}</span>
+          <div className="auth-brand-copy">
             <h1>{String(t("authTitle"))}</h1>
-            <p>{String(t("authText"))}</p>
           </div>
-          <AuthHighlights />
         </div>
 
-        <div className="hero-side">
-          <div className="hero-panel auth-panel">
+        <div className="auth-access-panel">
+          <div className="panel-preferences auth-preferences">
             <LanguageSwitcher locale={locale} onChange={onChangeLocale} />
+            <ThemeSwitcher theme={theme} onChange={onChangeTheme} />
+          </div>
 
-            <div className="auth-tabs">
-              <button
-                type="button"
-                className={`language-pill ${mode === "login" ? "active" : ""}`}
-                onClick={() => setMode("login")}
-              >
-                {String(t("authLoginTab"))}
-              </button>
-              <button
-                type="button"
-                className={`language-pill ${mode === "register" ? "active" : ""}`}
-                onClick={() => setMode("register")}
-              >
-                {String(t("authRegisterTab"))}
-              </button>
-            </div>
+          <div className="auth-tabs auth-mode-switch" aria-label="Tipo de acesso">
+            <button
+              type="button"
+              className={`auth-tab-button ${mode === "login" ? "active" : ""}`}
+              onClick={() => setMode("login")}
+            >
+              {String(t("authLoginTab"))}
+            </button>
+            <button
+              type="button"
+              className={`auth-tab-button ${mode === "register" ? "active" : ""}`}
+              onClick={() => setMode("register")}
+            >
+              {String(t("authRegisterTab"))}
+            </button>
+          </div>
 
-            <div className="auth-form">
-              {mode === "register" ? (
-                <label className="auth-field">
-                  <span>{String(t("authFullName"))}</span>
-                  <input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Ex: João Silva" />
-                  <small>{String(t("authFullNameHint"))}</small>
-                </label>
-              ) : null}
-
-              <label className="auth-field">
-                <span>{String(t("authEmail"))}</span>
-                <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="contato@restaurante.com" />
+          <div key={mode} className={`auth-form auth-form-transition ${mode}`}>
+            {mode === "register" ? (
+              <label className="auth-field auth-field-premium">
+                <span>{String(t("authFullName"))}</span>
+                <div className="auth-input-shell">
+                  <IconUser />
+                  <input
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    placeholder="Ex: João Silva"
+                    autoComplete="name"
+                    disabled={busy}
+                  />
+                </div>
+                <small>{String(t("authFullNameHint"))}</small>
               </label>
+            ) : null}
 
-              <label className="auth-field">
-                <span>{String(t("authPassword"))}</span>
-                <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••" />
-              </label>
+            <label className="auth-field auth-field-premium">
+              <span>{String(t("authEmail"))}</span>
+              <div className="auth-input-shell">
+                <IconMail />
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="contato@restaurante.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  disabled={busy}
+                />
+              </div>
+            </label>
 
-              {error ? <p className="message error">{error}</p> : null}
+            <label className="auth-field auth-field-premium">
+              <span>{String(t("authPassword"))}</span>
+              <div className="auth-input-shell">
+                <IconLock />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="••••••"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  disabled={busy}
+                />
+              </div>
+            </label>
 
-              <button type="button" className="primary-button" onClick={() => void handleSubmit()} disabled={busy}>
-                {busy ? String(t("processing")) : mode === "login" ? String(t("authSubmitLogin")) : String(t("authSubmitRegister"))}
-              </button>
+            {error ? <p className="message error">{error}</p> : null}
 
-              <p className="message">{isCloudEnabled ? String(t("authSupabaseReady")) : String(t("authSupabaseSetup"))}</p>
-              {!isCloudEnabled ? <p className="message">{String(t("authHelp"))}</p> : null}
-              {!isCloudEnabled ? <p className="message">{String(t("authDemoHint"))}</p> : null}
-            </div>
+            <button type="button" className="primary-button auth-submit-button" onClick={() => void handleSubmit()} disabled={busy}>
+              <span>{busy ? String(t("processing")) : mode === "login" ? String(t("authSubmitLogin")) : String(t("authSubmitRegister"))}</span>
+              <IconArrowRight />
+            </button>
+
+            {!isCloudEnabled ? <p className="message auth-status-message">{String(t("authDemoHint"))}</p> : null}
           </div>
         </div>
       </section>
@@ -2466,12 +2788,16 @@ function DashboardShellHeader({
   session,
   section,
   locale,
-  onChangeLocale
+  onChangeLocale,
+  theme,
+  onChangeTheme
 }: {
   session: AuthSession;
   section: InternalSection;
   locale: Locale;
   onChangeLocale: (locale: Locale) => void;
+  theme: ThemeMode;
+  onChangeTheme: (theme: ThemeMode) => void;
 }) {
   const { t } = useLocale();
   const copyBySection: Record<Exclude<InternalSection, "account">, { eyebrow: string; title: string; text: string }> = {
@@ -2482,6 +2808,11 @@ function DashboardShellHeader({
         session.activeRole === "owner"
           ? "Visão executiva completa para leitura, upload e tomada de decisão."
           : "Acompanhe os indicadores e o desempenho da unidade selecionada."
+    },
+    dre: {
+      eyebrow: String(t("navDre")),
+      title: String(t("dreTitle")),
+      text: String(t("dreText"))
     },
     restaurants: {
       eyebrow: String(t("navRestaurants")),
@@ -2509,6 +2840,7 @@ function DashboardShellHeader({
 
       <div className="dashboard-shell-topbar-actions">
         <LanguageSwitcher locale={locale} onChange={onChangeLocale} />
+        <ThemeSwitcher theme={theme} onChange={onChangeTheme} />
       </div>
     </section>
   );
@@ -3011,6 +3343,7 @@ function InternalNavigation({
 
   const items: { key: InternalSection; label: string; icon: JSX.Element }[] = [
     { key: "dashboard", label: String(t("navDashboard")), icon: <IconDashboardNav /> },
+    { key: "dre", label: String(t("navDre")), icon: <IconDreNav /> },
     ...(canManageRestaurants
       ? [{ key: "restaurants" as InternalSection, label: String(t("navRestaurants")), icon: <IconBuildingNav /> }]
       : []),
@@ -3035,6 +3368,772 @@ function InternalNavigation({
         ))}
       </div>
     </nav>
+  );
+}
+
+const normalizeDreLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+const formatCompactCurrency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(value);
+
+const getDreGroupValue = (group: DreImportData["sections"][number]["groups"][number]) =>
+  group.total?.value ?? group.lines.reduce((sum, line) => sum + line.value, 0);
+
+const getDreSectionValue = (section: DreImportData["sections"][number]) =>
+  section.total?.value ?? section.groups.reduce((sum, group) => sum + getDreGroupValue(group), 0);
+
+const isDreRevenueLabel = (label: string) => normalizeDreLabel(label).includes("RECEITA");
+
+const isDreResultLabel = (label: string) => {
+  const normalized = normalizeDreLabel(label);
+  return normalized.includes("RESULTADO") || normalized.includes("SALDO") || normalized.includes("MARGEM");
+};
+
+const findDreSectionByIncludes = (data: DreImportData, terms: string[]) =>
+  data.sections.find((section) => {
+    const normalized = normalizeDreLabel(section.label);
+    return terms.some((term) => normalized.includes(term));
+  });
+
+const findDreGroupByIncludes = (data: DreImportData, terms: string[]) => {
+  for (const section of data.sections) {
+    const group = section.groups.find((item) => {
+      const normalized = normalizeDreLabel(item.label);
+      return terms.some((term) => normalized.includes(term));
+    });
+
+    if (group) {
+      return { section, group };
+    }
+  }
+
+  return undefined;
+};
+
+const getDrePeriodShortLabel = (data: DreImportData) => {
+  if (data.period?.month && data.period.year) {
+    return `${shortMonthLabels[data.period.month - 1]}/${String(data.period.year).slice(-2)}`;
+  }
+
+  return data.period?.rawLabel ?? data.sheetName;
+};
+
+const getDrePeriodKey = (data: DreImportData, fallback: string) => {
+  if (data.period?.month && data.period.year) {
+    return `${data.period.year}-${String(data.period.month).padStart(2, "0")}`;
+  }
+
+  return fallback;
+};
+
+const getDrePeriodLabel = (data: DreImportData, fallback: string) => {
+  if (data.period?.month && data.period.year) {
+    return `${shortMonthLabels[data.period.month - 1]}/${data.period.year}`;
+  }
+
+  return data.period?.rawLabel ?? fallback;
+};
+
+const getDreTone = (label: string, value: number) => {
+  if (isDreRevenueLabel(label)) {
+    return "good";
+  }
+
+  if (isDreResultLabel(label)) {
+    return value >= 0 ? "good" : "bad";
+  }
+
+  return "bad";
+};
+
+const findDreSummaryValue = (data: DreImportData, label: string) =>
+  data.summary.find((item) => normalizeDreLabel(item.label) === normalizeDreLabel(label))?.value;
+
+const getDreRatioTone = (value: number, goodMax: number, attentionMax: number) => {
+  if (!Number.isFinite(value)) {
+    return "mid";
+  }
+
+  if (value <= goodMax) {
+    return "good";
+  }
+
+  if (value <= attentionMax) {
+    return "mid";
+  }
+
+  return "bad";
+};
+
+const getDreMarginTone = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return "mid";
+  }
+
+  if (value >= 10) {
+    return "good";
+  }
+
+  if (value >= 3) {
+    return "mid";
+  }
+
+  return "bad";
+};
+
+function DreResultMap({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
+    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const explicitExpenses = findDreSummaryValue(data, "TOTAL DESPESAS");
+  const expenses = explicitExpenses ??
+    data.sections.filter((section) => !isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? revenue - expenses;
+  const maxValue = Math.max(Math.abs(revenue), Math.abs(expenses), Math.abs(finalBalance), 1);
+  const cards = [
+    { key: "revenue", label: String(t("dreRevenue")), value: revenue, tone: "good" },
+    { key: "outflows", label: String(t("dreOutflows")), value: expenses, tone: "bad" },
+    { key: "balance", label: String(t("dreFinalBalance")), value: finalBalance, tone: finalBalance >= 0 ? "good" : "bad" }
+  ];
+
+  return (
+    <section className="dre-chart-card dre-result-map">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("dreResultMap"))}</h3>
+          <p>{String(t("dreResultMapText"))}</p>
+        </div>
+      </div>
+      <div className="dre-result-bars">
+        {cards.map((card) => (
+          <article key={card.key} className={`dre-result-bar-card ${card.tone}`}>
+            <div>
+              <span className="eyebrow">{card.label}</span>
+              <strong>{formatCurrency(card.value)}</strong>
+            </div>
+            <div className="dre-result-track">
+              <span style={{ width: `${Math.max(7, (Math.abs(card.value) / maxValue) * 100)}%` }} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DreSectionChart({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const sections = data.sections
+    .map((section, index) => ({
+      label: section.label,
+      value: getDreSectionValue(section),
+      color: drePalette[index % drePalette.length],
+      tone: getDreTone(section.label, getDreSectionValue(section))
+    }))
+    .filter((section) => section.value > 0)
+    .sort((left, right) => right.value - left.value);
+  const maxValue = Math.max(...sections.map((section) => section.value), 1);
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="dre-chart-card">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("dreSectionChart"))}</h3>
+          <p>{String(t("dreSectionChartText"))}</p>
+        </div>
+      </div>
+      <div className="dre-section-bars">
+        {sections.map((section) => (
+          <article key={section.label} className="dre-section-bar-row">
+            <div className="dre-section-bar-label">
+              <span>{section.label}</span>
+              <strong>{formatCurrency(section.value)}</strong>
+            </div>
+            <div className="dre-section-bar-track">
+              <span
+                className={`dre-section-bar-fill ${section.tone}`}
+                style={{
+                  width: `${Math.max(5, (section.value / maxValue) * 100)}%`,
+                  "--dre-color": section.color
+                } as CSSProperties}
+              />
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DreMiniDonut({
+  title,
+  items,
+  total,
+  index
+}: {
+  title: string;
+  items: Array<{ label: string; value: number; color: string }>;
+  total: number;
+  index: number;
+}) {
+  const isDense = items.length > 6;
+  const isVeryDense = items.length > 10;
+  const size = isVeryDense ? 300 : isDense ? 244 : 176;
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerRadius = isVeryDense ? 142 : isDense ? 114 : 80;
+  const innerRadius = isVeryDense ? 78 : isDense ? 66 : 46;
+  let cursor = 0;
+
+  return (
+    <article className={`dre-donut-card ${isDense ? "dense" : ""} ${isVeryDense ? "very-dense" : ""}`}>
+      <div className="dre-donut-shell">
+        <svg viewBox={`0 0 ${size} ${size}`} className="dre-mini-donut" role="img" aria-label={title}>
+          {items.map((item) => {
+            const share = total > 0 ? item.value / total : 0;
+            const start = cursor * 360;
+            const end = (cursor + share) * 360;
+            cursor += share;
+
+            return (
+              <path
+                key={item.label}
+                d={buildArcPath(cx, cy, outerRadius, innerRadius, start, end)}
+                fill={item.color}
+              >
+                <title>{`${item.label}: ${formatCurrency(item.value)}`}</title>
+              </path>
+            );
+          })}
+          <circle cx={cx} cy={cy} r={innerRadius - 5} fill="var(--donut-hole)" />
+          <text x={cx} y={cy - 2} textAnchor="middle" className="dre-donut-center-value">
+            {formatCompactCurrency(total)}
+          </text>
+          <text x={cx} y={cy + 18} textAnchor="middle" className="dre-donut-center-label">
+            total
+          </text>
+        </svg>
+      </div>
+      <div className="dre-donut-copy">
+        <span className="eyebrow">#{index + 1}</span>
+        <strong>{title}</strong>
+        <p>{formatCurrency(total)}</p>
+      </div>
+      <div className="dre-donut-legend">
+        {items.map((item) => (
+          <div key={item.label} className="dre-donut-legend-row">
+            <span className="dre-donut-swatch" style={{ backgroundColor: item.color }} />
+            <span className="dre-donut-legend-name">{item.label}</span>
+            <strong>{formatPercent(total > 0 ? (item.value / total) * 100 : 0)}</strong>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function DreParticipationGrid({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const sectionCharts = data.sections
+    .map((section, sectionIndex) => {
+      const items = section.groups
+        .map((group, groupIndex) => ({
+          label: group.label,
+          value: getDreGroupValue(group),
+          color: drePalette[(sectionIndex + groupIndex) % drePalette.length]
+        }))
+        .filter((item) => item.value > 0)
+        .sort((left, right) => right.value - left.value);
+
+      return {
+        title: section.label,
+        items,
+        total: items.reduce((sum, item) => sum + item.value, 0)
+      };
+    })
+    .filter((section) => section.items.length > 1 && section.total > 0);
+
+  if (sectionCharts.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="dre-chart-card dre-participation-panel">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("dreParticipationTitle"))}</h3>
+          <p>{String(t("dreParticipationText"))}</p>
+        </div>
+      </div>
+      <div className={`dre-donut-grid ${sectionCharts.length % 2 === 1 ? "odd" : ""}`}>
+        {sectionCharts.map((section, index) => (
+          <DreMiniDonut key={section.title} title={section.title} items={section.items} total={section.total} index={index} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DreStrategicInsights({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
+    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const expenses = findDreSummaryValue(data, "TOTAL DESPESAS") ??
+    data.sections.filter((section) => !isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? revenue - expenses;
+  const revenueGroups = data.sections
+    .filter((section) => isDreRevenueLabel(section.label))
+    .flatMap((section) => section.groups.map((group) => ({ label: group.label, value: getDreGroupValue(group) })))
+    .filter((group) => group.value > 0)
+    .sort((left, right) => right.value - left.value);
+  const expenseGroups = data.sections
+    .filter((section) => !isDreRevenueLabel(section.label))
+    .flatMap((section) =>
+      section.groups.map((group) => ({
+        label: group.label,
+        section: section.label,
+        value: getDreGroupValue(group)
+      }))
+    )
+    .filter((group) => group.value > 0)
+    .sort((left, right) => right.value - left.value);
+  const revenueLeader = revenueGroups[0];
+  const expenseLeader = expenseGroups[0];
+  const insights = [
+    {
+      label: String(t("dreRevenueConcentration")),
+      title: revenueLeader?.label ?? "-",
+      value: revenueLeader ? formatPercent(revenue > 0 ? (revenueLeader.value / revenue) * 100 : 0) : "-",
+      detail: revenueLeader ? formatCurrency(revenueLeader.value) : "-",
+      tone: "good"
+    },
+    {
+      label: String(t("dreLargestExpense")),
+      title: expenseLeader?.label ?? "-",
+      value: expenseLeader ? formatPercent(expenses > 0 ? (expenseLeader.value / expenses) * 100 : 0) : "-",
+      detail: expenseLeader ? `${expenseLeader.section} · ${formatCurrency(expenseLeader.value)}` : "-",
+      tone: "bad"
+    },
+    {
+      label: String(t("dreFinalMargin")),
+      title: formatCurrency(finalBalance),
+      value: formatPercent(revenue > 0 ? (finalBalance / revenue) * 100 : 0),
+      detail: String(t("dreFinalBalance")),
+      tone: finalBalance >= 0 ? "good" : "bad"
+    },
+    {
+      label: String(t("dreExpenseRatio")),
+      title: formatCurrency(expenses),
+      value: formatPercent(revenue > 0 ? (expenses / revenue) * 100 : 0),
+      detail: `${String(t("dreOutflows"))} / ${String(t("dreRevenue"))}`,
+      tone: "mid"
+    }
+  ];
+
+  return (
+    <section className="dre-chart-card dre-strategy-panel">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("dreStrategicTitle"))}</h3>
+          <p>{String(t("dreStrategicText"))}</p>
+        </div>
+      </div>
+      <div className="dre-strategy-grid">
+        {insights.map((insight) => (
+          <article key={insight.label} className={`dre-strategy-card ${insight.tone}`}>
+            <span className="eyebrow">{insight.label}</span>
+            <strong>{insight.title}</strong>
+            <div>
+              <b>{insight.value}</b>
+              <small>{insight.detail}</small>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DreRestaurantDiagnostics({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
+    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? 0;
+  const operationalResult = findDreSummaryValue(data, "RESULTADO OPERACIONAL") ?? finalBalance;
+  const inputsSection = findDreSectionByIncludes(data, ["INSUMOS"]);
+  const operationalSection = findDreSectionByIncludes(data, ["DESPESAS OPERACIONAIS"]);
+  const peopleGroup = findDreGroupByIncludes(data, ["PESSOAL", "PERSONAL"]);
+  const inputsValue = inputsSection ? getDreSectionValue(inputsSection) : 0;
+  const peopleValue = peopleGroup ? getDreGroupValue(peopleGroup.group) : 0;
+  const structureValue = operationalSection ? Math.max(0, getDreSectionValue(operationalSection) - peopleValue) : 0;
+  const finalMargin = revenue > 0 ? (finalBalance / revenue) * 100 : 0;
+  const operationalMargin = revenue > 0 ? (operationalResult / revenue) * 100 : 0;
+  const inputsRatio = revenue > 0 ? (inputsValue / revenue) * 100 : 0;
+  const peopleRatio = revenue > 0 ? (peopleValue / revenue) * 100 : 0;
+  const structureRatio = revenue > 0 ? (structureValue / revenue) * 100 : 0;
+  const expenseGroups = data.sections
+    .filter((section) => !isDreRevenueLabel(section.label))
+    .flatMap((section) =>
+      section.groups.map((group) => ({
+        section: section.label,
+        label: group.label,
+        value: getDreGroupValue(group)
+      }))
+    )
+    .filter((item) => item.value > 0)
+    .sort((left, right) => right.value - left.value)
+    .slice(0, 5);
+  const diagnosisCards = [
+    {
+      label: String(t("dreFinalMarginCard")),
+      value: formatPercent(finalMargin),
+      detail: formatCurrency(finalBalance),
+      tone: getDreMarginTone(finalMargin)
+    },
+    {
+      label: String(t("dreOperationalMarginCard")),
+      value: formatPercent(operationalMargin),
+      detail: formatCurrency(operationalResult),
+      tone: getDreMarginTone(operationalMargin)
+    },
+    {
+      label: String(t("dreInputsOnRevenue")),
+      value: formatPercent(inputsRatio),
+      detail: inputsSection ? formatCurrency(inputsValue) : String(t("dreNoData")),
+      tone: getDreRatioTone(inputsRatio, 28, 35)
+    },
+    {
+      label: String(t("drePeopleOnRevenue")),
+      value: formatPercent(peopleRatio),
+      detail: peopleGroup ? formatCurrency(peopleValue) : String(t("dreNoData")),
+      tone: getDreRatioTone(peopleRatio, 22, 30)
+    },
+    {
+      label: String(t("dreStructureOnRevenue")),
+      value: formatPercent(structureRatio),
+      detail: operationalSection ? formatCurrency(structureValue) : String(t("dreNoData")),
+      tone: getDreRatioTone(structureRatio, 18, 25)
+    }
+  ];
+  const toneLabel = (tone: string) => {
+    if (tone === "good") {
+      return String(t("dreHealthy"));
+    }
+
+    if (tone === "bad") {
+      return String(t("dreCritical"));
+    }
+
+    return String(t("dreAttention"));
+  };
+
+  return (
+    <section className="dre-chart-card dre-diagnostics-panel">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("dreRestaurantDiagnostics"))}</h3>
+          <p>{String(t("dreRestaurantDiagnosticsText"))}</p>
+        </div>
+      </div>
+
+      <div className="dre-diagnostics-layout">
+        <div className="dre-diagnostics-grid">
+          {diagnosisCards.map((card) => (
+            <article key={card.label} className={`dre-diagnostic-card ${card.tone}`}>
+              <span className="eyebrow">{card.label}</span>
+              <strong>{card.value}</strong>
+              <p>{card.detail}</p>
+              <small>{toneLabel(card.tone)}</small>
+            </article>
+          ))}
+        </div>
+        <article className="dre-diagnostic-card attention-list bad">
+          <span className="eyebrow">{String(t("dreAttentionPoints"))}</span>
+          <div className="dre-attention-list">
+            {expenseGroups.map((item) => (
+              <div key={`${item.section}-${item.label}`} className="dre-attention-row">
+                <span>{item.label}</span>
+                <strong>{formatCurrency(item.value)}</strong>
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function DreHorizontalBreakdown({
+  title,
+  text,
+  lines,
+  useImportedPercent = false
+}: {
+  title: string;
+  text: string;
+  lines: DreImportData["sections"][number]["groups"][number]["lines"];
+  useImportedPercent?: boolean;
+}) {
+  const total = lines.reduce((sum, line) => sum + line.value, 0);
+  const visibleLines = lines
+    .filter((line) => line.value > 0)
+    .sort((left, right) => right.value - left.value)
+    .slice(0, 10);
+  const maxValue = Math.max(...visibleLines.map((line) => line.value), 1);
+
+  if (visibleLines.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="dre-chart-card dre-breakdown-card">
+      <div className="section-head">
+        <div>
+          <h3>{title}</h3>
+          <p>{text}</p>
+        </div>
+        <strong>{formatCurrency(total)}</strong>
+      </div>
+      <div className="dre-breakdown-list">
+        {visibleLines.map((line, index) => (
+          <article key={`${line.label}-${line.rowNumber}`} className="dre-breakdown-row">
+            <div className="dre-breakdown-label">
+              <span>{line.label}</span>
+              <strong>{formatCurrency(line.value)}</strong>
+            </div>
+            <div className="dre-section-bar-track">
+              <span
+                className="dre-section-bar-fill"
+                style={{
+                  width: `${Math.max(4, (line.value / maxValue) * 100)}%`,
+                  "--dre-color": drePalette[index % drePalette.length]
+                } as CSSProperties}
+              />
+            </div>
+            <small>{formatPercent(useImportedPercent && line.percent !== undefined ? line.percent : total > 0 ? (line.value / total) * 100 : 0)}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DreOperationalBreakdowns({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const menuGroup = findDreGroupByIncludes(data, ["CARDAPIO"]);
+  const cardFeesGroup = findDreGroupByIncludes(data, ["CARTAO", "CARTOES", "TAXA"]);
+  const visibleCards = Number(Boolean(menuGroup)) + Number(Boolean(cardFeesGroup));
+
+  if (!menuGroup && !cardFeesGroup) {
+    return null;
+  }
+
+  return (
+    <section className={`dre-operational-grid ${visibleCards === 1 ? "single" : ""}`}>
+      {menuGroup ? (
+        <DreHorizontalBreakdown
+          title={String(t("dreMenuMixTitle"))}
+          text={String(t("dreMenuMixText"))}
+          lines={menuGroup.group.lines}
+        />
+      ) : null}
+      {cardFeesGroup ? (
+        <DreHorizontalBreakdown
+          title={String(t("dreCardFeesTitle"))}
+          text={String(t("dreCardFeesText"))}
+          lines={cardFeesGroup.group.lines}
+          useImportedPercent
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function DreRevenueExpenseTrend({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
+    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const expenses = findDreSummaryValue(data, "TOTAL DESPESAS") ??
+    data.sections.filter((section) => !isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const maxValue = Math.max(revenue, expenses, 1);
+  const height = 220;
+  const width = 680;
+  const padding = 28;
+  const x = width / 2;
+  const revenueY = padding + (1 - revenue / maxValue) * (height - padding * 2);
+  const expensesY = padding + (1 - expenses / maxValue) * (height - padding * 2);
+
+  return (
+    <section className="dre-chart-card dre-line-chart-card">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("dreRevenueVsExpenses"))}</h3>
+          <p>{String(t("dreRevenueVsExpensesText"))}</p>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="dre-line-chart" role="img" aria-label={String(t("dreRevenueVsExpenses"))}>
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} />
+        <path d={`M ${padding} ${revenueY + 18} Q ${x} ${revenueY - 28} ${width - padding} ${revenueY + 8}`} className="dre-line revenue" />
+        <path d={`M ${padding} ${expensesY + 18} Q ${x} ${expensesY - 20} ${width - padding} ${expensesY + 8}`} className="dre-line expense" />
+        <circle cx={x} cy={revenueY} r="7" className="dre-point revenue" />
+        <circle cx={x} cy={expensesY} r="7" className="dre-point expense" />
+        <text x={x} y={height - 6} textAnchor="middle">{getDrePeriodShortLabel(data)}</text>
+      </svg>
+      <div className="dre-chart-legend-inline">
+        <span className="revenue">{String(t("dreRevenue"))}: {formatCurrency(revenue)}</span>
+        <span className="expense">{String(t("dreOutflows"))}: {formatCurrency(expenses)}</span>
+      </div>
+    </section>
+  );
+}
+
+function DreOperationalResultBars({ data }: { data: DreImportData }) {
+  const { t } = useLocale();
+  const operationalResult = findDreSummaryValue(data, "RESULTADO OPERACIONAL") ?? findDreSummaryValue(data, "SALDO FINAL") ?? 0;
+  const maxValue = Math.max(Math.abs(operationalResult), 1);
+  const height = 220;
+  const width = 680;
+  const padding = 28;
+  const barHeight = Math.max(16, (Math.abs(operationalResult) / maxValue) * (height - padding * 2));
+  const baseline = height - padding;
+  const barY = operationalResult >= 0 ? baseline - barHeight : baseline;
+
+  return (
+    <section className="dre-chart-card dre-line-chart-card">
+      <div className="section-head">
+        <div>
+          <h3>{String(t("dreOperationalResultChart"))}</h3>
+          <p>{String(t("dreOperationalResultChartText"))}</p>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="dre-bar-chart" role="img" aria-label={String(t("dreOperationalResultChart"))}>
+        <line x1={padding} y1={baseline} x2={width - padding} y2={baseline} />
+        <rect x={width / 2 - 34} y={barY} width="68" height={barHeight} rx="8" className={operationalResult >= 0 ? "positive" : "negative"} />
+        <text x={width / 2} y={height - 6} textAnchor="middle">{getDrePeriodShortLabel(data)}</text>
+      </svg>
+      <div className="dre-chart-legend-inline">
+        <span>{formatCurrency(operationalResult)}</span>
+      </div>
+    </section>
+  );
+}
+
+function DreFinancialCharts({ data }: { data: DreImportData }) {
+  return (
+    <section className="dre-financial-chart-grid">
+      <DreRevenueExpenseTrend data={data} />
+      <DreOperationalResultBars data={data} />
+    </section>
+  );
+}
+
+function DreAnalysisPanel({
+  data,
+  periods,
+  selectedPeriod,
+  error,
+  processing,
+  canManageData,
+  onImport,
+  onSelectPeriod
+}: {
+  data?: DreImportData;
+  periods: DrePeriodData[];
+  selectedPeriod: string;
+  error?: string;
+  processing?: boolean;
+  canManageData: boolean;
+  onImport: (file: File) => void;
+  onSelectPeriod: (period: string) => void;
+}) {
+  const { t } = useLocale();
+
+  return (
+    <section className="card dre-panel">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">{String(t("navDre"))}</span>
+          <h3>{data ? String(t("dreParsedTitle")) : String(t("dreEmptyTitle"))}</h3>
+          <p>{data ? String(t("dreParsedText")) : String(t("dreEmptyText"))}</p>
+        </div>
+      </div>
+
+      <label className={`upload-box dre-upload-box ${!canManageData ? "locked" : ""}`}>
+        <input
+          className="upload-input-hidden"
+          type="file"
+          accept=".xlsx,.xls"
+          disabled={!canManageData || processing}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) {
+              onImport(file);
+            }
+          }}
+        />
+        <div>
+          <span className="eyebrow">{String(t("dreUploadTitle"))}</span>
+          <strong>{processing ? String(t("dreProcessing")) : String(t("dreUploadAction"))}</strong>
+          <small>{String(t("dreUploadHint"))}</small>
+        </div>
+        <span className="upload-action">{String(t("dreUploadAction"))}</span>
+      </label>
+
+      {error ? <p className="message error">{error}</p> : null}
+
+      {data ? (
+        <>
+          <div className="dre-summary-grid">
+            <article className="totals-box compact dre-period-summary-card">
+              <span className="eyebrow">{String(t("drePeriod"))}</span>
+              <strong>{getDrePeriodLabel(data, data.sheetName)}</strong>
+              <p>{data.analysisTitle ?? data.analysisType ?? "-"}</p>
+              {periods.length > 1 ? (
+                <div className="filter-bar dre-period-filter" aria-label={String(t("dreSelectPeriod"))}>
+                  {periods.map((period) => (
+                    <button
+                      key={period.key}
+                      type="button"
+                      className={`filter-pill ${selectedPeriod === period.key ? "active" : ""}`}
+                      onClick={() => onSelectPeriod(period.key)}
+                    >
+                      {period.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </article>
+          </div>
+
+          <div className="dre-visual-grid">
+            <DreResultMap data={data} />
+            <DreSectionChart data={data} />
+          </div>
+
+          <DreStrategicInsights data={data} />
+          <DreRestaurantDiagnostics data={data} />
+          <DreOperationalBreakdowns data={data} />
+          <DreFinancialCharts data={data} />
+          <DreParticipationGrid data={data} />
+        </>
+      ) : null}
+
+    </section>
   );
 }
 
@@ -3099,6 +4198,22 @@ function TeamMemberCard({
     member.userId !== session.userId &&
     member.role === "user" &&
     !member.restaurants.some((restaurant) => restaurant.role === "owner" || restaurant.role === "admin");
+  const assignableRestaurants = [
+    ...(session.memberships ?? []).map((membership) => ({
+      restaurantId: membership.restaurantId,
+      restaurantName: membership.restaurantName,
+      role: membership.role
+    })),
+    ...member.restaurants
+  ]
+    .filter(
+      (restaurant, index, restaurants) =>
+        restaurants.findIndex((item) => item.restaurantId === restaurant.restaurantId) === index
+    )
+    .sort((left, right) => left.restaurantName.localeCompare(right.restaurantName));
+  const memberRestaurantAccessById = new Map(
+    member.restaurants.map((restaurant) => [restaurant.restaurantId, restaurant])
+  );
 
   const hasChanges =
     JSON.stringify([...featureIds].sort()) !== JSON.stringify([DEFAULT_INVITE_FEATURE]) ||
@@ -3217,24 +4332,28 @@ function TeamMemberCard({
               <div className="team-restaurant-selector">
                 <span>{String(t("teamInviteRestaurants"))}</span>
                 <div className="team-restaurant-chips">
-                  {(session.memberships ?? []).map((membership) => (
-                    <button
-                      key={`member-${member.membershipId}-${membership.restaurantId}`}
-                      type="button"
-                      className={`team-restaurant-chip selectable ${restaurantIds.includes(membership.restaurantId) ? "selected" : ""}`}
-                      onClick={() => handleRestaurantToggle(membership.restaurantId)}
-                      disabled={busy}
-                    >
-                      <strong>{membership.restaurantName}</strong>
-                      <small>
-                        {membership.role === "owner"
-                          ? String(t("teamRoleOwner"))
-                          : membership.role === "admin"
-                            ? String(t("teamRoleAdmin"))
-                            : String(t("teamRoleViewer"))}
-                      </small>
-                    </button>
-                  ))}
+                  {assignableRestaurants.map((restaurant) => {
+                    const isSelected = restaurantIds.includes(restaurant.restaurantId);
+                    const memberRestaurantAccess = memberRestaurantAccessById.get(restaurant.restaurantId);
+
+                    return (
+                      <button
+                        key={`member-${member.membershipId}-${restaurant.restaurantId}`}
+                        type="button"
+                        className={`team-restaurant-chip selectable ${isSelected ? "selected" : ""}`}
+                        onClick={() => handleRestaurantToggle(restaurant.restaurantId)}
+                        disabled={busy}
+                        aria-pressed={isSelected}
+                      >
+                        <strong>{restaurant.restaurantName}</strong>
+                        <small>
+                          {isSelected
+                            ? `Selecionado · ${formatRestaurantRole(memberRestaurantAccess?.role ?? "viewer")}`
+                            : "Sem acesso"}
+                        </small>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -3495,6 +4614,7 @@ function TeamPermissionsPanel({
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>("pt");
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [authError, setAuthError] = useState<string>();
   const [authLoading, setAuthLoading] = useState(true);
@@ -3525,19 +4645,33 @@ export default function App() {
   const [, setRecipeFile] = useState<File | null>(null);
   const [state, setState] = useState<UploadState>({});
   const [uploadFeedback, setUploadFeedback] = useState<UploadFeedbackItem[]>([]);
+  const [drePeriods, setDrePeriods] = useState<DrePeriodData[]>([]);
+  const [selectedDrePeriod, setSelectedDrePeriod] = useState<string>(DEFAULT_DRE_PERIOD);
+  const [dreError, setDreError] = useState<string>();
+  const [dreProcessing, setDreProcessing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(TOTAL_PERIOD);
   const [selectedView, setSelectedView] = useState<string>(TOTAL_VIEW);
   const latestWorkspaceRestaurantIdRef = useRef<string>();
   const latestStateRef = useRef<UploadState>({});
   const latestUploadFeedbackRef = useRef<UploadFeedbackItem[]>([]);
+  const latestDrePeriodsRef = useRef<DrePeriodData[]>([]);
   const t = <K extends keyof typeof translations.pt>(key: K) => withLocaleFallback<typeof translations.pt>(locale, key);
   const effectiveSession = useMemo(
     () => (session ? applyActiveRestaurant(session, getPreferredRestaurant(session.userId)) : null),
     [session]
   );
+  const activeWorkspaceKey = getWorkspaceSessionKey(effectiveSession);
   latestWorkspaceRestaurantIdRef.current = workspaceRestaurantId;
   latestStateRef.current = state;
   latestUploadFeedbackRef.current = uploadFeedback;
+  latestDrePeriodsRef.current = drePeriods;
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
   const hasSalesFile = salesFiles.length > 0 || (state.periodDashboards?.length ?? 0) > 0;
   const hasPersistedWorkspaceContent = (workspace?: PersistedWorkspace | null) =>
     Boolean(
@@ -3546,6 +4680,7 @@ export default function App() {
           ((workspace.state?.periodDashboards?.length ?? 0) > 0) ||
           ((workspace.state?.recipeBase?.length ?? 0) > 0) ||
           ((workspace.state?.salesFileNames?.length ?? 0) > 0) ||
+          ((workspace.drePeriods?.length ?? 0) > 0) ||
           ((workspace.uploadFeedback?.length ?? 0) > 0) ||
           workspace.state?.processing
         )
@@ -3572,6 +4707,10 @@ export default function App() {
     selectedPeriod === TOTAL_PERIOD
       ? state.data
       : periodDashboards.find((periodDashboard) => periodDashboard.key === selectedPeriod)?.data;
+  const activeDrePeriod =
+    drePeriods.find((period) => period.key === selectedDrePeriod) ??
+    drePeriods[drePeriods.length - 1];
+  const dreData = activeDrePeriod?.data;
   const hasDashboardData = Boolean(dashboard);
   const revenuePieData = useMemo(() => (dashboard ? asPieData(dashboard.groups, "revenue") : []), [dashboard]);
   const costPieData = useMemo(() => (dashboard ? asPieData(dashboard.groups, "cost") : []), [dashboard]);
@@ -3658,7 +4797,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [effectiveSession]);
+  }, [effectiveSession?.activeAccountId, effectiveSession?.authMode]);
 
   useEffect(() => {
     if (selectedView !== TOTAL_VIEW && !dashboard?.groups.some((group) => group.name === selectedView)) {
@@ -3858,6 +4997,8 @@ export default function App() {
       setRecipeFile(null);
       setState({});
       setUploadFeedback([]);
+      setDrePeriods([]);
+      setSelectedDrePeriod(DEFAULT_DRE_PERIOD);
       setSelectedPeriod(TOTAL_PERIOD);
       setSelectedView(TOTAL_VIEW);
       setCurrentSection("dashboard");
@@ -3881,9 +5022,14 @@ export default function App() {
       setLocale(localWorkspace.locale ?? "pt");
       setState((localWorkspace.state as UploadState | undefined) ?? {});
       setUploadFeedback(localWorkspace.uploadFeedback ?? []);
+      setDrePeriods(localWorkspace.drePeriods ?? []);
+      setSelectedDrePeriod(
+        localWorkspace.selectedDrePeriod ??
+          localWorkspace.drePeriods?.[localWorkspace.drePeriods.length - 1]?.key ??
+          DEFAULT_DRE_PERIOD
+      );
       setSelectedPeriod(localWorkspace.selectedPeriod ?? TOTAL_PERIOD);
       setSelectedView(localWorkspace.selectedView ?? TOTAL_VIEW);
-      setCurrentSection(isInternalSection(localWorkspace.currentSection) ? localWorkspace.currentSection : "dashboard");
       setWorkspaceRestaurantId(targetRestaurantId);
       setWorkspaceReady(true);
     }
@@ -3906,8 +5052,10 @@ export default function App() {
             locale,
             state: latestStateRef.current as PersistedWorkspace["state"],
             uploadFeedback: latestUploadFeedbackRef.current,
+            drePeriods: latestDrePeriodsRef.current,
             selectedPeriod,
             selectedView,
+            selectedDrePeriod,
             currentSection
           });
 
@@ -3923,9 +5071,14 @@ export default function App() {
         setLocale(workspace?.locale ?? "pt");
         setState((workspace?.state as UploadState | undefined) ?? {});
         setUploadFeedback(workspace?.uploadFeedback ?? []);
+        setDrePeriods(workspace?.drePeriods ?? []);
+        setSelectedDrePeriod(
+          workspace?.selectedDrePeriod ??
+            workspace?.drePeriods?.[(workspace.drePeriods?.length ?? 0) - 1]?.key ??
+            DEFAULT_DRE_PERIOD
+        );
         setSelectedPeriod(workspace?.selectedPeriod ?? TOTAL_PERIOD);
         setSelectedView(workspace?.selectedView ?? TOTAL_VIEW);
-        setCurrentSection(isInternalSection(workspace?.currentSection) ? workspace.currentSection : "dashboard");
         setWorkspaceRestaurantId(targetRestaurantId);
         setWorkspaceReady(true);
       } catch (error) {
@@ -3944,7 +5097,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [effectiveSession]);
+  }, [activeWorkspaceKey]);
 
   useEffect(() => {
     if (!effectiveSession || !workspaceReady) {
@@ -3962,6 +5115,8 @@ export default function App() {
       uploadFeedback,
       selectedPeriod,
       selectedView,
+      drePeriods,
+      selectedDrePeriod,
       currentSection
     };
 
@@ -3972,7 +5127,7 @@ export default function App() {
       return;
     }
 
-  }, [currentSection, effectiveSession, locale, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
+  }, [currentSection, drePeriods, effectiveSession, locale, selectedDrePeriod, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
 
   const createPeriodDashboardsFromImports = (
     fileNames: string[],
@@ -4221,6 +5376,41 @@ export default function App() {
     }
 
     void handleRecipeUpload(files[0]);
+  };
+
+  const handleDreImport = async (file: File) => {
+    if (!canManageOperationalData) {
+      return;
+    }
+
+    try {
+      setDreProcessing(true);
+      setDreError(undefined);
+      const nextDreData = await parseDreSpreadsheetFile(file);
+
+      if (nextDreData.sections.length === 0 && nextDreData.summary.length === 0) {
+        throw new Error("Nenhuma seção de DRE foi identificada neste arquivo.");
+      }
+
+      const fallbackKey = `${file.name}-${Date.now()}`;
+      const periodKey = getDrePeriodKey(nextDreData, fallbackKey);
+      const periodLabel = getDrePeriodLabel(nextDreData, file.name);
+      setDrePeriods((current) => {
+        const nextPeriod = {
+          key: periodKey,
+          label: periodLabel,
+          fileName: file.name,
+          data: nextDreData
+        };
+        const withoutCurrentPeriod = current.filter((period) => period.key !== periodKey);
+        return [...withoutCurrentPeriod, nextPeriod].sort((left, right) => left.key.localeCompare(right.key));
+      });
+      setSelectedDrePeriod(periodKey);
+    } catch (error) {
+      setDreError(error instanceof Error ? error.message : "Falha ao processar o arquivo de DRE.");
+    } finally {
+      setDreProcessing(false);
+    }
   };
 
   const rebuildFromPeriods = (nextPeriods: PeriodDashboard[]) => {
@@ -4680,6 +5870,8 @@ export default function App() {
         <AuthScreen
           locale={locale}
           onChangeLocale={setLocale}
+          theme={theme}
+          onChangeTheme={setTheme}
           onLogin={handleLogin}
           onRegister={handleRegister}
           error={authError}
@@ -4730,12 +5922,26 @@ export default function App() {
               section={currentSection}
               locale={locale}
               onChangeLocale={setLocale}
+              theme={theme}
+              onChangeTheme={setTheme}
             />
 
-            {currentSection === "dashboard" ? (
+            {currentSection === "dashboard" || currentSection === "dre" ? (
               <RestaurantNavigatorPanel
                 session={effectiveSession}
                 onActivateRestaurant={handleSelectRestaurant}
+              />
+            ) : null}
+            {currentSection === "dre" ? (
+              <DreAnalysisPanel
+                data={dreData}
+                periods={drePeriods}
+                selectedPeriod={activeDrePeriod?.key ?? selectedDrePeriod}
+                error={dreError}
+                processing={dreProcessing}
+                canManageData={canManageOperationalData}
+                onImport={(file) => void handleDreImport(file)}
+                onSelectPeriod={setSelectedDrePeriod}
               />
             ) : null}
             {currentSection === "restaurants" && canManageRestaurants ? (
@@ -4810,7 +6016,6 @@ export default function App() {
             ) : null}
             {currentSection === "dashboard" ? (
               <>
-                {canManageOperationalData ? <ProcessPanel /> : null}
                 {canManageOperationalData ? (
                   <UploadPanel
                     state={state}
@@ -4832,16 +6037,6 @@ export default function App() {
                   </section>
                 ) : (
                   <>
-                    {!canManageOperationalData ? (
-                      <section className="card">
-                        <div className="section-head">
-                          <div>
-                            <h3>{String(t("authReadOnlyTitle"))}</h3>
-                            <p>{String(t("authReadOnlyText"))}</p>
-                          </div>
-                        </div>
-                      </section>
-                    ) : null}
                     {dashboard ? (
                       <>
                         <ValidationPanel validations={state.validations ?? []} />

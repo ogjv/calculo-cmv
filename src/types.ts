@@ -36,6 +36,56 @@ export type SalesImportData = {
   headerValues: string[];
 };
 
+export type DreLine = {
+  label: string;
+  value: number;
+  percent?: number;
+  rowNumber: number;
+};
+
+export type DreGroup = {
+  label: string;
+  lines: DreLine[];
+  total?: DreLine;
+};
+
+export type DreSection = {
+  label: string;
+  groups: DreGroup[];
+  total?: DreLine;
+};
+
+export type DreSummaryLine = {
+  label: string;
+  value: number;
+  percent?: number;
+  rowNumber: number;
+};
+
+export type DreImportData = {
+  sheetName: string;
+  analysisType?: string;
+  restaurantName?: string;
+  reportTitle?: string;
+  analysisTitle?: string;
+  period?: {
+    rawLabel: string;
+    startDate?: string;
+    endDate?: string;
+    month?: number;
+    year?: number;
+  };
+  sections: DreSection[];
+  summary: DreSummaryLine[];
+};
+
+export type DrePeriodData = {
+  key: string;
+  label: string;
+  fileName?: string;
+  data: DreImportData;
+};
+
 export type ImportValidation = {
   kind: "sales" | "recipes";
   fileName: string;
@@ -218,5 +268,7 @@ export type PersistedWorkspace = {
   uploadFeedback: UploadFeedbackItem[];
   selectedPeriod: string;
   selectedView: string;
-  currentSection?: "account" | "dashboard" | "restaurants" | "team";
+  drePeriods?: DrePeriodData[];
+  selectedDrePeriod?: string;
+  currentSection?: "account" | "dashboard" | "dre" | "restaurants" | "team";
 };

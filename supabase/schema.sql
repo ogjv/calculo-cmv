@@ -738,10 +738,6 @@ begin
     raise exception 'Use a área Minha conta para editar o próprio acesso.';
   end if;
 
-  if coalesce(array_length(target_restaurant_ids, 1), 0) = 0 then
-    raise exception 'Selecione ao menos um restaurante.';
-  end if;
-
   if not public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[]) then
     raise exception 'Apenas owner ou admin podem editar membros.';
   end if;
@@ -765,7 +761,7 @@ begin
     raise exception 'Esse acesso não pode ser alterado por esta tela.';
   end if;
 
-  if exists (
+  if coalesce(array_length(target_restaurant_ids, 1), 0) > 0 and exists (
     select 1
     from unnest(target_restaurant_ids) as restaurant_id
     join public.restaurants restaurant

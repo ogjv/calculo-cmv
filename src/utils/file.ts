@@ -1,5 +1,15 @@
 import * as XLSX from "xlsx";
-import type { RawRow, SalesImportData, SalesImportRow, SalesReportPeriod, SalesTotalRow } from "../types";
+import type {
+  DreGroup,
+  DreImportData,
+  DreLine,
+  DreSection,
+  RawRow,
+  SalesImportData,
+  SalesImportRow,
+  SalesReportPeriod,
+  SalesTotalRow
+} from "../types";
 
 const readAsArrayBuffer = (file: File) =>
   new Promise<ArrayBuffer>((resolve, reject) => {
@@ -27,6 +37,14 @@ export const parseSpreadsheetFile = async (file: File): Promise<RawRow[]> => {
 };
 
 const cellToText = (value: unknown) => String(value ?? "").trim();
+
+const normalizeText = (value: unknown) =>
+  cellToText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
 
 const normalizeCode = (value: unknown) =>
   cellToText(value)
@@ -59,8 +77,10 @@ const parseNumericCell = (value: unknown) => {
     return 0;
   }
 
-  return Number(text.replace(/[R$\s]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
+  return Number(text.replace(/[R$%\s]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
 };
+
+const hasCellValue = (value: unknown) => cellToText(value) !== "";
 
 const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -146,6 +166,226 @@ const parseReportPeriod = (value: string): SalesReportPeriod | undefined => {
     periodLabel: periodMeta.periodLabel,
     month: periodMeta.month,
     year: periodMeta.year
+  };
+};
+
+const stripLabelPrefix = (value: string, prefix: string) => value.replace(new RegExp(`^${prefix}\\s*:?\\s*`, "i"), "").trim();
+
+const parseDrePeriod = (value: unknown): DreImportData["period"] | undefined => {
+  const rawLabel = stripLabelPrefix(cellToText(value), "Período|Periodo");
+  if (!rawLabel) {
+    return undefined;
+  }
+
+  const match = rawLabel.match(/(\d{2}\/\d{2}\/\d{2,4})\s*a\s*(\d{2}\/\d{2}\/\d{2,4})/i);
+  const startDate = match?.[1];
+  const endDate = match?.[2];
+  const reference = endDate ? parseDateParts(endDate) : startDate ? parseDateParts(startDate) : undefined;
+
+  return {
+    rawLabel,
+    startDate,
+    endDate,
+    month: reference?.month,
+    year: reference?.year
+  };
+};
+
+const isDreSectionTotalLabel = (value: string) => normalizeText(value).startsWith("TOTAL ");
+
+const isDreSummaryLabel = (value: string) => {
+  const normalized = normalizeText(value);
+
+  return (
+    normalized === "RECEITA LIQUIDA" ||
+    normalized === "MARGEM DE CONTRIBUICAO" ||
+    normalized === "RESULTADO OPERACIONAL" ||
+    normalized === "RESULTADO OPERACIONAL EM PERCENTUAL (%)" ||
+    normalized === "TOTAL RECEITAS" ||
+    normalized === "TOTAL DESPESAS" ||
+    normalized === "SALDO FINAL" ||
+    normalized.startsWith("(RO)") ||
+    normalized.startsWith("(RL)") ||
+    normalized.startsWith("(MC)")
+  );
+};
+
+const findLastDreGroup = (section?: DreSection) => section?.groups[section.groups.length - 1];
+
+const createDreLine = (label: string, value: number, percent: number | undefined, rowNumber: number): DreLine => ({
+  label,
+  value,
+  ...(percent !== undefined ? { percent } : {}),
+  rowNumber
+});
+
+const readDreLineValue = (row: (string | number)[], indexes: number[]) => {
+  for (const index of indexes) {
+    if (hasCellValue(row[index])) {
+      return parseNumericCell(row[index]);
+    }
+  }
+
+  return 0;
+};
+
+const readDreLinePercent = (row: (string | number)[], indexes: number[]) => {
+  for (const index of indexes) {
+    if (hasCellValue(row[index])) {
+      const value = parseNumericCell(row[index]);
+      return Math.abs(value) <= 1 ? value * 100 : value;
+    }
+  }
+
+  return undefined;
+};
+
+export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData> => {
+  const buffer = await readAsArrayBuffer(file);
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const firstSheet = workbook.SheetNames[0];
+
+  if (!firstSheet) {
+    return {
+      sheetName: "",
+      sections: [],
+      summary: []
+    };
+  }
+
+  const sheet = workbook.Sheets[firstSheet];
+  const matrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
+    header: 1,
+    defval: "",
+    raw: false
+  });
+
+  const sections: DreSection[] = [];
+  const summary: DreImportData["summary"] = [];
+
+  const ensureSection = (label: string) => {
+    let section = sections.find((item) => normalizeText(item.label) === normalizeText(label));
+    if (!section) {
+      section = { label, groups: [] };
+      sections.push(section);
+    }
+
+    return section;
+  };
+
+  const ensureGroup = (section: DreSection, label: string) => {
+    let group = section.groups.find((item) => normalizeText(item.label) === normalizeText(label));
+    if (!group) {
+      group = { label, lines: [] };
+      section.groups.push(group);
+    }
+
+    return group;
+  };
+
+  const analysisType = stripLabelPrefix(cellToText(matrix[0]?.[0]), "Tipo de Análise|Tipo de Analise");
+  const restaurantName = cellToText(matrix[0]?.[2]);
+  const period = parseDrePeriod(matrix[1]?.[0]);
+  const reportTitle = cellToText(matrix[1]?.[2]);
+  const analysisTitle = matrix
+    .slice(2, 8)
+    .map((row) => cellToText(row?.[2]))
+    .find(Boolean);
+
+  let currentSection: DreSection | undefined;
+  let currentGroup: DreGroup | undefined;
+
+  for (let rowIndex = 0; rowIndex < matrix.length; rowIndex += 1) {
+    if (rowIndex < 3) {
+      continue;
+    }
+
+    const row = matrix[rowIndex] ?? [];
+    const sectionLabel = cellToText(row[0]);
+    const groupLabel = cellToText(row[1]);
+    const itemLabel = cellToText(row[2]);
+    const rowNumber = rowIndex + 1;
+
+    if (!sectionLabel && !groupLabel && !itemLabel && !hasCellValue(row[3]) && !hasCellValue(row[4])) {
+      continue;
+    }
+
+    if (sectionLabel && isDreSummaryLabel(sectionLabel)) {
+      const normalizedSummaryLabel = normalizeText(sectionLabel);
+      const isPercentOnlySummary =
+        normalizedSummaryLabel.includes("PERCENTUAL") ||
+        normalizedSummaryLabel.startsWith("(RO)") ||
+        normalizedSummaryLabel.startsWith("(RL)") ||
+        normalizedSummaryLabel.startsWith("(MC)");
+      const value = readDreLineValue(row, [1, 2, 3]);
+      const percent = readDreLinePercent(row, isPercentOnlySummary ? [1, 2, 3, 4] : [4]);
+      summary.push(createDreLine(sectionLabel, value, percent, rowNumber));
+      currentGroup = undefined;
+      continue;
+    }
+
+    if (sectionLabel && isDreSectionTotalLabel(sectionLabel)) {
+      const value = readDreLineValue(row, [3, 2, 1]);
+      const percent = readDreLinePercent(row, [4]);
+      if (currentSection) {
+        currentSection.total = createDreLine(sectionLabel, value, percent, rowNumber);
+      }
+      summary.push(createDreLine(sectionLabel, value, percent, rowNumber));
+      currentGroup = undefined;
+      continue;
+    }
+
+    if (sectionLabel) {
+      currentSection = ensureSection(sectionLabel);
+      currentGroup = undefined;
+    }
+
+    if (!currentSection) {
+      continue;
+    }
+
+    if (groupLabel && normalizeText(groupLabel).startsWith("TOTAL ")) {
+      const targetGroup = currentGroup ?? findLastDreGroup(currentSection);
+      const value = readDreLineValue(row, [3, 2]);
+      const percent = readDreLinePercent(row, [4]);
+      if (targetGroup) {
+        targetGroup.total = createDreLine(groupLabel, value, percent, rowNumber);
+      }
+      currentGroup = undefined;
+      continue;
+    }
+
+    if (groupLabel && itemLabel && !hasCellValue(row[3]) && hasCellValue(row[2])) {
+      currentGroup = ensureGroup(currentSection, currentSection.label);
+      currentGroup.lines.push(createDreLine(groupLabel, parseNumericCell(row[2]), undefined, rowNumber));
+      continue;
+    }
+
+    if (groupLabel) {
+      currentGroup = ensureGroup(currentSection, groupLabel);
+    }
+
+    if (itemLabel && currentGroup) {
+      const value = readDreLineValue(row, [3]);
+      const percent = readDreLinePercent(row, [4]);
+      currentGroup.lines.push(createDreLine(itemLabel, value, percent, rowNumber));
+      continue;
+    }
+
+    if (groupLabel && currentGroup && hasCellValue(row[2])) {
+      currentGroup.lines.push(createDreLine(groupLabel, parseNumericCell(row[2]), undefined, rowNumber));
+    }
+  }
+
+  return {
+    sheetName: firstSheet,
+    analysisType: analysisType || undefined,
+    restaurantName: restaurantName || undefined,
+    reportTitle: reportTitle || undefined,
+    analysisTitle: analysisTitle || undefined,
+    period,
+    sections: sections.filter((section) => section.groups.length > 0 || section.total),
+    summary
   };
 };
 

@@ -612,10 +612,6 @@ export const updateAccountMemberAccess = async ({
     throw new Error("NÃ£o foi possÃ­vel identificar o membro selecionado.");
   }
 
-  if (restaurantIds.length === 0) {
-    throw new Error("Selecione ao menos um restaurante para este membro.");
-  }
-
   const { data, error } = await supabase.rpc("update_account_member_for_current_user", {
     target_account_id: accountId,
     target_user_id: userId,
@@ -816,12 +812,19 @@ export const loadCloudWorkspace = async (restaurantId: string) => {
     return null;
   }
 
+  const state = data.state as PersistedWorkspace["state"] & {
+    drePeriods?: PersistedWorkspace["drePeriods"];
+    selectedDrePeriod?: PersistedWorkspace["selectedDrePeriod"];
+  };
+
   return {
     locale: data.locale,
-    state: data.state,
+    state,
     uploadFeedback: data.upload_feedback,
     selectedPeriod: data.selected_period,
-    selectedView: data.selected_view
+    selectedView: data.selected_view,
+    drePeriods: state?.drePeriods ?? [],
+    selectedDrePeriod: state?.selectedDrePeriod
   } as PersistedWorkspace;
 };
 
@@ -834,7 +837,11 @@ export const saveCloudWorkspace = async (restaurantId: string, workspace: Persis
     {
       restaurant_id: restaurantId,
       locale: workspace.locale,
-      state: workspace.state,
+      state: {
+        ...workspace.state,
+        drePeriods: workspace.drePeriods ?? [],
+        selectedDrePeriod: workspace.selectedDrePeriod
+      },
       upload_feedback: workspace.uploadFeedback,
       selected_period: workspace.selectedPeriod,
       selected_view: workspace.selectedView
