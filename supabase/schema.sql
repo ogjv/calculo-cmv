@@ -37,7 +37,7 @@ begin
     from pg_type
     where typname = 'restaurant_role'
   ) then
-    create type public.restaurant_role as enum ('owner', 'admin', 'viewer');
+    create type public.restaurant_role as enum ('owner', 'viewer');
   end if;
 end $$;
 
@@ -48,7 +48,7 @@ begin
     from pg_type
     where typname = 'account_role'
   ) then
-    create type public.account_role as enum ('owner', 'admin', 'user');
+    create type public.account_role as enum ('owner', 'user');
   end if;
 end $$;
 
@@ -95,6 +95,28 @@ create table if not exists public.restaurant_memberships (
   updated_at timestamptz not null default timezone('utc', now()),
   unique (restaurant_id, user_id)
 );
+
+update public.user_profiles
+set global_role = 'user',
+    updated_at = timezone('utc', now())
+where global_role = 'admin';
+
+update public.account_memberships
+set role = 'user',
+    updated_at = timezone('utc', now())
+where role::text = 'admin';
+
+update public.account_invitations
+set account_role = 'user',
+    restaurant_role = 'viewer',
+    updated_at = timezone('utc', now())
+where account_role::text = 'admin'
+   or restaurant_role::text = 'admin';
+
+update public.restaurant_memberships
+set role = 'viewer',
+    updated_at = timezone('utc', now())
+where role::text = 'admin';
 
 create table if not exists public.restaurant_workspaces (
   restaurant_id uuid primary key references public.restaurants(id) on delete cascade,
@@ -227,7 +249,7 @@ as $$
         on membership.account_id = invitation.account_id
       where invitation.id = target_invitation_id
         and membership.user_id = auth.uid()
-        and membership.role = any(array['owner', 'admin']::public.account_role[])
+        and membership.role = any(array['owner']::public.account_role[])
     );
 $$;
 
@@ -350,7 +372,12 @@ begin
   returning id into next_account_id;
 
   insert into public.account_memberships (account_id, user_id, role, invited_by)
-  values (next_account_id, current_user_id, 'admin', current_user_id);
+  values (
+    next_account_id,
+    current_user_id,
+    case when public.is_global_owner() then 'owner'::public.account_role else 'user'::public.account_role end,
+    current_user_id
+  );
 
   insert into public.restaurants (account_id, slug, name, photo_url, owner_user_id)
   values (next_account_id, restaurant_slug, restaurant_name, restaurant_photo_url, current_user_id)
@@ -358,7 +385,7 @@ begin
 
   next_restaurant_role := case
     when public.is_global_owner() then 'owner'::public.restaurant_role
-    else 'admin'::public.restaurant_role
+    else 'viewer'::public.restaurant_role
   end;
 
   insert into public.restaurant_memberships (restaurant_id, user_id, role, invited_by)
@@ -414,8 +441,8 @@ begin
     raise exception 'Nenhuma conta ativa foi encontrada para este usuário.';
   end if;
 
-  if not public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[]) then
-    raise exception 'Apenas admin ou owner podem cadastrar restaurantes.';
+  if not public.has_account_role(target_account_id, array['owner']::public.account_role[]) then
+    raise exception 'Apenas owner pode cadastrar restaurantes.';
   end if;
 
   insert into public.restaurants (account_id, slug, name, photo_url, owner_user_id)
@@ -424,7 +451,7 @@ begin
 
   next_restaurant_role := case
     when public.is_global_owner() then 'owner'::public.restaurant_role
-    else 'admin'::public.restaurant_role
+    else 'viewer'::public.restaurant_role
   end;
 
   insert into public.restaurant_memberships (restaurant_id, user_id, role, invited_by)
@@ -462,9 +489,9 @@ begin
 
   if not (
     public.is_global_owner()
-    or public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[])
+    or public.has_account_role(target_account_id, array['owner']::public.account_role[])
   ) then
-    raise exception 'Apenas admin ou owner podem excluir este restaurante.';
+    raise exception 'Apenas owner pode excluir este restaurante.';
   end if;
 
   if not exists (
@@ -498,7 +525,7 @@ end;
 $$;
 
 update public.account_memberships membership
-set role = 'admin',
+set role = 'user',
     updated_at = timezone('utc', now())
 from public.user_profiles profile
 where profile.user_id = membership.user_id
@@ -506,7 +533,7 @@ where profile.user_id = membership.user_id
   and membership.role = 'owner';
 
 update public.restaurant_memberships membership
-set role = 'admin',
+set role = 'viewer',
     updated_at = timezone('utc', now())
 from public.user_profiles profile
 where profile.user_id = membership.user_id
@@ -526,8 +553,9 @@ set search_path = public
 as $$
 declare
   current_user_id uuid;
-  target_account_id uuid;
+  invitation_account_id uuid;
   next_invitation_id uuid;
+  first_invitation_id uuid;
 begin
   current_user_id := auth.uid();
 
@@ -539,76 +567,90 @@ begin
     raise exception 'Selecione ao menos um restaurante.';
   end if;
 
+  target_account_role := 'user';
+  target_restaurant_role := 'viewer';
+
   if target_account_role = 'owner' or target_restaurant_role = 'owner' then
     raise exception 'Esse acesso não pode ser alterado por esta tela.';
   end if;
 
-  select restaurant.account_id
-    into target_account_id
-  from public.restaurants restaurant
-  where restaurant.id = target_restaurant_ids[1];
-
-  if target_account_id is null then
-    raise exception 'Não foi possível identificar a conta deste convite.';
-  end if;
-
-  if not public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[]) then
-    raise exception 'Apenas owner ou admin podem convidar pessoas.';
+  if not public.is_global_owner() then
+    raise exception 'Apenas owner pode convidar pessoas.';
   end if;
 
   if exists (
     select 1
-    from unnest(target_restaurant_ids) as restaurant_id
-    join public.restaurants restaurant
-      on restaurant.id = restaurant_id
-    where restaurant.account_id <> target_account_id
+    from unnest(target_restaurant_ids) as requested_restaurant_id
+    left join public.restaurants restaurant
+      on restaurant.id = requested_restaurant_id
+    where restaurant.id is null
   ) then
-    raise exception 'Todos os restaurantes do convite precisam pertencer à mesma conta.';
+    raise exception 'Restaurante não encontrado.';
   end if;
 
-  update public.account_invitations invitation
-  set status = 'revoked',
-      updated_at = timezone('utc', now())
-  where invitation.account_id = target_account_id
-    and lower(invitation.email) = lower(target_email)
-    and invitation.status = 'pending';
+  for invitation_account_id in
+    select distinct restaurant.account_id
+    from public.restaurants restaurant
+    where restaurant.id = any(target_restaurant_ids)
+      and restaurant.account_id is not null
+  loop
+    update public.account_invitations invitation
+    set status = 'revoked',
+        updated_at = timezone('utc', now())
+    where invitation.account_id = invitation_account_id
+      and lower(invitation.email) = lower(target_email)
+      and invitation.status = 'pending';
 
-  insert into public.account_invitations (
-    account_id,
-    email,
-    account_role,
-    restaurant_role,
-    status,
-    invited_by
-  )
-  values (
-    target_account_id,
-    lower(target_email),
-    target_account_role,
-    target_restaurant_role,
-    'pending',
-    current_user_id
-  )
-  returning id into next_invitation_id;
-
-  insert into public.account_invitation_restaurants (invitation_id, restaurant_id)
-  select next_invitation_id, restaurant_id
-  from unnest(target_restaurant_ids) as restaurant_id
-  on conflict (invitation_id, restaurant_id) do nothing;
-
-  perform public.log_account_audit(
-    target_account_id,
-    'account_invitation_created',
-    jsonb_build_object(
-      'invitation_id', next_invitation_id,
-      'email', lower(target_email),
-      'account_role', target_account_role,
-      'restaurant_role', target_restaurant_role,
-      'restaurant_ids', target_restaurant_ids
+    insert into public.account_invitations (
+      account_id,
+      email,
+      account_role,
+      restaurant_role,
+      status,
+      invited_by
     )
-  );
+    values (
+      invitation_account_id,
+      lower(target_email),
+      target_account_role,
+      target_restaurant_role,
+      'pending',
+      current_user_id
+    )
+    returning id into next_invitation_id;
 
-  return next_invitation_id;
+    first_invitation_id := coalesce(first_invitation_id, next_invitation_id);
+
+    insert into public.account_invitation_restaurants (invitation_id, restaurant_id)
+    select next_invitation_id, restaurant.id
+    from public.restaurants restaurant
+    where restaurant.id = any(target_restaurant_ids)
+      and restaurant.account_id = invitation_account_id
+    on conflict (invitation_id, restaurant_id) do nothing;
+
+    perform public.log_account_audit(
+      invitation_account_id,
+      'account_invitation_created',
+      jsonb_build_object(
+        'invitation_id', next_invitation_id,
+        'email', lower(target_email),
+        'account_role', target_account_role,
+        'restaurant_role', target_restaurant_role,
+        'restaurant_ids', (
+          select jsonb_agg(restaurant.id)
+          from public.restaurants restaurant
+          where restaurant.id = any(target_restaurant_ids)
+            and restaurant.account_id = invitation_account_id
+        )
+      )
+    );
+  end loop;
+
+  if first_invitation_id is null then
+    raise exception 'Não foi possível identificar a conta deste convite.';
+  end if;
+
+  return first_invitation_id;
 end;
 $$;
 
@@ -630,8 +672,8 @@ begin
     raise exception 'Convite não encontrado.';
   end if;
 
-  if not public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[]) then
-    raise exception 'Apenas owner ou admin podem revogar convites.';
+  if not public.is_global_owner() then
+    raise exception 'Apenas owner pode revogar convites.';
   end if;
 
   update public.account_invitations
@@ -729,6 +771,8 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  selected_account_ids uuid[];
 begin
   if auth.uid() is null then
     raise exception 'Usuário não autenticado.';
@@ -738,78 +782,96 @@ begin
     raise exception 'Use a área Minha conta para editar o próprio acesso.';
   end if;
 
-  if not public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[]) then
-    raise exception 'Apenas owner ou admin podem editar membros.';
+  if not public.is_global_owner() then
+    raise exception 'Apenas owner pode editar membros.';
   end if;
 
-  if not exists (
+  target_account_role := 'user';
+  target_restaurant_role := 'viewer';
+
+  if coalesce(array_length(target_restaurant_ids, 1), 0) = 0 then
+    raise exception 'Selecione ao menos um restaurante.';
+  end if;
+
+  if exists (
     select 1
-    from public.account_memberships membership
-    where membership.account_id = target_account_id
-      and membership.user_id = target_user_id
+    from unnest(target_restaurant_ids) as requested_restaurant_id
+    left join public.restaurants restaurant
+      on restaurant.id = requested_restaurant_id
+    where restaurant.id is null
   ) then
-    raise exception 'Membro não encontrado nesta conta.';
+    raise exception 'Restaurante não encontrado.';
   end if;
 
   if exists (
     select 1
     from public.account_memberships membership
-    where membership.account_id = target_account_id
-      and membership.user_id = target_user_id
+    where membership.user_id = target_user_id
       and membership.role = 'owner'
   ) then
     raise exception 'Esse acesso não pode ser alterado por esta tela.';
-  end if;
-
-  if coalesce(array_length(target_restaurant_ids, 1), 0) > 0 and exists (
-    select 1
-    from unnest(target_restaurant_ids) as restaurant_id
-    join public.restaurants restaurant
-      on restaurant.id = restaurant_id
-    where restaurant.account_id <> target_account_id
-  ) then
-    raise exception 'Todos os restaurantes precisam pertencer à mesma conta.';
   end if;
 
   if exists (
     select 1
     from public.restaurant_memberships membership
-    join public.restaurants restaurant
-      on restaurant.id = membership.restaurant_id
     where membership.user_id = target_user_id
       and membership.role = 'owner'
-      and restaurant.account_id = target_account_id
   ) then
     raise exception 'Esse acesso não pode ser alterado por esta tela.';
   end if;
 
-  update public.account_memberships
-  set role = target_account_role,
-      updated_at = timezone('utc', now())
-  where account_id = target_account_id
-    and user_id = target_user_id;
+  select array_agg(distinct restaurant.account_id)
+    into selected_account_ids
+  from public.restaurants restaurant
+  where restaurant.id = any(target_restaurant_ids)
+    and restaurant.account_id is not null;
+
+  insert into public.account_memberships (account_id, user_id, role, invited_by)
+  select account_id, target_user_id, target_account_role, auth.uid()
+  from unnest(selected_account_ids) as account_id
+  on conflict (account_id, user_id) do update
+  set role = excluded.role,
+      updated_at = timezone('utc', now());
 
   delete from public.restaurant_memberships membership
-  using public.restaurants restaurant
-  where membership.restaurant_id = restaurant.id
-    and membership.user_id = target_user_id
-    and restaurant.account_id = target_account_id;
+  where membership.user_id = target_user_id
+    and membership.role <> 'owner'
+    and membership.restaurant_id <> all(target_restaurant_ids);
+
+  delete from public.account_memberships membership
+  where membership.user_id = target_user_id
+    and membership.role <> 'owner'
+    and membership.account_id <> all(selected_account_ids);
 
   insert into public.restaurant_memberships (restaurant_id, user_id, role, invited_by)
-  select restaurant_id, target_user_id, target_restaurant_role, auth.uid()
+  select distinct restaurant_id, target_user_id, target_restaurant_role, auth.uid()
   from unnest(target_restaurant_ids) as restaurant_id
   on conflict (restaurant_id, user_id) do update
   set role = excluded.role,
       updated_at = timezone('utc', now());
 
+  delete from public.account_memberships membership
+  where membership.user_id = target_user_id
+    and membership.role <> 'owner'
+    and not exists (
+      select 1
+      from public.restaurant_memberships restaurant_membership
+      join public.restaurants restaurant
+        on restaurant.id = restaurant_membership.restaurant_id
+      where restaurant_membership.user_id = membership.user_id
+        and restaurant.account_id = membership.account_id
+    );
+
   perform public.log_account_audit(
-    target_account_id,
+    coalesce(target_account_id, selected_account_ids[1]),
     'account_member_updated',
     jsonb_build_object(
       'target_user_id', target_user_id,
       'account_role', target_account_role,
       'restaurant_role', target_restaurant_role,
-      'restaurant_ids', target_restaurant_ids
+      'restaurant_ids', target_restaurant_ids,
+      'account_ids', selected_account_ids
     )
   );
 
@@ -835,15 +897,19 @@ begin
     raise exception 'Use a área Minha conta para encerrar o próprio acesso.';
   end if;
 
-  if not public.has_account_role(target_account_id, array['owner', 'admin']::public.account_role[]) then
-    raise exception 'Apenas owner ou admin podem remover membros.';
+  if not public.is_global_owner() then
+    raise exception 'Apenas owner pode remover membros.';
   end if;
+
+  insert into public.account_memberships (account_id, user_id, role, invited_by)
+  values (target_account_id, target_user_id, 'user', auth.uid())
+  on conflict (account_id, user_id) do nothing;
 
   if not exists (
     select 1
     from public.account_memberships membership
     where membership.account_id = target_account_id
-      and membership.user_id = target_user_id
+    and membership.user_id = target_user_id
   ) then
     raise exception 'Membro não encontrado nesta conta.';
   end if;
@@ -948,8 +1014,8 @@ drop policy if exists "accounts_update_admin" on public.accounts;
 create policy "accounts_update_admin"
 on public.accounts
 for update
-using (public.has_account_role(id, array['owner', 'admin']::public.account_role[]))
-with check (public.has_account_role(id, array['owner', 'admin']::public.account_role[]));
+using (public.has_account_role(id, array['owner']::public.account_role[]))
+with check (public.has_account_role(id, array['owner']::public.account_role[]));
 
 drop policy if exists "account_memberships_select_member" on public.account_memberships;
 create policy "account_memberships_select_member"
@@ -961,14 +1027,14 @@ drop policy if exists "account_memberships_insert_admin" on public.account_membe
 create policy "account_memberships_insert_admin"
 on public.account_memberships
 for insert
-with check (public.has_account_role(account_id, array['owner', 'admin']::public.account_role[]));
+with check (public.has_account_role(account_id, array['owner']::public.account_role[]));
 
 drop policy if exists "account_memberships_update_admin" on public.account_memberships;
 create policy "account_memberships_update_admin"
 on public.account_memberships
 for update
-using (public.has_account_role(account_id, array['owner', 'admin']::public.account_role[]))
-with check (public.has_account_role(account_id, array['owner', 'admin']::public.account_role[]));
+using (public.has_account_role(account_id, array['owner']::public.account_role[]))
+with check (public.has_account_role(account_id, array['owner']::public.account_role[]));
 
 drop policy if exists "account_invitations_select_member" on public.account_invitations;
 create policy "account_invitations_select_member"
@@ -980,14 +1046,14 @@ drop policy if exists "account_invitations_insert_admin" on public.account_invit
 create policy "account_invitations_insert_admin"
 on public.account_invitations
 for insert
-with check (public.has_account_role(account_id, array['owner', 'admin']::public.account_role[]));
+with check (public.has_account_role(account_id, array['owner']::public.account_role[]));
 
 drop policy if exists "account_invitations_update_admin" on public.account_invitations;
 create policy "account_invitations_update_admin"
 on public.account_invitations
 for update
-using (public.has_account_role(account_id, array['owner', 'admin']::public.account_role[]))
-with check (public.has_account_role(account_id, array['owner', 'admin']::public.account_role[]));
+using (public.has_account_role(account_id, array['owner']::public.account_role[]))
+with check (public.has_account_role(account_id, array['owner']::public.account_role[]));
 
 drop policy if exists "account_invitation_restaurants_select_member" on public.account_invitation_restaurants;
 create policy "account_invitation_restaurants_select_member"
@@ -1025,25 +1091,25 @@ create policy "restaurants_update_admin"
 on public.restaurants
 for update
 using (
-  public.has_restaurant_role(id, array['owner', 'admin']::public.restaurant_role[])
-  or public.has_account_role(account_id, array['owner', 'admin']::public.account_role[])
+  public.has_restaurant_role(id, array['owner']::public.restaurant_role[])
+  or public.has_account_role(account_id, array['owner']::public.account_role[])
 )
 with check (
-  public.has_restaurant_role(id, array['owner', 'admin']::public.restaurant_role[])
-  or public.has_account_role(account_id, array['owner', 'admin']::public.account_role[])
+  public.has_restaurant_role(id, array['owner']::public.restaurant_role[])
+  or public.has_account_role(account_id, array['owner']::public.account_role[])
 );
 
 drop policy if exists "restaurant_memberships_select_member" on public.restaurant_memberships;
 create policy "restaurant_memberships_select_member"
 on public.restaurant_memberships
 for select
-using (public.is_restaurant_member(restaurant_id));
+using (public.is_global_owner() or public.is_restaurant_member(restaurant_id));
 
 drop policy if exists "restaurant_memberships_insert_admin" on public.restaurant_memberships;
 create policy "restaurant_memberships_insert_admin"
 on public.restaurant_memberships
 for insert
-with check (public.has_restaurant_role(restaurant_id, array['owner', 'admin']::public.restaurant_role[]));
+with check (public.has_restaurant_role(restaurant_id, array['owner']::public.restaurant_role[]));
 
 drop policy if exists "restaurant_memberships_update_owner" on public.restaurant_memberships;
 create policy "restaurant_memberships_update_owner"
@@ -1056,20 +1122,20 @@ drop policy if exists "restaurant_workspaces_select_member" on public.restaurant
 create policy "restaurant_workspaces_select_member"
 on public.restaurant_workspaces
 for select
-using (public.is_restaurant_member(restaurant_id));
+using (public.is_global_owner() or public.is_restaurant_member(restaurant_id));
 
 drop policy if exists "restaurant_workspaces_insert_admin" on public.restaurant_workspaces;
 create policy "restaurant_workspaces_insert_admin"
 on public.restaurant_workspaces
 for insert
-with check (public.has_restaurant_role(restaurant_id, array['owner', 'admin']::public.restaurant_role[]));
+with check (public.has_restaurant_role(restaurant_id, array['owner']::public.restaurant_role[]));
 
 drop policy if exists "restaurant_workspaces_update_admin" on public.restaurant_workspaces;
 create policy "restaurant_workspaces_update_admin"
 on public.restaurant_workspaces
 for update
-using (public.has_restaurant_role(restaurant_id, array['owner', 'admin']::public.restaurant_role[]))
-with check (public.has_restaurant_role(restaurant_id, array['owner', 'admin']::public.restaurant_role[]));
+using (public.has_restaurant_role(restaurant_id, array['owner']::public.restaurant_role[]))
+with check (public.has_restaurant_role(restaurant_id, array['owner']::public.restaurant_role[]));
 
 drop policy if exists "audit_logs_select_admin" on public.audit_logs;
 create policy "audit_logs_select_admin"
@@ -1079,11 +1145,11 @@ using (
   public.is_global_owner()
   or (
     account_id is not null
-    and public.has_account_role(account_id, array['owner', 'admin']::public.account_role[])
+    and public.has_account_role(account_id, array['owner']::public.account_role[])
   )
   or (
     restaurant_id is not null
-    and public.has_restaurant_role(restaurant_id, array['owner', 'admin']::public.restaurant_role[])
+    and public.has_restaurant_role(restaurant_id, array['owner']::public.restaurant_role[])
   )
 );
 
@@ -1095,11 +1161,11 @@ with check (
   public.is_global_owner()
   or (
     account_id is not null
-    and public.has_account_role(account_id, array['owner', 'admin']::public.account_role[])
+    and public.has_account_role(account_id, array['owner']::public.account_role[])
   )
   or (
     restaurant_id is not null
-    and public.has_restaurant_role(restaurant_id, array['owner', 'admin']::public.restaurant_role[])
+    and public.has_restaurant_role(restaurant_id, array['owner']::public.restaurant_role[])
   )
 );
 

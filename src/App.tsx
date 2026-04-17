@@ -265,6 +265,26 @@ const translations = {
     authLogout: "Sair",
     authGreeting: "Painel do restaurante",
     authEmptyState: "Nenhum dado salvo ainda. Importe as vendas e as fichas técnicas para começar.",
+    dashboardGuideTitle: "Como esta aba ajuda na decisão",
+    dashboardGuideText: "Use esta aba para acompanhar vendas, CMV, margens e alertas importantes em uma visão rápida da operação.",
+    dashboardGuideKpisTitle: "Indicadores rápidos",
+    dashboardGuideKpisText: "Mostram faturamento, CMV, cobertura de fichas e variações importantes do período.",
+    dashboardGuideChartsTitle: "Gráficos de composição",
+    dashboardGuideChartsText: "Ajudam a entender quais grupos vendem mais e onde o custo pesa no resultado.",
+    dashboardGuideAlertsTitle: "Pontos de atenção",
+    dashboardGuideAlertsText: "Destacam itens sem ficha, CMV alto e oportunidades para priorizar conversas com a operação.",
+    dashboardGuideRevenueLabel: "Faturamento",
+    dashboardGuideRevenueTrend: "+12% vs. período anterior",
+    dashboardGuideSalesChartTitle: "Vendas por grupo",
+    dashboardGuideSalesChartHint: "Onde olhar primeiro",
+    dashboardGuideBarPizzas: "Pizzas",
+    dashboardGuideBarDrinks: "Bebidas",
+    dashboardGuideBarKitchen: "Cozinha",
+    dashboardGuideCmvTitle: "CMV em foco",
+    dashboardGuideCmvText: "Compara custo, venda e margem por grupo.",
+    dashboardGuideAlertLabel: "Ponto de atenção",
+    dashboardGuideAlertTitle: "Itens sem ficha técnica",
+    dashboardGuideAlertText: "Ajuda a priorizar cadastros antes de confiar no CMV consolidado.",
     authSettings: "Configurações da conta",
     authSettingsText: "Gerencie seu perfil e os restaurantes vinculados a esta conta.",
     authUserProfile: "Perfil do usuário",
@@ -331,6 +351,8 @@ const translations = {
     dreAttention: "Atenção",
     dreCritical: "Crítico",
     dreNoData: "Sem dados suficientes",
+    dreRevenueMixTitle: "Mix de receitas",
+    dreRevenueMixText: "Abertura do principal grupo de receita identificado no DRE.",
     dreMenuMixTitle: "Mix de receitas do cardápio",
     dreMenuMixText: "Abertura dos itens que compõem a receita do cardápio.",
     dreCardFeesTitle: "Tarifas de cartões",
@@ -343,9 +365,9 @@ const translations = {
     teamText: "Veja quem tem acesso à conta e qual é o papel de cada pessoa.",
     teamEmpty: "Nenhum membro adicional foi encontrado nesta conta.",
     teamAccessModel: "Modelo de acesso",
-    teamAccessModelText: "Owner é global, Admin administra a conta e usuários comuns acessam apenas o que receberem.",
+    teamAccessModelText: "Owner gerencia todos os usuários; usuários comuns acessam apenas os restaurantes liberados.",
     teamMembersTotal: "Pessoas com acesso",
-    teamAdminsTotal: "Admins da conta",
+    teamAdminsTotal: "Owners",
     teamUsersTotal: "Usuários comuns",
     teamRestaurantsTotal: "Restaurantes cobertos",
     teamAccountRole: "Papel na conta",
@@ -353,7 +375,7 @@ const translations = {
     teamNoRestaurants: "Nenhum restaurante vinculado",
     teamYou: "Você",
     teamRoleOwner: "Owner",
-    teamRoleAdmin: "Admin",
+    teamRoleAdmin: "Usuário",
     teamRoleUser: "Usuário",
     teamRoleViewer: "Leitura",
     teamInviteTitle: "Convidar pessoa",
@@ -406,12 +428,12 @@ const translations = {
     authActivate: "Ativar",
     authActive: "Ativo",
     authRoleOwner: "Owner",
-    authRoleAdmin: "Admin",
+    authRoleAdmin: "Usuário",
     authRoleViewer: "Leitura",
     authReadOnlyTitle: "Acesso somente leitura",
     authReadOnlyText: "Sua conta pode consultar os dados deste restaurante, mas não pode importar ou alterar informações.",
-    authManageOnly: "Apenas usuários admin ou owner podem importar relatórios e editar esta base.",
-    authSettingsRestricted: "Apenas admin ou owner podem editar os dados deste restaurante.",
+    authManageOnly: "Apenas owner pode importar relatórios e editar esta base.",
+    authSettingsRestricted: "Apenas owner pode editar os dados deste restaurante.",
     authHeroCardTitle: "Conta própria por restaurante",
     authHeroCardText: "Acesso, histórico e base separados por unidade.",
     homeHeroBadge: "Plataforma de CMV para restaurantes",
@@ -468,6 +490,26 @@ const translations = {
     authLogout: "Salir",
     authSupabaseReady: "Modo online activo con Supabase.",
     authSupabaseSetup: "Modo local temporal. Configure las variables de Supabase para acceso online real.",
+    dashboardGuideTitle: "Cómo ayuda esta pestaña",
+    dashboardGuideText: "Usa esta pestaña para seguir ventas, CMV, márgenes y alertas importantes en una vista rápida de la operación.",
+    dashboardGuideKpisTitle: "Indicadores rápidos",
+    dashboardGuideKpisText: "Muestran ventas, CMV, cobertura de recetas y variaciones importantes del periodo.",
+    dashboardGuideChartsTitle: "Gráficos de composición",
+    dashboardGuideChartsText: "Ayudan a entender qué grupos venden más y dónde el costo pesa en el resultado.",
+    dashboardGuideAlertsTitle: "Puntos de atención",
+    dashboardGuideAlertsText: "Destacan ítems sin receta, CMV alto y oportunidades para priorizar conversaciones operativas.",
+    dashboardGuideRevenueLabel: "Facturación",
+    dashboardGuideRevenueTrend: "+12% vs. período anterior",
+    dashboardGuideSalesChartTitle: "Ventas por grupo",
+    dashboardGuideSalesChartHint: "Dónde mirar primero",
+    dashboardGuideBarPizzas: "Pizzas",
+    dashboardGuideBarDrinks: "Bebidas",
+    dashboardGuideBarKitchen: "Cocina",
+    dashboardGuideCmvTitle: "CMV en foco",
+    dashboardGuideCmvText: "Compara costo, venta y margen por grupo.",
+    dashboardGuideAlertLabel: "Punto de atención",
+    dashboardGuideAlertTitle: "Ítems sin receta técnica",
+    dashboardGuideAlertText: "Ayuda a priorizar registros antes de confiar en el CMV consolidado.",
     authSettings: "Configuración de la cuenta",
     authUserProfile: "Perfil del usuario",
     authRestaurantProfile: "Restaurante activo",
@@ -531,6 +573,8 @@ const translations = {
     dreAttention: "Atención",
     dreCritical: "Crítico",
     dreNoData: "Sin datos suficientes",
+    dreRevenueMixTitle: "Mix de ingresos",
+    dreRevenueMixText: "Apertura del principal grupo de ingresos identificado en el PyG.",
     dreMenuMixTitle: "Mix de ingresos del menú",
     dreMenuMixText: "Apertura de los ítems que componen los ingresos del menú.",
     dreCardFeesTitle: "Tarifas de tarjetas",
@@ -543,9 +587,9 @@ const translations = {
     teamText: "Consulta quién tiene acceso a la cuenta y qué papel ocupa cada persona.",
     teamEmpty: "No se encontraron miembros adicionales en esta cuenta.",
     teamAccessModel: "Modelo de acceso",
-    teamAccessModelText: "Owner es global, Admin gestiona la cuenta y los usuarios comunes acceden solo a lo que reciban.",
+    teamAccessModelText: "Owner gestiona todos los usuarios; los usuarios comunes acceden solo a restaurantes liberados.",
     teamMembersTotal: "Personas con acceso",
-    teamAdminsTotal: "Admins de la cuenta",
+    teamAdminsTotal: "Owners",
     teamUsersTotal: "Usuarios comunes",
     teamRestaurantsTotal: "Restaurantes cubiertos",
     teamAccountRole: "Rol en la cuenta",
@@ -553,7 +597,7 @@ const translations = {
     teamNoRestaurants: "Sin restaurantes vinculados",
     teamYou: "Tú",
     teamRoleOwner: "Owner",
-    teamRoleAdmin: "Admin",
+    teamRoleAdmin: "Usuario",
     teamRoleUser: "Usuario",
     teamRoleViewer: "Lectura",
     teamInviteTitle: "Invitar persona",
@@ -641,6 +685,26 @@ const translations = {
     authLogout: "Sign out",
     authSupabaseReady: "Online mode is active with Supabase.",
     authSupabaseSetup: "Temporary local mode. Configure the Supabase environment variables for real remote access.",
+    dashboardGuideTitle: "How this tab supports decisions",
+    dashboardGuideText: "Use this tab to track sales, CMV, margins and key alerts in a quick view of the operation.",
+    dashboardGuideKpisTitle: "Quick indicators",
+    dashboardGuideKpisText: "Shows revenue, CMV, recipe coverage and important period movements.",
+    dashboardGuideChartsTitle: "Composition charts",
+    dashboardGuideChartsText: "Helps identify which groups sell more and where cost weighs on the result.",
+    dashboardGuideAlertsTitle: "Attention points",
+    dashboardGuideAlertsText: "Highlights missing recipes, high CMV and opportunities to prioritize operational conversations.",
+    dashboardGuideRevenueLabel: "Revenue",
+    dashboardGuideRevenueTrend: "+12% vs. previous period",
+    dashboardGuideSalesChartTitle: "Sales by group",
+    dashboardGuideSalesChartHint: "Where to look first",
+    dashboardGuideBarPizzas: "Pizzas",
+    dashboardGuideBarDrinks: "Drinks",
+    dashboardGuideBarKitchen: "Kitchen",
+    dashboardGuideCmvTitle: "CMV in focus",
+    dashboardGuideCmvText: "Compares cost, sales and margin by group.",
+    dashboardGuideAlertLabel: "Attention point",
+    dashboardGuideAlertTitle: "Items without recipes",
+    dashboardGuideAlertText: "Helps prioritize setup before trusting consolidated CMV.",
     authSettings: "Account settings",
     authUserProfile: "User profile",
     authRestaurantProfile: "Active restaurant",
@@ -704,6 +768,8 @@ const translations = {
     dreAttention: "Attention",
     dreCritical: "Critical",
     dreNoData: "Not enough data",
+    dreRevenueMixTitle: "Revenue mix",
+    dreRevenueMixText: "Breakdown of the main revenue group identified in the P&L.",
     dreMenuMixTitle: "Menu revenue mix",
     dreMenuMixText: "Breakdown of the items that make up menu revenue.",
     dreCardFeesTitle: "Card fees",
@@ -716,9 +782,9 @@ const translations = {
     teamText: "Review who has access to this account and the role assigned to each person.",
     teamEmpty: "No additional members were found in this account.",
     teamAccessModel: "Access model",
-    teamAccessModelText: "Owner is global, Admin manages the account and common users access only what they receive.",
+    teamAccessModelText: "Owner manages every user; common users only access assigned restaurants.",
     teamMembersTotal: "People with access",
-    teamAdminsTotal: "Account admins",
+    teamAdminsTotal: "Owners",
     teamUsersTotal: "Common users",
     teamRestaurantsTotal: "Covered restaurants",
     teamAccountRole: "Account role",
@@ -726,7 +792,7 @@ const translations = {
     teamNoRestaurants: "No linked restaurants",
     teamYou: "You",
     teamRoleOwner: "Owner",
-    teamRoleAdmin: "Admin",
+    teamRoleAdmin: "User",
     teamRoleUser: "User",
     teamRoleViewer: "Read only",
     teamInviteTitle: "Invite person",
@@ -2965,7 +3031,7 @@ function AccountSettingsPanel({
               <div className="user-status-grid">
                 <article className="mini-stat-card">
                   <span>{String(t("authAccountStatus"))}</span>
-                  <strong>{session.activeRole === "owner" ? String(t("authRoleOwner")) : session.activeRole === "admin" ? String(t("authRoleAdmin")) : String(t("authRoleViewer"))}</strong>
+                  <strong>{session.activeRole === "owner" ? String(t("authRoleOwner")) : String(t("authRoleViewer"))}</strong>
                 </article>
                 <article className="mini-stat-card">
                   <span>{String(t("authRestaurantsCount"))}</span>
@@ -3053,7 +3119,7 @@ function AccountSettingsPanel({
                     <article key={membership.membershipId} className={`restaurant-member-card ${isActive ? "active" : ""}`}>
                       <div>
                         <strong>{membership.restaurantName}</strong>
-                        <p>{membership.role === "owner" ? String(t("authRoleOwner")) : membership.role === "admin" ? String(t("authRoleAdmin")) : String(t("authRoleViewer"))}</p>
+                        <p>{membership.role === "owner" ? String(t("authRoleOwner")) : String(t("authRoleViewer"))}</p>
                       </div>
                       <div className="restaurant-member-actions">
                         {!isActive ? (
@@ -3120,6 +3186,8 @@ function RestaurantNavigatorPanel({
   onActivateRestaurant: (restaurantId: string) => void;
 }) {
   const { t } = useLocale();
+  const memberships = session.memberships ?? [];
+  const hasMultipleRestaurants = memberships.length > 1;
 
   return (
     <section className="card restaurant-overview-panel">
@@ -3127,12 +3195,12 @@ function RestaurantNavigatorPanel({
         <div>
           <span className="eyebrow">{String(t("authRestaurantNavigator"))}</span>
           <h3>{String(t("authRestaurantNavigator"))}</h3>
-          <p>{String(t("authRestaurantNavigatorText"))}</p>
+          {hasMultipleRestaurants ? <p>{String(t("authRestaurantNavigatorText"))}</p> : null}
         </div>
       </div>
 
       <div className="restaurant-navigator-grid">
-        {(session.memberships ?? []).map((membership) => {
+        {memberships.map((membership) => {
           const isActive = membership.restaurantId === session.activeRestaurantId;
 
           return (
@@ -3151,20 +3219,101 @@ function RestaurantNavigatorPanel({
               </div>
               <div className="restaurant-tile-copy">
                 <strong>{membership.restaurantName}</strong>
-                <span>
-                  {membership.role === "owner"
-                    ? String(t("authRoleOwner"))
-                    : membership.role === "admin"
-                      ? String(t("authRoleAdmin"))
-                      : String(t("authRoleViewer"))}
-                </span>
               </div>
-              <span className={`status ${isActive ? "ok" : ""}`}>
-                {isActive ? String(t("authActive")) : String(t("authActivate"))}
-              </span>
             </button>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function DashboardReadOnlyGuide() {
+  const { t } = useLocale();
+  const guideSignals = [
+    {
+      title: String(t("dashboardGuideKpisTitle")),
+      text: String(t("dashboardGuideKpisText")),
+      tone: "good"
+    },
+    {
+      title: String(t("dashboardGuideChartsTitle")),
+      text: String(t("dashboardGuideChartsText")),
+      tone: "mid"
+    },
+    {
+      title: String(t("dashboardGuideAlertsTitle")),
+      text: String(t("dashboardGuideAlertsText")),
+      tone: "bad"
+    }
+  ];
+  const bars = [
+    { label: String(t("dashboardGuideBarPizzas")), value: 78, color: "#2f6f5e" },
+    { label: String(t("dashboardGuideBarDrinks")), value: 56, color: "#c9823a" },
+    { label: String(t("dashboardGuideBarKitchen")), value: 38, color: "#496f9f" }
+  ];
+
+  return (
+    <section className="card dashboard-guide-card">
+      <div className="dashboard-guide-copy">
+        <div>
+          <span className="eyebrow">{String(t("navDashboard"))}</span>
+          <h3>{String(t("dashboardGuideTitle"))}</h3>
+          <p>{String(t("dashboardGuideText"))}</p>
+        </div>
+
+        <div className="dashboard-guide-signal-grid">
+          {guideSignals.map((item) => (
+            <article key={item.title} className={`dashboard-guide-signal ${item.tone}`}>
+              <strong>{item.title}</strong>
+              <p>{item.text}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="dashboard-guide-visual">
+        <article className="dashboard-guide-kpi">
+          <span>{String(t("dashboardGuideRevenueLabel"))}</span>
+          <strong>R$ 128 mil</strong>
+          <small>{String(t("dashboardGuideRevenueTrend"))}</small>
+        </article>
+
+        <article className="dashboard-guide-chart bars" aria-label="Exemplo de vendas por grupo">
+          <div className="dashboard-guide-chart-head">
+            <strong>{String(t("dashboardGuideSalesChartTitle"))}</strong>
+            <span>{String(t("dashboardGuideSalesChartHint"))}</span>
+          </div>
+          <div className="dashboard-guide-bars">
+            {bars.map((bar) => (
+              <div key={bar.label} className="dashboard-guide-bar-row">
+                <span>{bar.label}</span>
+                <div>
+                  <i
+                    style={{
+                      width: `${bar.value}%`,
+                      backgroundColor: bar.color
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="dashboard-guide-chart donut" aria-label="Exemplo de composição de CMV">
+          <div className="dashboard-guide-donut" />
+          <div>
+            <strong>{String(t("dashboardGuideCmvTitle"))}</strong>
+            <span>{String(t("dashboardGuideCmvText"))}</span>
+          </div>
+        </article>
+
+        <article className="dashboard-guide-alert">
+          <span>{String(t("dashboardGuideAlertLabel"))}</span>
+          <strong>{String(t("dashboardGuideAlertTitle"))}</strong>
+          <p>{String(t("dashboardGuideAlertText"))}</p>
+        </article>
       </div>
     </section>
   );
@@ -3284,7 +3433,7 @@ function RestaurantManagementPanel({
                 >
                   <div>
                     <strong>{membership.restaurantName}</strong>
-                    <p>{membership.role === "owner" ? String(t("authRoleOwner")) : membership.role === "admin" ? String(t("authRoleAdmin")) : String(t("authRoleViewer"))}</p>
+                    <p>{membership.role === "owner" ? String(t("authRoleOwner")) : String(t("authRoleViewer"))}</p>
                   </div>
                   <div className="restaurant-member-actions">
                     <span className={`status ${isActive ? "ok" : ""}`}>
@@ -3333,11 +3482,13 @@ function RestaurantManagementPanel({
 function InternalNavigation({
   section,
   onChange,
-  canManageRestaurants
+  canManageRestaurants,
+  canManageTeam
 }: {
   section: InternalSection;
   onChange: (section: InternalSection) => void;
   canManageRestaurants: boolean;
+  canManageTeam: boolean;
 }) {
   const { t } = useLocale();
 
@@ -3347,7 +3498,7 @@ function InternalNavigation({
     ...(canManageRestaurants
       ? [{ key: "restaurants" as InternalSection, label: String(t("navRestaurants")), icon: <IconBuildingNav /> }]
       : []),
-    { key: "team", label: String(t("navTeam")), icon: <IconUsersNav /> }
+    ...(canManageTeam ? [{ key: "team" as InternalSection, label: String(t("navTeam")), icon: <IconUsersNav /> }] : [])
   ];
 
   return (
@@ -3385,13 +3536,24 @@ const formatCompactCurrency = (value: number) =>
     maximumFractionDigits: 1
   }).format(value);
 
+const getDreGroupLinesValue = (group: DreImportData["sections"][number]["groups"][number]) =>
+  group.lines.reduce((sum, line) => sum + line.value, 0);
+
 const getDreGroupValue = (group: DreImportData["sections"][number]["groups"][number]) =>
-  group.total?.value ?? group.lines.reduce((sum, line) => sum + line.value, 0);
+  Math.max(group.total?.value ?? 0, getDreGroupLinesValue(group));
 
 const getDreSectionValue = (section: DreImportData["sections"][number]) =>
   section.total?.value ?? section.groups.reduce((sum, group) => sum + getDreGroupValue(group), 0);
 
-const isDreRevenueLabel = (label: string) => normalizeDreLabel(label).includes("RECEITA");
+const isDreOperationalRevenueLabel = (label: string) => {
+  const normalized = normalizeDreLabel(label);
+  return normalized.includes("RECEITAS OPERACIONAIS") || normalized.includes("RECEITA OPERACIONAL");
+};
+
+const isDreRevenueLabel = (label: string) => {
+  const normalized = normalizeDreLabel(label);
+  return normalized.includes("RECEITA") && !normalized.includes("RECEITA LIQUIDA");
+};
 
 const isDreResultLabel = (label: string) => {
   const normalized = normalizeDreLabel(label);
@@ -3417,6 +3579,126 @@ const findDreGroupByIncludes = (data: DreImportData, terms: string[]) => {
   }
 
   return undefined;
+};
+
+const findDreSummaryValue = (data: DreImportData, label: string) =>
+  data.summary.find((item) => normalizeDreLabel(item.label) === normalizeDreLabel(label))?.value;
+
+const getDreRevenueSections = (data: DreImportData) => {
+  const operationalRevenueSections = data.sections.filter((section) => isDreOperationalRevenueLabel(section.label));
+
+  if (operationalRevenueSections.length > 0) {
+    return operationalRevenueSections;
+  }
+
+  return data.sections.filter((section) => isDreRevenueLabel(section.label));
+};
+
+const getDreRevenueValue = (data: DreImportData) =>
+  findDreSummaryValue(data, "TOTAL RECEITAS") ??
+  findDreSummaryValue(data, "TOTAL RECEITAS OPERACIONAIS") ??
+  getDreRevenueSections(data).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+
+const getDreExpenseValue = (data: DreImportData) =>
+  findDreSummaryValue(data, "TOTAL DESPESAS") ??
+  (() => {
+    const revenueSectionLabels = new Set(getDreRevenueSections(data).map((section) => section.label));
+    return data.sections
+      .filter((section) => !revenueSectionLabels.has(section.label))
+      .reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  })();
+
+const getDreRevenueGroups = (data: DreImportData) =>
+  getDreRevenueSections(data)
+    .flatMap((section) => {
+      const normalizedSection = normalizeDreLabel(section.label);
+
+      return section.groups.flatMap((group) => {
+        const normalizedGroup = normalizeDreLabel(group.label);
+        const groupValue = getDreGroupValue(group);
+        const hasInternalBreakdown = group.lines.some((line) => line.value > 0);
+        const groupCandidate = {
+          section,
+          group,
+          label: group.label,
+          value: groupValue,
+          normalized: normalizedGroup
+        };
+
+        if (normalizedGroup !== normalizedSection && groupValue > 0) {
+          return [groupCandidate];
+        }
+
+        if (hasInternalBreakdown) {
+          return group.lines.map((line) => ({
+            section,
+            group,
+            label: line.label,
+            value: line.value,
+            normalized: normalizeDreLabel(line.label)
+          }));
+        }
+
+        return [];
+      });
+    })
+    .filter((item) =>
+      !item.normalized.includes("TOTAL") &&
+      !item.normalized.includes("DIFERENCA DE CAIXA") &&
+      !item.normalized.includes("INFORMADO PELOS CAIXAS") &&
+      !item.normalized.includes("COMPUTADO NO MOMENTO")
+    )
+    .filter((item) => item.value > 0)
+    .sort((left, right) => right.value - left.value);
+
+const getDreRevenueLineGroups = (data: DreImportData) =>
+  getDreRevenueSections(data)
+    .flatMap((section) =>
+      section.groups.flatMap((group) =>
+        group.lines.map((line) => ({
+          section,
+          group,
+          label: line.label,
+          value: line.value,
+          normalized: normalizeDreLabel(line.label)
+        }))
+      )
+    )
+    .filter((item) => !item.normalized.includes("TOTAL") && !item.normalized.includes("DIFERENCA DE CAIXA"))
+    .filter((item) => item.value > 0)
+    .sort((left, right) => right.value - left.value);
+
+const findDrePrimaryRevenueGroup = (data: DreImportData) => getDreRevenueGroups(data)[0] ?? getDreRevenueLineGroups(data)[0];
+
+const findDreRevenueLeader = (data: DreImportData) => {
+  const primaryGroup = findDrePrimaryRevenueGroup(data);
+
+  if (primaryGroup) {
+    return {
+      label: primaryGroup.label,
+      value: primaryGroup.value
+    };
+  }
+
+  return undefined;
+};
+
+const findDreCardFeesGroup = (data: DreImportData) => {
+  const revenueSectionLabels = new Set(getDreRevenueSections(data).map((section) => section.label));
+  const groups = data.sections
+    .filter((section) => !revenueSectionLabels.has(section.label))
+    .flatMap((section) =>
+      section.groups.map((group) => ({
+        section,
+        group,
+        normalized: normalizeDreLabel(group.label)
+      }))
+    );
+
+  return (
+    groups.find((item) => item.normalized.includes("TARIFA") && (item.normalized.includes("CARTAO") || item.normalized.includes("CARTOES") || item.normalized.includes("VALE"))) ??
+    groups.find((item) => item.normalized.includes("CARTAO") || item.normalized.includes("CARTOES"))
+  );
 };
 
 const getDrePeriodShortLabel = (data: DreImportData) => {
@@ -3455,9 +3737,6 @@ const getDreTone = (label: string, value: number) => {
   return "bad";
 };
 
-const findDreSummaryValue = (data: DreImportData, label: string) =>
-  data.summary.find((item) => normalizeDreLabel(item.label) === normalizeDreLabel(label))?.value;
-
 const getDreRatioTone = (value: number, goodMax: number, attentionMax: number) => {
   if (!Number.isFinite(value)) {
     return "mid";
@@ -3492,11 +3771,8 @@ const getDreMarginTone = (value: number) => {
 
 function DreResultMap({ data }: { data: DreImportData }) {
   const { t } = useLocale();
-  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
-    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
-  const explicitExpenses = findDreSummaryValue(data, "TOTAL DESPESAS");
-  const expenses = explicitExpenses ??
-    data.sections.filter((section) => !isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const revenue = getDreRevenueValue(data);
+  const expenses = getDreExpenseValue(data);
   const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? revenue - expenses;
   const maxValue = Math.max(Math.abs(revenue), Math.abs(expenses), Math.abs(finalBalance), 1);
   const cards = [
@@ -3689,18 +3965,13 @@ function DreParticipationGrid({ data }: { data: DreImportData }) {
 
 function DreStrategicInsights({ data }: { data: DreImportData }) {
   const { t } = useLocale();
-  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
-    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
-  const expenses = findDreSummaryValue(data, "TOTAL DESPESAS") ??
-    data.sections.filter((section) => !isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const revenue = getDreRevenueValue(data);
+  const expenses = getDreExpenseValue(data);
   const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? revenue - expenses;
-  const revenueGroups = data.sections
-    .filter((section) => isDreRevenueLabel(section.label))
-    .flatMap((section) => section.groups.map((group) => ({ label: group.label, value: getDreGroupValue(group) })))
-    .filter((group) => group.value > 0)
-    .sort((left, right) => right.value - left.value);
+  const revenueLeader = findDreRevenueLeader(data);
+  const revenueSectionLabels = new Set(getDreRevenueSections(data).map((section) => section.label));
   const expenseGroups = data.sections
-    .filter((section) => !isDreRevenueLabel(section.label))
+    .filter((section) => !revenueSectionLabels.has(section.label))
     .flatMap((section) =>
       section.groups.map((group) => ({
         label: group.label,
@@ -3710,14 +3981,13 @@ function DreStrategicInsights({ data }: { data: DreImportData }) {
     )
     .filter((group) => group.value > 0)
     .sort((left, right) => right.value - left.value);
-  const revenueLeader = revenueGroups[0];
   const expenseLeader = expenseGroups[0];
   const insights = [
     {
       label: String(t("dreRevenueConcentration")),
-      title: revenueLeader?.label ?? "-",
+      title: revenueLeader?.label ?? String(t("dreNoData")),
       value: revenueLeader ? formatPercent(revenue > 0 ? (revenueLeader.value / revenue) * 100 : 0) : "-",
-      detail: revenueLeader ? formatCurrency(revenueLeader.value) : "-",
+      detail: revenueLeader ? formatCurrency(revenueLeader.value) : "Reimporte o DRE para atualizar a abertura de receitas.",
       tone: "good"
     },
     {
@@ -3769,8 +4039,7 @@ function DreStrategicInsights({ data }: { data: DreImportData }) {
 
 function DreRestaurantDiagnostics({ data }: { data: DreImportData }) {
   const { t } = useLocale();
-  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
-    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const revenue = getDreRevenueValue(data);
   const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? 0;
   const operationalResult = findDreSummaryValue(data, "RESULTADO OPERACIONAL") ?? finalBalance;
   const inputsSection = findDreSectionByIncludes(data, ["INSUMOS"]);
@@ -3784,8 +4053,9 @@ function DreRestaurantDiagnostics({ data }: { data: DreImportData }) {
   const inputsRatio = revenue > 0 ? (inputsValue / revenue) * 100 : 0;
   const peopleRatio = revenue > 0 ? (peopleValue / revenue) * 100 : 0;
   const structureRatio = revenue > 0 ? (structureValue / revenue) * 100 : 0;
+  const revenueSectionLabels = new Set(getDreRevenueSections(data).map((section) => section.label));
   const expenseGroups = data.sections
-    .filter((section) => !isDreRevenueLabel(section.label))
+    .filter((section) => !revenueSectionLabels.has(section.label))
     .flatMap((section) =>
       section.groups.map((group) => ({
         section: section.label,
@@ -3933,8 +4203,9 @@ function DreHorizontalBreakdown({
 
 function DreOperationalBreakdowns({ data }: { data: DreImportData }) {
   const { t } = useLocale();
-  const menuGroup = findDreGroupByIncludes(data, ["CARDAPIO"]);
-  const cardFeesGroup = findDreGroupByIncludes(data, ["CARTAO", "CARTOES", "TAXA"]);
+  const menuGroup = findDreGroupByIncludes(data, ["CARDAPIO"]) ?? findDrePrimaryRevenueGroup(data);
+  const cardFeesGroup = findDreCardFeesGroup(data);
+  const isMenuRevenue = menuGroup ? normalizeDreLabel(menuGroup.group.label).includes("CARDAPIO") : false;
   const visibleCards = Number(Boolean(menuGroup)) + Number(Boolean(cardFeesGroup));
 
   if (!menuGroup && !cardFeesGroup) {
@@ -3945,8 +4216,8 @@ function DreOperationalBreakdowns({ data }: { data: DreImportData }) {
     <section className={`dre-operational-grid ${visibleCards === 1 ? "single" : ""}`}>
       {menuGroup ? (
         <DreHorizontalBreakdown
-          title={String(t("dreMenuMixTitle"))}
-          text={String(t("dreMenuMixText"))}
+          title={String(t(isMenuRevenue ? "dreMenuMixTitle" : "dreRevenueMixTitle"))}
+          text={String(t(isMenuRevenue ? "dreMenuMixText" : "dreRevenueMixText"))}
           lines={menuGroup.group.lines}
         />
       ) : null}
@@ -3964,10 +4235,8 @@ function DreOperationalBreakdowns({ data }: { data: DreImportData }) {
 
 function DreRevenueExpenseTrend({ data }: { data: DreImportData }) {
   const { t } = useLocale();
-  const revenue = findDreSummaryValue(data, "TOTAL RECEITAS") ??
-    data.sections.filter((section) => isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
-  const expenses = findDreSummaryValue(data, "TOTAL DESPESAS") ??
-    data.sections.filter((section) => !isDreRevenueLabel(section.label)).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+  const revenue = getDreRevenueValue(data);
+  const expenses = getDreExpenseValue(data);
   const maxValue = Math.max(revenue, expenses, 1);
   const height = 220;
   const width = 680;
@@ -4068,31 +4337,33 @@ function DreAnalysisPanel({
         <div>
           <span className="eyebrow">{String(t("navDre"))}</span>
           <h3>{data ? String(t("dreParsedTitle")) : String(t("dreEmptyTitle"))}</h3>
-          <p>{data ? String(t("dreParsedText")) : String(t("dreEmptyText"))}</p>
+          {!data ? <p>{String(t("dreEmptyText"))}</p> : null}
         </div>
       </div>
 
-      <label className={`upload-box dre-upload-box ${!canManageData ? "locked" : ""}`}>
-        <input
-          className="upload-input-hidden"
-          type="file"
-          accept=".xlsx,.xls"
-          disabled={!canManageData || processing}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) {
-              onImport(file);
-            }
-          }}
-        />
-        <div>
-          <span className="eyebrow">{String(t("dreUploadTitle"))}</span>
-          <strong>{processing ? String(t("dreProcessing")) : String(t("dreUploadAction"))}</strong>
-          <small>{String(t("dreUploadHint"))}</small>
-        </div>
-        <span className="upload-action">{String(t("dreUploadAction"))}</span>
-      </label>
+      {canManageData ? (
+        <label className="upload-box dre-upload-box">
+          <input
+            className="upload-input-hidden"
+            type="file"
+            accept=".xlsx,.xls"
+            disabled={processing}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) {
+                onImport(file);
+              }
+            }}
+          />
+          <div>
+            <span className="eyebrow">{String(t("dreUploadTitle"))}</span>
+            <strong>{processing ? String(t("dreProcessing")) : String(t("dreUploadAction"))}</strong>
+            <small>{String(t("dreUploadHint"))}</small>
+          </div>
+          <span className="upload-action">{String(t("dreUploadAction"))}</span>
+        </label>
+      ) : null}
 
       {error ? <p className="message error">{error}</p> : null}
 
@@ -4102,7 +4373,6 @@ function DreAnalysisPanel({
             <article className="totals-box compact dre-period-summary-card">
               <span className="eyebrow">{String(t("drePeriod"))}</span>
               <strong>{getDrePeriodLabel(data, data.sheetName)}</strong>
-              <p>{data.analysisTitle ?? data.analysisType ?? "-"}</p>
               {periods.length > 1 ? (
                 <div className="filter-bar dre-period-filter" aria-label={String(t("dreSelectPeriod"))}>
                   {periods.map((period) => (
@@ -4149,8 +4419,8 @@ function TeamMemberCard({
   canManageTeam: boolean;
   onSave: (input: {
     member: AccountMember;
-    accountRole: "admin" | "user";
-    restaurantRole: "admin" | "viewer";
+    accountRole: "user";
+    restaurantRole: "viewer";
     restaurantIds: string[];
   }) => Promise<void>;
   onRemove: (member: AccountMember) => Promise<void>;
@@ -4174,20 +4444,12 @@ function TeamMemberCard({
       return String(t("teamRoleOwner"));
     }
 
-    if (role === "admin") {
-      return String(t("teamRoleAdmin"));
-    }
-
     return String(t("teamRoleUser"));
   };
 
-  const formatRestaurantRole = (role: "owner" | "admin" | "viewer") => {
+  const formatRestaurantRole = (role: "owner" | "viewer") => {
     if (role === "owner") {
       return String(t("teamRoleOwner"));
-    }
-
-    if (role === "admin") {
-      return String(t("teamRoleAdmin"));
     }
 
     return String(t("teamRoleViewer"));
@@ -4197,7 +4459,7 @@ function TeamMemberCard({
     canManageTeam &&
     member.userId !== session.userId &&
     member.role === "user" &&
-    !member.restaurants.some((restaurant) => restaurant.role === "owner" || restaurant.role === "admin");
+    !member.restaurants.some((restaurant) => restaurant.role === "owner");
   const assignableRestaurants = [
     ...(session.memberships ?? []).map((membership) => ({
       restaurantId: membership.restaurantId,
@@ -4284,7 +4546,7 @@ function TeamMemberCard({
             <p>{member.userId === session.userId ? String(t("teamYou")) : member.email ?? member.userId}</p>
           </div>
         </div>
-        <span className={`status-chip ${member.role === "owner" ? "danger" : member.role === "admin" ? "warning" : "good"}`}>
+        <span className={`status-chip ${member.role === "owner" ? "danger" : "good"}`}>
           {formatAccountRole(member.role)}
         </span>
       </div>
@@ -4414,25 +4676,24 @@ function TeamPermissionsPanel({
   onRevokeInvitation: (invitationId: string) => void;
   onUpdateMember: (input: {
     member: AccountMember;
-    accountRole: "admin" | "user";
-    restaurantRole: "admin" | "viewer";
+    accountRole: "user";
+    restaurantRole: "viewer";
     restaurantIds: string[];
   }) => Promise<void>;
   onRemoveMember: (member: AccountMember) => Promise<void>;
 }) {
   const { t } = useLocale();
   const ownerCount = members.filter((member) => member.role === "owner").length;
-  const adminCount = members.filter((member) => member.role === "admin").length;
   const commonUsersCount = members.filter((member) => member.role === "user").length;
   const coveredRestaurants = new Set(
     members.flatMap((member) => member.restaurants.map((restaurant) => restaurant.restaurantId))
   ).size;
 
   const formatAccountRole = (role: AccountMember["role"]) =>
-    role === "owner" ? String(t("teamRoleOwner")) : role === "admin" ? String(t("teamRoleAdmin")) : String(t("teamRoleUser"));
+    role === "owner" ? String(t("teamRoleOwner")) : String(t("teamRoleUser"));
 
-  const formatRestaurantRole = (role: "owner" | "admin" | "viewer") =>
-    role === "owner" ? String(t("teamRoleOwner")) : role === "admin" ? String(t("teamRoleAdmin")) : String(t("teamRoleViewer"));
+  const formatRestaurantRole = (role: "owner" | "viewer") =>
+    role === "owner" ? String(t("teamRoleOwner")) : String(t("teamRoleViewer"));
 
   return (
     <section className="card">
@@ -4447,7 +4708,7 @@ function TeamPermissionsPanel({
       <div className="totals-grid">
         <div className="totals-box compact">
           <span className="eyebrow">{String(t("teamAccessModel"))}</span>
-          <strong>{session.globalRole === "owner" ? "OWNER" : session.globalRole === "admin" ? "ADMIN" : "USER"}</strong>
+          <strong>{session.globalRole === "owner" ? "OWNER" : "USER"}</strong>
           <p>{String(t("teamAccessModelText"))}</p>
         </div>
         <div className="totals-box compact">
@@ -4457,8 +4718,8 @@ function TeamPermissionsPanel({
         </div>
         <div className="totals-box compact">
           <span className="eyebrow">{String(t("teamAdminsTotal"))}</span>
-          <strong>{formatNumber(ownerCount + adminCount)}</strong>
-          <p>{formatNumber(ownerCount)} owner / {formatNumber(adminCount)} admin</p>
+          <strong>{formatNumber(ownerCount)}</strong>
+          <p>{String(t("teamRoleOwner"))}</p>
         </div>
         <div className="totals-box compact">
           <span className="eyebrow">{String(t("teamUsersTotal"))}</span>
@@ -4537,11 +4798,7 @@ function TeamPermissionsPanel({
                     >
                       <strong>{membership.restaurantName}</strong>
                       <small>
-                        {membership.role === "owner"
-                          ? String(t("teamRoleOwner"))
-                          : membership.role === "admin"
-                            ? String(t("teamRoleAdmin"))
-                            : String(t("teamRoleViewer"))}
+                        {formatRestaurantRole(membership.role)}
                       </small>
                     </button>
                   ))}
@@ -4605,7 +4862,7 @@ function TeamPermissionsPanel({
         </section>
       ) : (
         <p className="message">
-          A gestão de equipe fica disponível para perfis owner/admin da conta ou do restaurante ativo.
+          A gestão de equipe fica disponível apenas para o owner.
         </p>
       )}
     </section>
@@ -4638,6 +4895,8 @@ export default function App() {
   });
   const [userProfileForm, setUserProfileForm] = useState<UserProfileFormState>({ fullName: "" });
   const [restaurantProfileForm, setRestaurantProfileForm] = useState<ProfileFormState>({ restaurantName: "" });
+  const [restaurantProfileDirty, setRestaurantProfileDirty] = useState(false);
+  const [restaurantProfileRestaurantId, setRestaurantProfileRestaurantId] = useState<string>();
   const [newRestaurantName, setNewRestaurantName] = useState("");
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [workspaceRestaurantId, setWorkspaceRestaurantId] = useState<string>();
@@ -4689,19 +4948,12 @@ export default function App() {
   const canManageRestaurants =
     effectiveSession?.globalRole === "owner" ||
     effectiveSession?.activeAccountRole === "owner" ||
-    effectiveSession?.activeAccountRole === "admin" ||
-    activeRole === "owner" ||
-    activeRole === "admin";
+    activeRole === "owner";
   const canManageOperationalData =
     effectiveSession?.globalRole === "owner" ||
     effectiveSession?.activeAccountRole === "owner" ||
     activeRole === "owner";
-  const canManageTeam =
-    effectiveSession?.globalRole === "owner" ||
-    effectiveSession?.activeAccountRole === "owner" ||
-    effectiveSession?.activeAccountRole === "admin" ||
-    activeRole === "owner" ||
-    activeRole === "admin";
+  const canManageTeam = effectiveSession?.globalRole === "owner";
   const periodDashboards = state.periodDashboards ?? [];
   const dashboard =
     selectedPeriod === TOTAL_PERIOD
@@ -4748,7 +5000,7 @@ export default function App() {
   }, [state.recipeBase, state.duplicateRecipeCodes]);
 
   useEffect(() => {
-    if (!effectiveSession || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
+    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
       setAccountMembers([]);
       setAccountMembersLoading(false);
       setAccountInvitations([]);
@@ -4797,7 +5049,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [effectiveSession?.activeAccountId, effectiveSession?.authMode]);
+  }, [canManageTeam, effectiveSession?.activeAccountId, effectiveSession?.authMode]);
 
   useEffect(() => {
     if (selectedView !== TOTAL_VIEW && !dashboard?.groups.some((group) => group.name === selectedView)) {
@@ -4815,6 +5067,8 @@ export default function App() {
     if (!effectiveSession) {
       setUserProfileForm({ fullName: "" });
       setRestaurantProfileForm({ restaurantName: "" });
+      setRestaurantProfileDirty(false);
+      setRestaurantProfileRestaurantId(undefined);
       setInviteForm({
         email: "",
         featureIds: [DEFAULT_INVITE_FEATURE],
@@ -4827,10 +5081,15 @@ export default function App() {
       fullName: effectiveSession.userFullName ?? effectiveSession.restaurantName ?? "",
       userPhotoUrl: effectiveSession.userPhotoUrl
     });
-    setRestaurantProfileForm({
-      restaurantName: effectiveSession.restaurantName ?? effectiveSession.activeRestaurantName ?? "",
-      profilePhotoUrl: effectiveSession.profilePhotoUrl
-    });
+    const currentRestaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId;
+    if (!restaurantProfileDirty || restaurantProfileRestaurantId !== currentRestaurantId) {
+      setRestaurantProfileForm({
+        restaurantName: effectiveSession.restaurantName ?? effectiveSession.activeRestaurantName ?? "",
+        profilePhotoUrl: effectiveSession.profilePhotoUrl
+      });
+      setRestaurantProfileRestaurantId(currentRestaurantId);
+      setRestaurantProfileDirty(false);
+    }
     setInviteForm((current) => ({
       ...current,
       featureIds: current.featureIds.length > 0 ? current.featureIds : [DEFAULT_INVITE_FEATURE],
@@ -4839,13 +5098,13 @@ export default function App() {
           ? current.restaurantIds
           : (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
     }));
-  }, [effectiveSession]);
+  }, [effectiveSession, restaurantProfileDirty, restaurantProfileRestaurantId]);
 
   useEffect(() => {
-    if (currentSection === "restaurants" && !canManageRestaurants) {
+    if ((currentSection === "restaurants" && !canManageRestaurants) || (currentSection === "team" && !canManageTeam)) {
       setCurrentSection("dashboard");
     }
-  }, [canManageRestaurants, currentSection]);
+  }, [canManageRestaurants, canManageTeam, currentSection]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -5392,6 +5651,10 @@ export default function App() {
         throw new Error("Nenhuma seção de DRE foi identificada neste arquivo.");
       }
 
+      if (getDreRevenueValue(nextDreData) > 0 && getDreRevenueGroups(nextDreData).length === 0) {
+        throw new Error("A seção de Receitas Operacionais foi encontrada, mas nenhuma subdivisão de receita foi identificada. Verifique se os subgrupos estão na coluna B do arquivo.");
+      }
+
       const fallbackKey = `${file.name}-${Date.now()}`;
       const periodKey = getDrePeriodKey(nextDreData, fallbackKey);
       const periodLabel = getDrePeriodLabel(nextDreData, file.name);
@@ -5524,7 +5787,7 @@ export default function App() {
   };
 
   const refreshTeamData = async (currentSession: AuthSession) => {
-    if (currentSession.authMode !== "supabase" || !currentSession.activeAccountId) {
+    if (currentSession.globalRole !== "owner" || currentSession.authMode !== "supabase" || !currentSession.activeAccountId) {
       setAccountMembers([]);
       setAccountInvitations([]);
       return;
@@ -5629,16 +5892,17 @@ export default function App() {
     restaurantIds
   }: {
     member: AccountMember;
-    accountRole: "admin" | "user";
-    restaurantRole: "admin" | "viewer";
+    accountRole: "user";
+    restaurantRole: "viewer";
     restaurantIds: string[];
   }) => {
-    if (!effectiveSession || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
+    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
       throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
     }
 
+    const targetAccountId = member.accountId || effectiveSession.activeAccountId;
     await updateAccountMemberAccess({
-      accountId: effectiveSession.activeAccountId,
+      accountId: targetAccountId,
       userId: member.userId,
       accountRole,
       restaurantRole,
@@ -5648,12 +5912,13 @@ export default function App() {
   };
 
   const handleRemoveMember = async (member: AccountMember) => {
-    if (!effectiveSession || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
+    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
       throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
     }
 
+    const targetAccountId = member.accountId || effectiveSession.activeAccountId;
     await removeAccountMemberAccess({
-      accountId: effectiveSession.activeAccountId,
+      accountId: targetAccountId,
       userId: member.userId
     });
     await refreshTeamData(effectiveSession);
@@ -5683,6 +5948,8 @@ export default function App() {
 
     try {
       const imageData = await readFileAsDataUrl(file);
+      setRestaurantProfileDirty(true);
+      setRestaurantProfileRestaurantId(effectiveSession?.activeRestaurantId ?? effectiveSession?.restaurantId);
       setRestaurantProfileForm((current) => ({
         ...current,
         profilePhotoUrl: imageData
@@ -5691,6 +5958,12 @@ export default function App() {
     } catch (error) {
       setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem.");
     }
+  };
+
+  const handleRestaurantNameChange = (value: string) => {
+    setRestaurantProfileDirty(true);
+    setRestaurantProfileRestaurantId(effectiveSession?.activeRestaurantId ?? effectiveSession?.restaurantId);
+    setRestaurantProfileForm((current) => ({ ...current, restaurantName: value }));
   };
 
   const handleSaveUserAccount = async () => {
@@ -5736,6 +6009,8 @@ export default function App() {
           : updateLocalRestaurantProfile(session, restaurantProfileForm);
 
       setSession(nextSession);
+      setRestaurantProfileDirty(false);
+      setRestaurantProfileRestaurantId(nextSession.activeRestaurantId ?? nextSession.restaurantId);
       setAccountMessage(String(t("authProfileUpdated")));
     } catch (error) {
       setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
@@ -5845,6 +6120,8 @@ export default function App() {
       restaurantName: effectiveSession.restaurantName ?? effectiveSession.activeRestaurantName ?? "",
       profilePhotoUrl: effectiveSession.profilePhotoUrl
     });
+    setRestaurantProfileDirty(false);
+    setRestaurantProfileRestaurantId(effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId);
     setNewRestaurantName("");
   };
 
@@ -5889,7 +6166,12 @@ export default function App() {
           <div className="dashboard-sidebar-brand">
             <BrandMark />
           </div>
-          <InternalNavigation section={currentSection} onChange={setCurrentSection} canManageRestaurants={Boolean(canManageRestaurants)} />
+          <InternalNavigation
+            section={currentSection}
+            onChange={setCurrentSection}
+            canManageRestaurants={Boolean(canManageRestaurants)}
+            canManageTeam={Boolean(canManageTeam)}
+          />
           <div className="dashboard-sidebar-footer">
             <button
               type="button"
@@ -5952,7 +6234,7 @@ export default function App() {
                 busy={accountBusy}
                 message={accountMessage}
                 error={accountError}
-                onRestaurantNameChange={(value) => setRestaurantProfileForm((current) => ({ ...current, restaurantName: value }))}
+                onRestaurantNameChange={handleRestaurantNameChange}
                 onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
                 onCreateRestaurantNameChange={setNewRestaurantName}
                 onSaveRestaurant={handleSaveRestaurantAccount}
@@ -5961,7 +6243,7 @@ export default function App() {
                 onActivateRestaurant={handleSelectRestaurant}
               />
             ) : null}
-            {currentSection === "team" ? (
+            {currentSection === "team" && canManageTeam ? (
               <TeamPermissionsPanel
                 session={effectiveSession}
                 members={accountMembers}
@@ -5996,7 +6278,7 @@ export default function App() {
               setCurrentSection("dashboard");
             }}
             onUserNameChange={(value) => setUserProfileForm((current) => ({ ...current, fullName: value }))}
-            onRestaurantNameChange={(value) => setRestaurantProfileForm((current) => ({ ...current, restaurantName: value }))}
+            onRestaurantNameChange={handleRestaurantNameChange}
             onUserPhotoSelect={handleUserPhotoSelect}
             onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
             onCreateRestaurantNameChange={setNewRestaurantName}
@@ -6026,7 +6308,7 @@ export default function App() {
                     onResetFlow={handleResetFlow}
                   />
                 ) : null}
-                {!hasDashboardData ? (
+                {!hasDashboardData && canManageOperationalData ? (
                   <section className="card">
                     <div className="section-head">
                       <div>
@@ -6035,6 +6317,8 @@ export default function App() {
                       </div>
                     </div>
                   </section>
+                ) : !hasDashboardData ? (
+                  <DashboardReadOnlyGuide />
                 ) : (
                   <>
                     {dashboard ? (

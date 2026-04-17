@@ -2,6 +2,10 @@ import type { User } from "@supabase/supabase-js";
 import type { AccountInvitation, AccountMember, AuthSession, PersistedWorkspace, RestaurantMembership } from "../types";
 import { supabase } from "./supabase";
 
+type LegacyGlobalRole = "owner" | "admin" | "user";
+type LegacyAccountRole = "owner" | "admin" | "user";
+type LegacyRestaurantRole = "owner" | "admin" | "viewer";
+
 type RegisterRestaurantInput = {
   fullName: string;
   email: string;
@@ -10,7 +14,7 @@ type RegisterRestaurantInput = {
 
 type MembershipRow = {
   id: string;
-  role: "owner" | "admin" | "viewer";
+  role: LegacyRestaurantRole;
   restaurants:
     | {
         id: string;
@@ -28,7 +32,7 @@ type MembershipRow = {
 };
 
 type UserProfileRow = {
-  global_role?: "owner" | "admin" | "user" | null;
+  global_role?: LegacyGlobalRole | null;
   email?: string | null;
   full_name: string | null;
   photo_url: string | null;
@@ -38,12 +42,12 @@ type AccountMembershipRow = {
   id: string;
   account_id: string;
   user_id: string;
-  role: "owner" | "admin" | "user";
+  role: LegacyAccountRole;
 };
 
 type RestaurantMembershipAccessRow = {
   user_id: string;
-  role: "owner" | "admin" | "viewer";
+  role: LegacyRestaurantRole;
   restaurants:
     | {
         id: string;
@@ -62,8 +66,8 @@ type AccountInvitationRow = {
   id: string;
   account_id: string;
   email: string;
-  account_role: "owner" | "admin" | "user";
-  restaurant_role: "owner" | "admin" | "viewer";
+  account_role: LegacyAccountRole;
+  restaurant_role: LegacyRestaurantRole;
   status: "pending" | "accepted" | "revoked";
   created_at: string;
 };
@@ -83,30 +87,33 @@ type AccountInvitationRestaurantRow = {
 };
 
 const normalizeAccountRoleForProfile = (
-  role: "owner" | "admin" | "user" | undefined,
-  globalRole: "owner" | "admin" | "user" | undefined
-): "owner" | "admin" | "user" | undefined => {
+  role: LegacyAccountRole | undefined,
+  globalRole: LegacyGlobalRole | undefined
+): "owner" | "user" | undefined => {
   if (!role) {
     return role;
   }
 
-  if (globalRole !== "owner" && role === "owner") {
-    return "admin";
+  if (globalRole === "owner" || role === "owner") {
+    return "owner";
   }
 
-  return role;
+  return "user";
 };
 
 const normalizeRestaurantRoleForProfile = (
-  role: "owner" | "admin" | "viewer",
-  globalRole: "owner" | "admin" | "user" | undefined
-): "owner" | "admin" | "viewer" => {
-  if (globalRole !== "owner" && role === "owner") {
-    return "admin";
+  role: LegacyRestaurantRole,
+  globalRole: LegacyGlobalRole | undefined
+): "owner" | "viewer" => {
+  if (globalRole === "owner" || role === "owner") {
+    return "owner";
   }
 
-  return role;
+  return "viewer";
 };
+
+const normalizeGlobalRole = (role: LegacyGlobalRole | null | undefined): "owner" | "user" =>
+  role === "owner" ? "owner" : "user";
 
 const slugify = (value: string) =>
   value
@@ -154,7 +161,7 @@ const mapMembership = (row: MembershipRow): RestaurantMembership | null => {
     accountId: restaurant.account_id ?? undefined,
     restaurantId: restaurant.id,
     restaurantName: restaurant.name,
-    role: row.role,
+    role: normalizeRestaurantRoleForProfile(row.role, undefined),
     photoUrl: restaurant.photo_url ?? undefined
   };
 };
@@ -257,7 +264,7 @@ const ensureUserProfile = async (user: User) => {
   const { error } = await supabase.from("user_profiles").upsert(
     {
       user_id: user.id,
-      global_role: existingProfile?.global_role ?? "user",
+      global_role: normalizeGlobalRole(existingProfile?.global_role),
       email: user.email ?? null,
       full_name:
         existingProfile?.full_name ??
@@ -309,7 +316,7 @@ const ensurePrimaryRestaurantContext = async (user: User, restaurantNameOverride
   await acceptPendingAccountInvitations();
   void restaurantNameOverride;
   const profile = await loadUserProfile(user.id);
-  if (profile?.global_role === "owner") {
+  if (normalizeGlobalRole(profile?.global_role) === "owner") {
     return loadAllRestaurantsForGlobalOwner();
   }
 
@@ -336,16 +343,16 @@ const toAuthSession = async (
 ): Promise<AuthSession> => {
   const profile = await loadUserProfile(user.id);
   const memberships =
-    profile?.global_role === "owner"
+    normalizeGlobalRole(profile?.global_role) === "owner"
       ? await loadAllRestaurantsForGlobalOwner()
       : options?.memberships ?? (await ensurePrimaryRestaurantContext(user));
   const accountMemberships = await loadAccountMemberships(user.id);
   const normalizedMemberships =
-    profile?.global_role === "owner"
+    normalizeGlobalRole(profile?.global_role) === "owner"
       ? memberships
       : memberships.map((membership) => ({
           ...membership,
-          role: normalizeRestaurantRoleForProfile(membership.role, profile?.global_role ?? undefined)
+          role: normalizeRestaurantRoleForProfile(membership.role, normalizeGlobalRole(profile?.global_role))
         }));
   const activeMembership =
     normalizedMemberships.find((membership) => membership.restaurantId === options?.activeRestaurantId) ??
@@ -359,7 +366,7 @@ const toAuthSession = async (
     userId: user.id,
     email: user.email ?? "",
     authMode: "supabase",
-    globalRole: profile?.global_role ?? "user",
+    globalRole: normalizeGlobalRole(profile?.global_role),
     activeAccountId: resolvedActiveAccountId,
     userFullName:
       profile?.full_name ??
@@ -370,9 +377,9 @@ const toAuthSession = async (
       (typeof user.user_metadata.photo_url === "string" ? user.user_metadata.photo_url : undefined),
     memberships: normalizedMemberships,
     activeAccountRole:
-      profile?.global_role === "owner"
+      normalizeGlobalRole(profile?.global_role) === "owner"
         ? "owner"
-        : normalizeAccountRoleForProfile(activeAccountMembership?.role, profile?.global_role ?? undefined),
+        : normalizeAccountRoleForProfile(activeAccountMembership?.role, normalizeGlobalRole(profile?.global_role)),
     activeRole: activeMembership?.role,
     activeRestaurantId: activeMembership?.restaurantId,
     activeRestaurantName: activeMembership?.restaurantName,
@@ -388,10 +395,27 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
     return [];
   }
 
+  const { data: profiles, error: profilesError } = await supabase
+    .from("user_profiles")
+    .select("user_id, global_role, email, full_name, photo_url")
+    .order("created_at", { ascending: true });
+
+  const filteredProfilesError = profilesError;
+  if (profilesError) {
+    throw asError(filteredProfilesError, "NÃ£o foi possÃ­vel carregar os perfis da equipe.");
+  }
+
+  const visibleProfiles = (profiles ?? []) as Array<{
+    user_id: string;
+    global_role?: LegacyGlobalRole | null;
+    email?: string | null;
+    full_name: string | null;
+    photo_url: string | null;
+  }>;
+
   const { data, error } = await supabase
     .from("account_memberships")
     .select("id, account_id, user_id, role")
-    .eq("account_id", accountId)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -399,31 +423,12 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
   }
 
   const memberships = (data ?? []) as AccountMembershipRow[];
-  if (memberships.length === 0) {
+  if (memberships.length === 0 && visibleProfiles.length === 0) {
     return [];
   }
 
-  const userIds = [...new Set(memberships.map((item) => item.user_id))];
-  const { data: profiles, error: profilesError } = await supabase
-    .from("user_profiles")
-    .select("user_id, global_role, email, full_name, photo_url")
-    .in("user_id", userIds);
-
-  if (profilesError) {
-    throw asError(profilesError, "Não foi possível carregar os perfis da equipe.");
-  }
-
-  const profileMap = new Map(
-    (
-      (profiles ?? []) as Array<{
-        user_id: string;
-        global_role?: "owner" | "admin" | "user" | null;
-        email?: string | null;
-        full_name: string | null;
-        photo_url: string | null;
-      }>
-    ).map((item) => [item.user_id, item])
-  );
+  const userIds = [...new Set([...memberships.map((item) => item.user_id), ...visibleProfiles.map((item) => item.user_id)])];
+  const profileMap = new Map(visibleProfiles.map((item) => [item.user_id, item]));
 
   const { data: restaurantMemberships, error: restaurantMembershipsError } = await supabase
     .from("restaurant_memberships")
@@ -439,13 +444,13 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
     Array<{
       restaurantId: string;
       restaurantName: string;
-      role: "owner" | "admin" | "viewer";
+      role: "owner" | "viewer";
     }>
   >();
 
   ((restaurantMemberships ?? []) as RestaurantMembershipAccessRow[]).forEach((membership) => {
     const restaurant = Array.isArray(membership.restaurants) ? membership.restaurants[0] : membership.restaurants;
-    if (!restaurant || restaurant.account_id !== accountId) {
+    if (!restaurant) {
       return;
     }
 
@@ -454,23 +459,33 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
     current.push({
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
-      role: normalizeRestaurantRoleForProfile(membership.role, profile?.global_role ?? undefined)
+      role: normalizeRestaurantRoleForProfile(membership.role, normalizeGlobalRole(profile?.global_role))
     });
     restaurantsByUser.set(membership.user_id, current);
   });
 
-  return memberships.map((membership) => {
-    const profile = profileMap.get(membership.user_id);
+  const membershipByUser = new Map<string, AccountMembershipRow>();
+  memberships.forEach((membership) => {
+    const current = membershipByUser.get(membership.user_id);
+    if (!current || membership.account_id === accountId) {
+      membershipByUser.set(membership.user_id, membership);
+    }
+  });
+
+  return userIds.map((userId) => {
+    const profile = profileMap.get(userId);
+    const membership = membershipByUser.get(userId);
+    const globalRole = normalizeGlobalRole(profile?.global_role);
     return {
-      membershipId: membership.id,
-      accountId: membership.account_id,
-      userId: membership.user_id,
-      role: normalizeAccountRoleForProfile(membership.role, profile?.global_role ?? undefined) ?? membership.role,
+      membershipId: membership?.id ?? `profile-${userId}`,
+      accountId: membership?.account_id ?? accountId,
+      userId,
+      role: globalRole === "owner" ? "owner" : "user",
       fullName: profile?.full_name ?? undefined,
       email: profile?.email ?? undefined,
       photoUrl: profile?.photo_url ?? undefined,
       restaurants:
-        restaurantsByUser.get(membership.user_id)?.sort((left, right) => left.restaurantName.localeCompare(right.restaurantName)) ??
+        restaurantsByUser.get(userId)?.sort((left, right) => left.restaurantName.localeCompare(right.restaurantName)) ??
         []
     };
   });
@@ -526,8 +541,8 @@ export const loadAccountInvitations = async (accountId: string): Promise<Account
     invitationId: invitation.id,
     accountId: invitation.account_id,
     email: invitation.email,
-    accountRole: invitation.account_role,
-    restaurantRole: invitation.restaurant_role,
+    accountRole: normalizeAccountRoleForProfile(invitation.account_role, undefined) ?? "user",
+    restaurantRole: normalizeRestaurantRoleForProfile(invitation.restaurant_role, undefined),
     status: invitation.status,
     createdAt: invitation.created_at,
     restaurants:
@@ -542,8 +557,8 @@ export const createAccountInvitation = async ({
   restaurantIds
 }: {
   email: string;
-  accountRole: "owner" | "admin" | "user";
-  restaurantRole: "owner" | "admin" | "viewer";
+  accountRole: "user";
+  restaurantRole: "viewer";
   restaurantIds: string[];
 }) => {
   if (!supabase) {
@@ -596,8 +611,8 @@ export const updateAccountMemberAccess = async ({
 }: {
   accountId: string;
   userId: string;
-  accountRole: "owner" | "admin" | "user";
-  restaurantRole: "owner" | "admin" | "viewer";
+  accountRole: "user";
+  restaurantRole: "viewer";
   restaurantIds: string[];
 }) => {
   if (!supabase) {

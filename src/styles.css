@@ -214,6 +214,14 @@ input {
 .team-member-actions,
 .team-management-grid,
 .team-invite-form,
+.dashboard-guide-card,
+.dashboard-guide-copy,
+.dashboard-guide-signal-grid,
+.dashboard-guide-signal,
+.dashboard-guide-visual,
+.dashboard-guide-kpi,
+.dashboard-guide-chart,
+.dashboard-guide-alert,
 .kpi-card,
 .band-card,
 .totals-box,
@@ -324,6 +332,216 @@ input {
     var(--paper);
   overflow: hidden;
   position: relative;
+}
+
+.dashboard-guide-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(360px, 1.14fr);
+  gap: 24px;
+  padding: 28px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(47, 111, 94, 0.24), transparent 24%),
+    radial-gradient(circle at 62% 94%, rgba(201, 130, 58, 0.18), transparent 28%),
+    linear-gradient(135deg, rgba(255, 252, 247, 0.99), rgba(245, 237, 224, 0.94)),
+    var(--paper);
+}
+
+.dashboard-guide-copy {
+  display: grid;
+  align-content: space-between;
+  gap: 26px;
+}
+
+.dashboard-guide-copy h3 {
+  margin: 6px 0 10px;
+  max-width: 12ch;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+}
+
+.dashboard-guide-copy p {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.dashboard-guide-signal-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-guide-signal {
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+  border-left: 4px solid currentColor;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.dashboard-guide-signal.good {
+  color: #2f6f5e;
+}
+
+.dashboard-guide-signal.mid {
+  color: #c9823a;
+}
+
+.dashboard-guide-signal.bad {
+  color: #b84e3f;
+}
+
+.dashboard-guide-signal strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.dashboard-guide-signal p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.88rem;
+}
+
+.dashboard-guide-visual {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-auto-rows: minmax(132px, auto);
+  gap: 14px;
+}
+
+.dashboard-guide-kpi,
+.dashboard-guide-chart,
+.dashboard-guide-alert {
+  border: 1px solid rgba(47, 111, 94, 0.14);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 18px 45px rgba(71, 59, 43, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.64);
+}
+
+.dashboard-guide-kpi {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 22px;
+  color: #f9f5ec;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.22), transparent 24%),
+    linear-gradient(145deg, #263f35, #2f6f5e);
+}
+
+.dashboard-guide-kpi span,
+.dashboard-guide-kpi small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.dashboard-guide-kpi strong {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.dashboard-guide-kpi small {
+  font-weight: 800;
+}
+
+.dashboard-guide-chart {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.dashboard-guide-chart.bars {
+  grid-row: span 2;
+}
+
+.dashboard-guide-chart-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.dashboard-guide-chart-head span,
+.dashboard-guide-chart.donut span,
+.dashboard-guide-alert span,
+.dashboard-guide-alert p {
+  color: var(--muted);
+}
+
+.dashboard-guide-bars {
+  display: grid;
+  gap: 15px;
+  align-content: center;
+}
+
+.dashboard-guide-bar-row {
+  display: grid;
+  gap: 7px;
+}
+
+.dashboard-guide-bar-row span {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.dashboard-guide-bar-row div {
+  height: 13px;
+  border-radius: 999px;
+  background: rgba(70, 66, 58, 0.1);
+  overflow: hidden;
+}
+
+.dashboard-guide-bar-row i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.dashboard-guide-chart.donut {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.dashboard-guide-donut {
+  width: 94px;
+  height: 94px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--paper) 0 45%, transparent 46%),
+    conic-gradient(#2f6f5e 0 46%, #c9823a 46% 72%, #b84e3f 72% 88%, #496f9f 88% 100%);
+  box-shadow: inset 0 0 0 1px rgba(47, 111, 94, 0.1);
+}
+
+.dashboard-guide-chart.donut div:last-child {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-guide-alert {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(184, 78, 63, 0.16), transparent 30%),
+    rgba(255, 250, 244, 0.76);
+  border-color: rgba(184, 78, 63, 0.2);
+}
+
+.dashboard-guide-alert strong {
+  color: #8f3c31;
+}
+
+.dashboard-guide-alert p {
+  margin: 0;
+  line-height: 1.48;
 }
 
 .hero::after {
@@ -1502,10 +1720,10 @@ input {
 
 .restaurant-tile {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
-  padding: 18px;
+  gap: 16px;
+  padding: 18px 20px;
   border-radius: 22px;
   border: 1px solid rgba(65, 47, 26, 0.08);
   background: rgba(255, 255, 255, 0.78);
@@ -1521,8 +1739,9 @@ input {
 }
 
 .restaurant-tile.active {
-  border-color: rgba(200, 165, 106, 0.38);
-  background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(249, 241, 228, 0.98));
+  border-color: rgba(200, 165, 106, 0.5);
+  background: linear-gradient(135deg, rgba(255, 248, 235, 0.98), rgba(246, 232, 207, 0.98));
+  box-shadow: 0 18px 34px rgba(65, 47, 26, 0.12);
 }
 
 .restaurant-tile-avatar {
@@ -1547,7 +1766,16 @@ input {
 .restaurant-tile-copy strong,
 .restaurant-manager-entry h3 {
   display: block;
-  margin: 0 0 4px;
+  margin: 0;
+}
+
+.restaurant-tile-copy {
+  align-self: center;
+  min-width: 0;
+}
+
+.restaurant-tile-copy strong {
+  line-height: 1.16;
 }
 
 .restaurant-tile-copy span {
@@ -2929,6 +3157,66 @@ input {
     linear-gradient(140deg, rgba(24, 25, 29, 0.98), rgba(12, 13, 16, 0.96));
 }
 
+:root[data-theme="dark"] .dashboard-guide-card {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(80, 126, 108, 0.16), transparent 28%),
+    radial-gradient(circle at 14% 92%, rgba(201, 130, 58, 0.1), transparent 28%),
+    linear-gradient(135deg, rgba(24, 25, 29, 0.98), rgba(14, 15, 18, 0.95)),
+    var(--paper);
+}
+
+:root[data-theme="dark"] .dashboard-guide-signal,
+:root[data-theme="dark"] .dashboard-guide-chart,
+:root[data-theme="dark"] .dashboard-guide-alert {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(232, 234, 238, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="dark"] .dashboard-guide-signal.good {
+  color: #75b99d;
+  background:
+    linear-gradient(90deg, rgba(117, 185, 157, 0.2), rgba(117, 185, 157, 0.05)),
+    rgba(255, 255, 255, 0.05);
+  border-color: currentColor;
+}
+
+:root[data-theme="dark"] .dashboard-guide-signal.mid {
+  color: #d99a51;
+  background:
+    linear-gradient(90deg, rgba(217, 154, 81, 0.2), rgba(217, 154, 81, 0.05)),
+    rgba(255, 255, 255, 0.05);
+  border-color: currentColor;
+}
+
+:root[data-theme="dark"] .dashboard-guide-signal.bad {
+  color: #d16d5f;
+  background:
+    linear-gradient(90deg, rgba(209, 109, 95, 0.2), rgba(209, 109, 95, 0.05)),
+    rgba(255, 255, 255, 0.05);
+  border-color: currentColor;
+}
+
+:root[data-theme="dark"] .dashboard-guide-kpi {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.14), transparent 24%),
+    linear-gradient(145deg, rgba(48, 88, 74, 0.95), rgba(31, 47, 42, 0.98));
+}
+
+:root[data-theme="dark"] .dashboard-guide-alert strong {
+  color: #f0a091;
+}
+
+:root[data-theme="dark"] .dashboard-guide-bar-row div {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .dashboard-guide-donut {
+  background:
+    radial-gradient(circle, var(--paper) 0 45%, transparent 46%),
+    conic-gradient(#75b99d 0 46%, #d99a51 46% 72%, #d16d5f 72% 88%, #7fa3d7 88% 100%);
+}
+
 :root[data-theme="dark"] .hero::after {
   background: radial-gradient(circle, rgba(200, 204, 211, 0.12), transparent 68%);
 }
@@ -3157,6 +3445,15 @@ input {
 }
 
 @media (max-width: 780px) {
+  .dashboard-guide-card,
+  .dashboard-guide-visual {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-guide-chart.bars {
+    grid-row: auto;
+  }
+
   .dashboard-shell {
     width: calc(100% - 16px);
     padding: 12px 0 20px;
@@ -4096,7 +4393,6 @@ th {
 :root[data-theme="dark"] .hero-metric-card,
 :root[data-theme="dark"] .process-card,
 :root[data-theme="dark"] .auth-highlight-card,
-:root[data-theme="dark"] .restaurant-tile.active,
 :root[data-theme="dark"] .restaurant-member-card.active,
 :root[data-theme="dark"] .step-chip.active,
 :root[data-theme="dark"] .step-chip.done,
@@ -4108,6 +4404,25 @@ th {
   background: rgba(200, 204, 211, 0.14);
   border-color: rgba(200, 204, 211, 0.28);
   color: var(--text);
+}
+
+:root[data-theme="dark"] .restaurant-tile.active {
+  background: linear-gradient(135deg, rgba(67, 73, 84, 0.96), rgba(39, 44, 53, 0.98));
+  border-color: rgba(230, 234, 241, 0.58);
+  box-shadow:
+    0 0 0 1px rgba(230, 234, 241, 0.16),
+    0 18px 34px rgba(0, 0, 0, 0.32),
+    0 0 32px rgba(148, 156, 170, 0.16);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .restaurant-tile.active .restaurant-tile-avatar {
+  border-color: rgba(230, 234, 241, 0.5);
+  background: rgba(15, 17, 21, 0.72);
+}
+
+:root[data-theme="dark"] .restaurant-tile.active .restaurant-tile-copy strong {
+  color: #f4f6f8;
 }
 
 :root[data-theme="dark"] .issue-card.good,

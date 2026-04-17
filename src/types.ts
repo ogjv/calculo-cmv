@@ -202,9 +202,9 @@ export type AuthSession = {
   profilePhotoUrl?: string;
 };
 
-export type GlobalRole = "owner" | "admin" | "user";
-export type AccountRole = "owner" | "admin" | "user";
-export type RestaurantRole = "owner" | "admin" | "viewer";
+export type GlobalRole = "owner" | "user";
+export type AccountRole = "owner" | "user";
+export type RestaurantRole = "owner" | "viewer";
 
 export type RestaurantMembership = {
   membershipId: string;

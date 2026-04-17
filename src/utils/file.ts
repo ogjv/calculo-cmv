@@ -80,6 +80,9 @@ const parseNumericCell = (value: unknown) => {
   return Number(text.replace(/[R$%\s]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
 };
 
+const hasNumericText = (value: unknown) => /-?\d/.test(cellToText(value));
+const hasAlphabeticText = (value: unknown) => /[A-Za-zÀ-ÿ]/.test(cellToText(value));
+
 const hasCellValue = (value: unknown) => cellToText(value) !== "";
 
 const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -193,6 +196,16 @@ const parseDrePeriod = (value: unknown): DreImportData["period"] | undefined => 
 
 const isDreSectionTotalLabel = (value: string) => normalizeText(value).startsWith("TOTAL ");
 
+const isDreInformationalRevenueTotalLabel = (value: string) => {
+  const normalized = normalizeText(value);
+
+  return (
+    normalized.includes("TOTAL INFORMADO") ||
+    normalized.includes("TOTAL COMPUTADO") ||
+    normalized.includes("DIFERENCA DE CAIXA")
+  );
+};
+
 const isDreSummaryLabel = (value: string) => {
   const normalized = normalizeText(value);
 
@@ -221,7 +234,7 @@ const createDreLine = (label: string, value: number, percent: number | undefined
 
 const readDreLineValue = (row: (string | number)[], indexes: number[]) => {
   for (const index of indexes) {
-    if (hasCellValue(row[index])) {
+    if (hasCellValue(row[index]) && hasNumericText(row[index])) {
       return parseNumericCell(row[index]);
     }
   }
@@ -231,13 +244,45 @@ const readDreLineValue = (row: (string | number)[], indexes: number[]) => {
 
 const readDreLinePercent = (row: (string | number)[], indexes: number[]) => {
   for (const index of indexes) {
-    if (hasCellValue(row[index])) {
+    if (hasCellValue(row[index]) && hasNumericText(row[index])) {
       const value = parseNumericCell(row[index]);
+      if (Math.abs(value) > 100) {
+        continue;
+      }
       return Math.abs(value) <= 1 ? value * 100 : value;
     }
   }
 
   return undefined;
+};
+
+const fillMergedCells = (matrix: (string | number)[][], merges: XLSX.Range[] | undefined) => {
+  if (!merges?.length) {
+    return matrix;
+  }
+
+  const filledMatrix = matrix.map((row) => [...row]);
+
+  for (const merge of merges) {
+    const sourceValue = filledMatrix[merge.s.r]?.[merge.s.c];
+
+    if (!hasCellValue(sourceValue)) {
+      continue;
+    }
+
+    for (let rowIndex = merge.s.r; rowIndex <= merge.e.r; rowIndex += 1) {
+      const row = filledMatrix[rowIndex] ?? [];
+      filledMatrix[rowIndex] = row;
+
+      for (let columnIndex = merge.s.c; columnIndex <= merge.e.c; columnIndex += 1) {
+        if (!hasCellValue(row[columnIndex])) {
+          row[columnIndex] = sourceValue;
+        }
+      }
+    }
+  }
+
+  return filledMatrix;
 };
 
 export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData> => {
@@ -254,11 +299,12 @@ export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData
   }
 
   const sheet = workbook.Sheets[firstSheet];
-  const matrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
+  const rawMatrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
     header: 1,
     defval: "",
     raw: false
   });
+  const matrix = fillMergedCells(rawMatrix, sheet["!merges"]);
 
   const sections: DreSection[] = [];
   const summary: DreImportData["summary"] = [];
@@ -304,6 +350,7 @@ export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData
     const sectionLabel = cellToText(row[0]);
     const groupLabel = cellToText(row[1]);
     const itemLabel = cellToText(row[2]);
+    const detailLabel = cellToText(row[3]);
     const rowNumber = rowIndex + 1;
 
     if (!sectionLabel && !groupLabel && !itemLabel && !hasCellValue(row[3]) && !hasCellValue(row[4])) {
@@ -317,16 +364,16 @@ export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData
         normalizedSummaryLabel.startsWith("(RO)") ||
         normalizedSummaryLabel.startsWith("(RL)") ||
         normalizedSummaryLabel.startsWith("(MC)");
-      const value = readDreLineValue(row, [1, 2, 3]);
-      const percent = readDreLinePercent(row, isPercentOnlySummary ? [1, 2, 3, 4] : [4]);
+      const value = readDreLineValue(row, [1, 2, 3, 4]);
+      const percent = readDreLinePercent(row, isPercentOnlySummary ? [1, 2, 3, 4, 5] : [5, 4]);
       summary.push(createDreLine(sectionLabel, value, percent, rowNumber));
       currentGroup = undefined;
       continue;
     }
 
     if (sectionLabel && isDreSectionTotalLabel(sectionLabel)) {
-      const value = readDreLineValue(row, [3, 2, 1]);
-      const percent = readDreLinePercent(row, [4]);
+      const value = readDreLineValue(row, [3, 4, 2, 1]);
+      const percent = readDreLinePercent(row, [5, 4]);
       if (currentSection) {
         currentSection.total = createDreLine(sectionLabel, value, percent, rowNumber);
       }
@@ -336,8 +383,11 @@ export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData
     }
 
     if (sectionLabel) {
-      currentSection = ensureSection(sectionLabel);
-      currentGroup = undefined;
+      const nextSection = ensureSection(sectionLabel);
+      if (currentSection !== nextSection) {
+        currentGroup = undefined;
+      }
+      currentSection = nextSection;
     }
 
     if (!currentSection) {
@@ -345,9 +395,14 @@ export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData
     }
 
     if (groupLabel && normalizeText(groupLabel).startsWith("TOTAL ")) {
+      if (isDreInformationalRevenueTotalLabel(groupLabel)) {
+        currentGroup = undefined;
+        continue;
+      }
+
       const targetGroup = currentGroup ?? findLastDreGroup(currentSection);
-      const value = readDreLineValue(row, [3, 2]);
-      const percent = readDreLinePercent(row, [4]);
+      const value = readDreLineValue(row, [3, 4, 5, 2]);
+      const percent = readDreLinePercent(row, [5, 4]);
       if (targetGroup) {
         targetGroup.total = createDreLine(groupLabel, value, percent, rowNumber);
       }
@@ -355,9 +410,22 @@ export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData
       continue;
     }
 
+    if (!groupLabel && itemLabel && normalizeText(itemLabel).startsWith("TOTAL ") && findLastDreGroup(currentSection)) {
+      const targetGroup = findLastDreGroup(currentSection);
+      const value = readDreLineValue(row, [3, 4, 5, 2]);
+      const percent = readDreLinePercent(row, [5, 4]);
+      if (targetGroup) {
+        targetGroup.total = createDreLine(itemLabel, value, percent, rowNumber);
+      }
+      currentGroup = undefined;
+      continue;
+    }
+
     if (groupLabel && itemLabel && !hasCellValue(row[3]) && hasCellValue(row[2])) {
-      currentGroup = ensureGroup(currentSection, currentSection.label);
-      currentGroup.lines.push(createDreLine(groupLabel, parseNumericCell(row[2]), undefined, rowNumber));
+      currentGroup = ensureGroup(currentSection, groupLabel);
+      const value = readDreLineValue(row, [4, 5, 3, 2]);
+      const percent = readDreLinePercent(row, [5, 4]);
+      currentGroup.lines.push(createDreLine(itemLabel, value, percent, rowNumber));
       continue;
     }
 
@@ -365,15 +433,31 @@ export const parseDreSpreadsheetFile = async (file: File): Promise<DreImportData
       currentGroup = ensureGroup(currentSection, groupLabel);
     }
 
+    if (detailLabel && hasAlphabeticText(detailLabel) && hasNumericText(row[4]) && currentGroup) {
+      const value = readDreLineValue(row, [4]);
+      const percent = readDreLinePercent(row, [5]);
+
+      if (normalizeText(detailLabel).startsWith("TOTAL ")) {
+        currentGroup.total = createDreLine(detailLabel, value, percent, rowNumber);
+        currentGroup = undefined;
+        continue;
+      }
+
+      currentGroup.lines.push(createDreLine(detailLabel, value, percent, rowNumber));
+      continue;
+    }
+
     if (itemLabel && currentGroup) {
-      const value = readDreLineValue(row, [3]);
-      const percent = readDreLinePercent(row, [4]);
+      const value = readDreLineValue(row, [3, 4]);
+      const percent = readDreLinePercent(row, [5, 4]);
       currentGroup.lines.push(createDreLine(itemLabel, value, percent, rowNumber));
       continue;
     }
 
     if (groupLabel && currentGroup && hasCellValue(row[2])) {
-      currentGroup.lines.push(createDreLine(groupLabel, parseNumericCell(row[2]), undefined, rowNumber));
+      const value = readDreLineValue(row, [4, 5, 3, 2]);
+      const percent = readDreLinePercent(row, [5, 4]);
+      currentGroup.lines.push(createDreLine(groupLabel, value, percent, rowNumber));
     }
   }
 
