@@ -86,6 +86,12 @@ type AccountInvitationRestaurantRow = {
     | null;
 };
 
+type AuthSessionContext = {
+  profile?: UserProfileRow | null;
+  memberships?: RestaurantMembership[];
+  accountMemberships?: AccountMembershipRow[];
+};
+
 const normalizeAccountRoleForProfile = (
   role: LegacyAccountRole | undefined,
   globalRole: LegacyGlobalRole | undefined
@@ -133,8 +139,24 @@ const buildRestaurantId = (restaurantName: string, email: string) => {
   return slugify(email.split("@")[0] ?? "restaurante") || "restaurante";
 };
 
+const isNetworkFailureMessage = (message: string) => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("load failed") ||
+    normalized.includes("failed to fetch") ||
+    normalized.includes("networkerror") ||
+    normalized.includes("network request failed")
+  );
+};
+
 const asError = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) {
+    if (isNetworkFailureMessage(error.message)) {
+      return new Error(
+        "Não foi possível conectar ao servidor agora. Verifique a internet do celular e tente novamente."
+      );
+    }
+
     return new Error(error.message);
   }
 
@@ -144,7 +166,14 @@ const asError = (error: unknown, fallback: string) => {
     "message" in error &&
     typeof (error as { message?: unknown }).message === "string"
   ) {
-    return new Error((error as { message: string }).message);
+    const message = (error as { message: string }).message;
+    if (isNetworkFailureMessage(message)) {
+      return new Error(
+        "Não foi possível conectar ao servidor agora. Verifique a internet do celular e tente novamente."
+      );
+    }
+
+    return new Error(message);
   }
 
   return new Error(fallback);
@@ -258,20 +287,24 @@ const ensureUserProfile = async (user: User) => {
 
   const existingProfile = await loadUserProfile(user.id);
   if (existingProfile?.email === (user.email ?? null)) {
-    return;
+    return existingProfile;
   }
+
+  const nextProfile: UserProfileRow = {
+    global_role: normalizeGlobalRole(existingProfile?.global_role),
+    email: user.email ?? null,
+    full_name:
+      existingProfile?.full_name ??
+      (typeof user.user_metadata.full_name === "string" ? user.user_metadata.full_name : null),
+    photo_url:
+      existingProfile?.photo_url ??
+      (typeof user.user_metadata.photo_url === "string" ? user.user_metadata.photo_url : null)
+  };
 
   const { error } = await supabase.from("user_profiles").upsert(
     {
       user_id: user.id,
-      global_role: normalizeGlobalRole(existingProfile?.global_role),
-      email: user.email ?? null,
-      full_name:
-        existingProfile?.full_name ??
-        (typeof user.user_metadata.full_name === "string" ? user.user_metadata.full_name : null),
-      photo_url:
-        existingProfile?.photo_url ??
-        (typeof user.user_metadata.photo_url === "string" ? user.user_metadata.photo_url : null)
+      ...nextProfile
     },
     { onConflict: "user_id" }
   );
@@ -279,6 +312,7 @@ const ensureUserProfile = async (user: User) => {
   if (error) {
     throw asError(error, "Não foi possível preparar o perfil do usuário.");
   }
+  return nextProfile;
 };
 
 const createInitialRestaurantForUser = async (user: User, restaurantName?: string) => {
@@ -312,10 +346,9 @@ const createInitialRestaurantForUser = async (user: User, restaurantName?: strin
 };
 
 const ensurePrimaryRestaurantContext = async (user: User, restaurantNameOverride?: string) => {
-  await ensureUserProfile(user);
+  const profile = await ensureUserProfile(user);
   await acceptPendingAccountInvitations();
   void restaurantNameOverride;
-  const profile = await loadUserProfile(user.id);
   if (normalizeGlobalRole(profile?.global_role) === "owner") {
     return loadAllRestaurantsForGlobalOwner();
   }
@@ -334,25 +367,45 @@ const acceptPendingAccountInvitations = async () => {
   }
 };
 
+const loadAuthSessionContext = async (
+  user: User,
+  restaurantNameOverride?: string
+): Promise<AuthSessionContext> => {
+  const profile = await ensureUserProfile(user);
+  await acceptPendingAccountInvitations();
+  void restaurantNameOverride;
+
+  const globalRole = normalizeGlobalRole(profile?.global_role);
+  const [memberships, accountMemberships] = await Promise.all([
+    globalRole === "owner" ? loadAllRestaurantsForGlobalOwner() : loadMemberships(user.id),
+    loadAccountMemberships(user.id)
+  ]);
+
+  return { profile, memberships, accountMemberships };
+};
+
 const toAuthSession = async (
   user: User,
   options?: {
     activeRestaurantId?: string;
     memberships?: RestaurantMembership[];
+    profile?: UserProfileRow | null;
+    accountMemberships?: AccountMembershipRow[];
   }
 ): Promise<AuthSession> => {
-  const profile = await loadUserProfile(user.id);
-  const memberships =
-    normalizeGlobalRole(profile?.global_role) === "owner"
-      ? await loadAllRestaurantsForGlobalOwner()
-      : options?.memberships ?? (await ensurePrimaryRestaurantContext(user));
-  const accountMemberships = await loadAccountMemberships(user.id);
+  const profile = options?.profile ?? (await loadUserProfile(user.id));
+  const globalRole = normalizeGlobalRole(profile?.global_role);
+  const [memberships, accountMemberships] = await Promise.all([
+    options?.memberships ??
+      (globalRole === "owner" ? loadAllRestaurantsForGlobalOwner() : loadMemberships(user.id)),
+    options?.accountMemberships ?? loadAccountMemberships(user.id)
+  ]);
   const normalizedMemberships =
-    normalizeGlobalRole(profile?.global_role) === "owner"
+    globalRole === "owner"
       ? memberships
       : memberships.map((membership) => ({
           ...membership,
-          role: normalizeRestaurantRoleForProfile(membership.role, normalizeGlobalRole(profile?.global_role))
+          role: normalizeRestaurantRoleForProfile(membership.role, globalRole)
         }));
   const activeMembership =
     normalizedMemberships.find((membership) => membership.restaurantId === options?.activeRestaurantId) ??
@@ -366,7 +419,7 @@ const toAuthSession = async (
     userId: user.id,
     email: user.email ?? "",
     authMode: "supabase",
-    globalRole: normalizeGlobalRole(profile?.global_role),
+    globalRole,
     activeAccountId: resolvedActiveAccountId,
     userFullName:
       profile?.full_name ??
@@ -377,9 +430,9 @@ const toAuthSession = async (
       (typeof user.user_metadata.photo_url === "string" ? user.user_metadata.photo_url : undefined),
     memberships: normalizedMemberships,
     activeAccountRole:
-      normalizeGlobalRole(profile?.global_role) === "owner"
+      globalRole === "owner"
         ? "owner"
-        : normalizeAccountRoleForProfile(activeAccountMembership?.role, normalizeGlobalRole(profile?.global_role)),
+        : normalizeAccountRoleForProfile(activeAccountMembership?.role, globalRole),
     activeRole: activeMembership?.role,
     activeRestaurantId: activeMembership?.restaurantId,
     activeRestaurantName: activeMembership?.restaurantName,
@@ -688,7 +741,8 @@ export const getSupabaseSession = async () => {
     return null;
   }
 
-  return toAuthSession(user);
+  const context = await loadAuthSessionContext(user);
+  return toAuthSession(user, context);
 };
 
 export const hydrateSupabaseSession = async (
@@ -712,9 +766,9 @@ export const hydrateSupabaseSession = async (
     return null;
   }
 
-  const memberships = await ensurePrimaryRestaurantContext(user, restaurantNameOverride);
+  const context = await loadAuthSessionContext(user, restaurantNameOverride);
   return toAuthSession(user, {
-    memberships,
+    ...context,
     activeRestaurantId: session.activeRestaurantId ?? session.restaurantId
   });
 };
@@ -726,14 +780,19 @@ export const subscribeToSupabaseAuth = (callback: (session: AuthSession | null) 
 
   const {
     data: { subscription }
-  } = supabase.auth.onAuthStateChange((_event, session) => {
+  } = supabase.auth.onAuthStateChange((event, session) => {
     const user = session?.user;
     if (!user) {
       callback(null);
       return;
     }
 
-    void toAuthSession(user)
+    if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+      return;
+    }
+
+    void loadAuthSessionContext(user)
+      .then((context) => toAuthSession(user, context))
       .then((nextSession) => callback(nextSession))
       .catch(() => callback(toBaseAuthSession(user)));
   });
@@ -756,8 +815,8 @@ export const signInWithSupabase = async (email: string, password: string) => {
     throw new Error("Não foi possível iniciar a sessão.");
   }
 
-  const memberships = await ensurePrimaryRestaurantContext(user);
-  return toAuthSession(user, { memberships });
+  const context = await loadAuthSessionContext(user);
+  return toAuthSession(user, context);
 };
 
 export const registerRestaurantWithSupabase = async ({
@@ -793,8 +852,8 @@ export const registerRestaurantWithSupabase = async ({
     throw new Error("Conta criada com sucesso. Confirme o e-mail enviado pelo Supabase e depois faça login.");
   }
 
-  const memberships = await ensurePrimaryRestaurantContext(user, fullName);
-  return toAuthSession(user, { memberships });
+  const context = await loadAuthSessionContext(user, fullName);
+  return toAuthSession(user, context);
 };
 
 export const signOutFromSupabase = async () => {
