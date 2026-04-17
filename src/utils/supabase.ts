@@ -16,7 +16,7 @@ const shouldUseSupabaseProxy = () => {
 const createSupabaseFetch = () => {
   const supabaseHost = supabaseUrl ? new URL(supabaseUrl as string).host : undefined;
 
-  return (input: RequestInfo | URL, init?: RequestInit) => {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
     if (!supabaseHost || !shouldUseSupabaseProxy()) {
       return fetch(input, init);
     }
@@ -31,11 +31,18 @@ const createSupabaseFetch = () => {
     const proxiedUrl = `/.netlify/functions/supabase-proxy?target=${encodeURIComponent(
       `${requestUrl.pathname}${requestUrl.search}`
     )}`;
+    const shouldSendBody = request.method !== "GET" && request.method !== "HEAD";
+    const requestBody =
+      shouldSendBody && init?.body
+        ? init.body
+        : shouldSendBody && typeof input !== "string" && !(input instanceof URL)
+          ? await input.clone().arrayBuffer()
+          : undefined;
 
     return fetch(proxiedUrl, {
       method: request.method,
       headers: request.headers,
-      body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+      body: requestBody,
       signal: request.signal
     });
   };
