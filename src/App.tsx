@@ -5727,7 +5727,7 @@ export default function App() {
       const nextSession = isSupabaseConfigured
         ? await signInWithSupabase(email, password)
         : signIn(email, password);
-      if (!(nextSession.activeRestaurantId ?? nextSession.restaurantId)) {
+      if (!isSupabaseConfigured && !(nextSession.activeRestaurantId ?? nextSession.restaurantId)) {
         throw new Error("Login efetuado, mas nenhum restaurante ativo foi encontrado para esta conta.");
       }
       setSession(nextSession);

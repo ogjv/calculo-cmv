@@ -741,8 +741,7 @@ export const getSupabaseSession = async () => {
     return null;
   }
 
-  const context = await loadAuthSessionContext(user);
-  return toAuthSession(user, context);
+  return toBaseAuthSession(user);
 };
 
 export const hydrateSupabaseSession = async (
@@ -815,8 +814,7 @@ export const signInWithSupabase = async (email: string, password: string) => {
     throw new Error("Não foi possível iniciar a sessão.");
   }
 
-  const context = await loadAuthSessionContext(user);
-  return toAuthSession(user, context);
+  return toBaseAuthSession(user);
 };
 
 export const registerRestaurantWithSupabase = async ({
