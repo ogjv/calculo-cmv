@@ -5199,6 +5199,9 @@ export default function App() {
         }
 
         setAuthError(error instanceof Error ? error.message : "Não foi possível carregar os restaurantes da conta.");
+        setSession((current) =>
+          current && !(current.activeRestaurantId ?? current.restaurantId) ? null : current
+        );
       })
       .finally(() => {
         if (mounted) {
