@@ -4970,9 +4970,13 @@ export default function App() {
     activeRole === "owner";
   const canManageTeam = effectiveSession?.globalRole === "owner";
   const periodDashboards = state.periodDashboards ?? [];
+  const consolidatedPeriodDashboard = useMemo(
+    () => (!state.data && periodDashboards.length > 0 ? buildConsolidatedDashboard(periodDashboards) : undefined),
+    [periodDashboards, state.data]
+  );
   const dashboard =
     selectedPeriod === TOTAL_PERIOD
-      ? state.data
+      ? state.data ?? consolidatedPeriodDashboard
       : periodDashboards.find((periodDashboard) => periodDashboard.key === selectedPeriod)?.data;
   const activeDrePeriod =
     drePeriods.find((period) => period.key === selectedDrePeriod) ??
