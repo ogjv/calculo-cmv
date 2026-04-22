@@ -88,7 +88,22 @@ const DEFAULT_INVITE_FEATURE = "cmv_dashboard";
 const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
 const THEME_STORAGE_KEY = "grest.theme";
 const AUTH_BOOT_TIMEOUT_MS = 30000;
+const AUTH_HYDRATE_TIMEOUT_MS = 15000;
 const INTERNAL_SECTIONS: InternalSection[] = ["dashboard", "dre", "account", "restaurants", "team"];
+
+const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string) =>
+  new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), ms);
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
 
 const getInitialTheme = (): ThemeMode => {
   if (typeof window === "undefined") {
@@ -5114,21 +5129,7 @@ export default function App() {
     }
 
     let mounted = true;
-    const withTimeout = <T,>(promise: Promise<T>, ms: number) =>
-      new Promise<T>((resolve, reject) => {
-        const timer = window.setTimeout(() => reject(new Error("Tempo limite ao inicializar autenticação.")), ms);
-        promise
-          .then((value) => {
-            window.clearTimeout(timer);
-            resolve(value);
-          })
-          .catch((error) => {
-            window.clearTimeout(timer);
-            reject(error);
-          });
-      });
-
-    void withTimeout(getSupabaseSession(), AUTH_BOOT_TIMEOUT_MS)
+    void withTimeout(getSupabaseSession(), AUTH_BOOT_TIMEOUT_MS, "Tempo limite ao inicializar autenticação.")
       .then((nextSession) => {
         if (!mounted) {
           return;
@@ -5177,10 +5178,18 @@ export default function App() {
     let mounted = true;
     setAuthHydrating(true);
 
-    void hydrateSupabaseSession(session)
+    void withTimeout(
+      hydrateSupabaseSession(session),
+      AUTH_HYDRATE_TIMEOUT_MS,
+      "Tempo limite ao carregar restaurantes e permissões da conta."
+    )
       .then((nextSession) => {
         if (!mounted || !nextSession) {
           return;
+        }
+
+        if (!(nextSession.activeRestaurantId ?? nextSession.restaurantId)) {
+          throw new Error("Login efetuado, mas nenhum restaurante ativo foi encontrado para esta conta.");
         }
 
         setSession((current) => {
@@ -5224,7 +5233,11 @@ export default function App() {
         return;
       }
 
-      void hydrateSupabaseSession(session)
+      void withTimeout(
+        hydrateSupabaseSession(session),
+        AUTH_HYDRATE_TIMEOUT_MS,
+        "Tempo limite ao atualizar restaurantes e permissões da conta."
+      )
         .then((nextSession) => {
           if (!nextSession) {
             return;
