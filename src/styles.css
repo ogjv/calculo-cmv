@@ -3456,25 +3456,25 @@ input {
 
   .dashboard-shell {
     width: calc(100% - 16px);
-    padding: 12px 0 20px;
-    gap: 16px;
+    padding: 8px 0 20px;
+    gap: 12px;
   }
 
   .dashboard-sidebar {
-    gap: 10px;
-    padding: 9px 10px;
-    border-radius: 30px;
+    gap: 8px;
+    padding: 8px 9px;
+    border-radius: 26px;
   }
 
   .sidebar-nav-item {
-    flex-basis: 48px;
-    width: 48px;
-    height: 48px;
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
   }
 
   .dashboard-sidebar-brand .brand-logo-frame {
-    width: 48px;
-    height: 48px;
+    width: 42px;
+    height: 42px;
   }
 
   .dashboard-sidebar-footer {
@@ -3483,29 +3483,29 @@ input {
 
   .dashboard-sidebar-footer .profile-avatar,
   .sidebar-footer-action {
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
   }
 
   .sidebar-footer-action.icon-only .ui-icon {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
   }
 
   .dashboard-shell-topbar {
     display: grid;
     grid-template-columns: 1fr;
     align-items: stretch;
-    gap: 16px;
+    gap: 8px;
   }
 
   .dashboard-shell-heading h1 {
-    font-size: clamp(1.5rem, 7vw, 2rem);
+    font-size: clamp(1.45rem, 6vw, 1.85rem);
     overflow-wrap: anywhere;
   }
 
   .dashboard-shell-heading p {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
 
   .dashboard-shell-topbar-actions,
@@ -3515,10 +3515,7 @@ input {
   }
 
   .dashboard-shell-topbar-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: start;
-    justify-items: center;
+    display: none;
   }
 
   .panel-preferences {
@@ -3529,12 +3526,10 @@ input {
 @media (max-width: 560px) {
   .dashboard-sidebar {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      "brand spacer actions"
-      "nav nav nav";
-    gap: 10px;
-    padding: 10px;
-    border-radius: 28px;
+    grid-template-areas: "brand nav actions";
+    gap: 8px;
+    padding: 8px;
+    border-radius: 22px;
   }
 
   .dashboard-sidebar-brand {
@@ -3543,6 +3538,7 @@ input {
 
   .internal-sidebar-nav {
     grid-area: nav;
+    min-width: 0;
   }
 
   .dashboard-sidebar-footer {
@@ -3551,22 +3547,27 @@ input {
   }
 
   .internal-sidebar-nav-list {
-    justify-content: flex-start;
-    gap: 8px;
-    padding: 6px;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px;
   }
 
   .sidebar-nav-item {
-    flex-basis: 46px;
-    width: 46px;
-    height: 46px;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
   }
 
   .dashboard-sidebar-brand .brand-logo-frame,
   .dashboard-sidebar-footer .profile-avatar,
   .sidebar-footer-action {
-    width: 44px;
-    height: 44px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .sidebar-footer-action.icon-only .ui-icon {
+    width: 19px;
+    height: 19px;
   }
 
   .dashboard-shell-topbar-actions {
@@ -3620,30 +3621,30 @@ input {
   }
 
   .dashboard-sidebar {
-    padding: 8px;
-    border-radius: 24px;
+    padding: 6px;
+    border-radius: 20px;
   }
 
   .internal-sidebar-nav-list {
-    gap: 6px;
+    gap: 4px;
   }
 
   .sidebar-nav-item {
-    flex-basis: 42px;
-    width: 42px;
-    height: 42px;
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
   }
 
   .dashboard-sidebar-brand .brand-logo-frame,
   .dashboard-sidebar-footer .profile-avatar,
   .sidebar-footer-action {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
   }
 
   .sidebar-footer-action.icon-only .ui-icon {
-    width: 23px;
-    height: 23px;
+    width: 18px;
+    height: 18px;
   }
 
   .dashboard-shell-topbar-actions {
@@ -4858,6 +4859,49 @@ th {
     align-items: stretch;
   }
 
+  .dashboard-shell-topbar {
+    padding-top: 4px;
+  }
+
+  .dashboard-shell-heading {
+    gap: 5px;
+  }
+
+  .dashboard-shell-subtitle {
+    font-size: clamp(1.05rem, 4.8vw, 1.28rem);
+  }
+
+  .restaurant-overview-panel {
+    padding: 16px;
+  }
+
+  .restaurant-navigator-grid {
+    display: flex;
+    gap: 10px;
+    margin: 0 -16px;
+    padding: 0 16px 4px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .restaurant-navigator-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .restaurant-tile {
+    flex: 0 0 min(74vw, 280px);
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    scroll-snap-align: start;
+  }
+
+  .restaurant-tile-copy strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .dre-strategy-grid,
   .dre-diagnostics-layout,
   .dre-diagnostics-grid,
@@ -4871,15 +4915,35 @@ th {
   .dre-donut-card.very-dense,
   .dre-donut-grid.odd > .dre-donut-card:last-child:not(.dense):not(.very-dense) {
     grid-template-columns: 1fr;
+    justify-items: center;
+    overflow: hidden;
+  }
+
+  .dre-chart-card {
+    min-width: 0;
+    overflow: hidden;
+    padding: 16px;
+  }
+
+  .dre-line-chart,
+  .dre-bar-chart {
+    min-height: 190px;
+  }
+
+  .dre-mini-donut,
+  .dre-donut-card.dense .dre-mini-donut,
+  .dre-donut-card.very-dense .dre-mini-donut {
+    width: min(220px, 76vw);
+    height: auto;
   }
 
   .dre-donut-card.very-dense .dre-mini-donut {
-    width: min(280px, 100%);
+    width: min(240px, 76vw);
     height: auto;
   }
 
   .dre-donut-grid.odd > .dre-donut-card:last-child:not(.dense):not(.very-dense) .dre-mini-donut {
-    width: min(220px, 100%);
+    width: min(220px, 76vw);
     height: auto;
   }
 
@@ -5063,6 +5127,25 @@ th {
     border-radius: 18px;
   }
 
+  .dashboard-shell {
+    width: calc(100% - 12px);
+    gap: 10px;
+  }
+
+  .dashboard-main,
+  .dashboard-content,
+  .content {
+    min-width: 0;
+  }
+
+  .dashboard-shell-topbar {
+    padding: 6px 2px 2px;
+  }
+
+  .dashboard-shell-heading p {
+    max-width: 32ch;
+  }
+
   .workspace-header h2,
   .section-head h3 {
     overflow-wrap: anywhere;
@@ -5137,8 +5220,30 @@ th {
     width: 4px;
   }
 
+  .chart-card {
+    min-height: auto;
+    overflow: hidden;
+  }
+
+  .donut-layout {
+    gap: 14px;
+  }
+
   .donut-chart {
-    max-width: 200px;
+    max-width: min(190px, 70vw);
+  }
+
+  .donut-legend {
+    max-width: 100%;
+  }
+
+  .legend-item strong,
+  .legend-item span,
+  .legend-item small,
+  .dre-donut-legend-name,
+  .dre-donut-legend-row strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .subgroup-card table {
