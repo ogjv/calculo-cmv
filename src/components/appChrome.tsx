@@ -322,6 +322,48 @@ export function InternalNavigation({ section, onChange, items }: InternalNavigat
   );
 }
 
+export function ProfileAvatar({
+  session,
+  size = "md"
+}: {
+  session: AuthSession;
+  size?: "sm" | "md" | "lg";
+}) {
+  const classes = `profile-avatar ${size} ${session.profilePhotoUrl ? "has-photo" : ""}`;
+  const restaurantLabel = session.restaurantName ?? session.activeRestaurantName ?? "Restaurante";
+
+  return (
+    <div className={classes} aria-hidden="true">
+      {session.profilePhotoUrl ? (
+        <img src={session.profilePhotoUrl} alt={restaurantLabel} />
+      ) : (
+        <img src="/grest.png" alt="G/REST" className="brand-logo-image cutout" />
+      )}
+    </div>
+  );
+}
+
+export function UserAvatar({
+  session,
+  size = "md"
+}: {
+  session: AuthSession;
+  size?: "sm" | "md" | "lg";
+}) {
+  const classes = `profile-avatar ${size} ${session.userPhotoUrl ? "has-photo" : ""}`;
+  const userLabel = session.userFullName?.trim() || session.email || "Usuario";
+
+  return (
+    <div className={classes}>
+      {session.userPhotoUrl ? (
+        <img src={session.userPhotoUrl} alt={userLabel} />
+      ) : (
+        <span>{userLabel.slice(0, 2).toUpperCase()}</span>
+      )}
+    </div>
+  );
+}
+
 function getNavigationIcon(section: AppSection) {
   switch (section) {
     case "dashboard":

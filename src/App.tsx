@@ -1,9 +1,10 @@
 ﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, CSSProperties, DragEvent } from "react";
+import { Suspense, lazy } from "react";
 import { useRef } from "react";
 import type { AccountInvitation, AccountMember, AuthSession, DashboardData, DreImportData, DrePeriodData, GroupSummary, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, SalesTotalRow, UploadFeedbackItem } from "./types";
 import { buildDashboardData, buildDashboardSlice, formatCurrency, formatNumber, formatPercent, mapRecipeRows, mapSalesRows } from "./utils/cmv";
-import { AuthScreen, BrandMark, DashboardShellHeader, InternalNavigation } from "./components/appChrome";
+import { AuthScreen, BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from "./components/appChrome";
 import { DashboardReadOnlyGuide, RestaurantNavigatorPanel } from "./components/dashboardPanels";
 import { parseDreSpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
 import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
@@ -12,6 +13,13 @@ import { isSupabaseConfigured } from "./utils/supabase";
 
 type Locale = "pt" | "es" | "en";
 type ThemeMode = "light" | "dark";
+
+const LazyAccountSettingsPanel = lazy(() =>
+  import("./components/accountPanels").then((module) => ({ default: module.AccountSettingsPanel }))
+);
+const LazyRestaurantManagementPanel = lazy(() =>
+  import("./components/accountPanels").then((module) => ({ default: module.RestaurantManagementPanel }))
+);
 
 const piePalette = ["#1f7a5a", "#e09f3e", "#d95d39", "#457b9d", "#8d6a9f", "#c36f6f", "#49796b", "#7b8cde"];
 const drePalette = ["#2f6f5e", "#c9823a", "#b84e3f", "#496f9f", "#8b6f47", "#6f7785", "#a55c7a", "#5f7f4f"];
@@ -1367,48 +1375,6 @@ function UploadPanel({
   );
 }
 
-function ProfileAvatar({
-  session,
-  size = "md"
-}: {
-  session: AuthSession;
-  size?: "sm" | "md" | "lg";
-}) {
-  const classes = `profile-avatar ${size} ${session.profilePhotoUrl ? "has-photo" : ""}`;
-  const restaurantLabel = session.restaurantName ?? session.activeRestaurantName ?? "Restaurante";
-
-  return (
-    <div className={classes} aria-hidden="true">
-      {session.profilePhotoUrl ? (
-        <img src={session.profilePhotoUrl} alt={restaurantLabel} />
-      ) : (
-        <img src="/grest.png" alt="G/REST" className="brand-logo-image cutout" />
-      )}
-    </div>
-  );
-}
-
-function UserAvatar({
-  session,
-  size = "md"
-}: {
-  session: AuthSession;
-  size?: "sm" | "md" | "lg";
-}) {
-  const classes = `profile-avatar ${size} ${session.userPhotoUrl ? "has-photo" : ""}`;
-  const userLabel = session.userFullName?.trim() || session.email || "Usuário";
-
-  return (
-    <div className={classes}>
-      {session.userPhotoUrl ? (
-        <img src={session.userPhotoUrl} alt={userLabel} />
-      ) : (
-        <span>{userLabel.slice(0, 2).toUpperCase()}</span>
-      )}
-    </div>
-  );
-}
-
 function IconRevenueKpi() {
   return (
     <svg viewBox="0 0 32 32" className="kpi-art" aria-hidden="true">
@@ -2231,432 +2197,6 @@ function SalesTotalsPanel({ totals }: { totals: SalesTotalRow[] }) {
         <span className="eyebrow">{generalTotals.length > 1 ? String(t("officialTotalConsolidated")) : String(t("officialTotal"))}</span>
         <strong>{formatCurrency(totalRevenue)}</strong>
         <p>{(t("closingUnits") as (value: string) => string)(formatNumber(totalQuantity))}</p>
-      </div>
-    </section>
-  );
-}
-
-function AccountSettingsPanel({
-  session,
-  userForm,
-  restaurantForm,
-  newRestaurantName,
-  busy,
-  message,
-  error,
-  onClose,
-  onUserNameChange,
-  onRestaurantNameChange,
-  onUserPhotoSelect,
-  onRestaurantPhotoSelect,
-  onCreateRestaurantNameChange,
-  onSaveUser,
-  onSaveRestaurant,
-  onCreateRestaurant,
-  onDeleteRestaurant,
-  onDeleteAccount,
-  onActivateRestaurant,
-  canManageRestaurants
-}: {
-  session: AuthSession;
-  userForm: UserProfileFormState;
-  restaurantForm: ProfileFormState;
-  newRestaurantName: string;
-  busy: boolean;
-  message?: string;
-  error?: string;
-  onClose: () => void;
-  onUserNameChange: (value: string) => void;
-  onRestaurantNameChange: (value: string) => void;
-  onUserPhotoSelect: (file: File | null) => void;
-  onRestaurantPhotoSelect: (file: File | null) => void;
-  onCreateRestaurantNameChange: (value: string) => void;
-  onSaveUser: () => void;
-  onSaveRestaurant: () => void;
-  onCreateRestaurant: () => void;
-  onDeleteRestaurant: (restaurantId: string) => void;
-  onDeleteAccount: () => void;
-  onActivateRestaurant: (restaurantId: string) => void;
-  canManageRestaurants: boolean;
-}) {
-  const { t } = useLocale();
-
-  return (
-    <section className="card account-panel">
-      <div className="section-head">
-        <div>
-          <span className="eyebrow">{String(t("authSettings"))}</span>
-          <h3>{String(t("authSettings"))}</h3>
-          <p>{String(t("authSettingsText"))}</p>
-        </div>
-        <button type="button" className="ghost-button" onClick={onClose}>
-          {String(t("authClose"))}
-        </button>
-      </div>
-
-      <div className="account-panel-stack">
-        <section className="account-user-section">
-          <div className="section-head compact">
-            <div>
-              <span className="eyebrow">{String(t("authUserProfile"))}</span>
-              <h3>{String(t("authUserProfile"))}</h3>
-              <p>{String(t("authUserProfileText"))}</p>
-            </div>
-          </div>
-
-          <div className="account-user-grid">
-            <section className="account-identity-card">
-              <div className="account-avatar-panel">
-                <UserAvatar
-                  session={{
-                    ...session,
-                    userFullName: userForm.fullName,
-                    userPhotoUrl: userForm.userPhotoUrl
-                  }}
-                  size="lg"
-                />
-                <div>
-                  <strong>{String(t("authUserProfile"))}</strong>
-                  <p>{String(t("authUserProfileText"))}</p>
-                </div>
-              </div>
-
-              <label className="upload-box compact-upload">
-                <div className="upload-box-top">
-                  <span className="upload-order">{String(t("authProfilePhoto"))}</span>
-                  <span className="upload-status ready">{busy ? String(t("processing")) : String(t("authUploadPhoto"))}</span>
-                </div>
-                <strong className="upload-title">{userForm.userPhotoUrl ? (userForm.fullName || session.email) : String(t("authUploadPhoto"))}</strong>
-                <small>{String(t("authUserProfileText"))}</small>
-                <div className="upload-box-footer">
-                  <span className="upload-action">{String(t("authUploadPhoto"))}</span>
-                  <span className="upload-meta">.png .jpg .jpeg</span>
-                </div>
-                <input
-                  className="upload-input-hidden"
-                  type="file"
-                  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-                  onChange={(event) => onUserPhotoSelect(event.target.files?.[0] ?? null)}
-                />
-              </label>
-            </section>
-
-            <section className="account-form-card">
-              <label className="auth-field">
-                <span>{String(t("authFullName"))}</span>
-                <input value={userForm.fullName} onChange={(event) => onUserNameChange(event.target.value)} />
-              </label>
-
-              <label className="auth-field">
-                <span>{String(t("authEmail"))}</span>
-                <input value={session.email} disabled />
-              </label>
-
-              <div className="user-status-grid">
-                <article className="mini-stat-card">
-                  <span>{String(t("authAccountStatus"))}</span>
-                  <strong>{session.activeRole === "owner" ? String(t("authRoleOwner")) : String(t("authRoleViewer"))}</strong>
-                </article>
-                <article className="mini-stat-card">
-                  <span>{String(t("authRestaurantsCount"))}</span>
-                  <strong>{String(session.memberships?.length ?? 0)}</strong>
-                </article>
-              </div>
-
-              {message ? <p className="message success">{message}</p> : null}
-              {error ? <p className="message error">{error}</p> : null}
-
-              <div className="panel-actions">
-                <button type="button" className="primary-button" onClick={onSaveUser} disabled={busy}>
-                  {String(t("authSaveProfile"))}
-                </button>
-              </div>
-            </section>
-          </div>
-        </section>
-
-        {canManageRestaurants ? (
-        <section className="account-restaurant-section">
-          <div className="section-head compact">
-            <div>
-              <span className="eyebrow">{String(t("authManageRestaurants"))}</span>
-              <h3>{String(t("authManageRestaurants"))}</h3>
-              <p>{String(t("authManageRestaurantsText"))}</p>
-            </div>
-          </div>
-
-          <div className="account-panel-grid">
-            <section className="account-form-card">
-              <div className="account-avatar-panel">
-                <ProfileAvatar
-                  session={{
-                    ...session,
-                    restaurantName: restaurantForm.restaurantName,
-                    profilePhotoUrl: restaurantForm.profilePhotoUrl
-                  }}
-                  size="lg"
-                />
-                <div>
-                  <strong>{String(t("authRestaurantProfile"))}</strong>
-                  <p>{String(t("authRestaurantProfileText"))}</p>
-                </div>
-              </div>
-
-              <label className="upload-box compact-upload">
-                <div className="upload-box-top">
-                  <span className="upload-order">{String(t("authProfilePhoto"))}</span>
-                  <span className="upload-status ready">{busy ? String(t("processing")) : String(t("authUploadPhoto"))}</span>
-                </div>
-                <strong className="upload-title">{restaurantForm.profilePhotoUrl ? restaurantForm.restaurantName : String(t("authUploadPhoto"))}</strong>
-                <small>{String(t("authRestaurantProfileText"))}</small>
-                <div className="upload-box-footer">
-                  <span className="upload-action">{String(t("authUploadPhoto"))}</span>
-                  <span className="upload-meta">.png .jpg .jpeg</span>
-                </div>
-                <input
-                  className="upload-input-hidden"
-                  type="file"
-                  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-                  onChange={(event) => onRestaurantPhotoSelect(event.target.files?.[0] ?? null)}
-                />
-              </label>
-
-              <label className="auth-field">
-                <span>{String(t("authRestaurantName"))}</span>
-                <input value={restaurantForm.restaurantName} onChange={(event) => onRestaurantNameChange(event.target.value)} />
-              </label>
-
-              <div className="panel-actions">
-                <button type="button" className="primary-button" onClick={onSaveRestaurant} disabled={busy}>
-                  {String(t("authSaveProfile"))}
-                </button>
-              </div>
-            </section>
-
-            <section className="account-form-card restaurant-management-card">
-              <div className="restaurant-member-list">
-                {(session.memberships ?? []).map((membership) => {
-                  const isActive = membership.restaurantId === session.activeRestaurantId;
-                  const canDeleteThisRestaurant = membership.role === "owner" && (session.memberships?.length ?? 0) > 1;
-
-                  return (
-                    <article key={membership.membershipId} className={`restaurant-member-card ${isActive ? "active" : ""}`}>
-                      <div>
-                        <strong>{membership.restaurantName}</strong>
-                        <p>{membership.role === "owner" ? String(t("authRoleOwner")) : String(t("authRoleViewer"))}</p>
-                      </div>
-                      <div className="restaurant-member-actions">
-                        {!isActive ? (
-                          <button type="button" className="ghost-button" onClick={() => onActivateRestaurant(membership.restaurantId)}>
-                            {String(t("authActivate"))}
-                          </button>
-                        ) : null}
-                        {canDeleteThisRestaurant ? (
-                          <button
-                            type="button"
-                            className="ghost-button danger-button"
-                            onClick={() => onDeleteRestaurant(membership.restaurantId)}
-                            disabled={busy}
-                          >
-                            {String(t("authDeleteRestaurant"))}
-                          </button>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-
-              <div className="restaurant-create-box">
-                <div>
-                  <strong>{String(t("authCreateRestaurant"))}</strong>
-                  <p>{String(t("authCreateRestaurantText"))}</p>
-                </div>
-                <label className="auth-field">
-                  <span>{String(t("authRestaurantName"))}</span>
-                  <input value={newRestaurantName} onChange={(event) => onCreateRestaurantNameChange(event.target.value)} />
-                </label>
-                <div className="panel-actions">
-                  <button type="button" className="primary-button" onClick={onCreateRestaurant} disabled={busy}>
-                    {String(t("authCreateRestaurantAction"))}
-                  </button>
-                </div>
-              </div>
-            </section>
-          </div>
-        </section>
-        ) : null}
-
-        <section className="danger-panel">
-          <div className="danger-panel-copy">
-            <span className="eyebrow">{String(t("authDangerZone"))}</span>
-            <strong>{String(t("authDeleteAccount"))}</strong>
-            <p>{String(t("authDeleteHint"))}</p>
-          </div>
-          <button type="button" className="ghost-button danger-button" onClick={onDeleteAccount} disabled={busy}>
-            {String(t("authDeleteAccount"))}
-          </button>
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function RestaurantManagementPanel({
-  session,
-  restaurantForm,
-  newRestaurantName,
-  busy,
-  message,
-  error,
-  onRestaurantNameChange,
-  onRestaurantPhotoSelect,
-  onCreateRestaurantNameChange,
-  onSaveRestaurant,
-  onCreateRestaurant,
-  onDeleteRestaurant,
-  onActivateRestaurant
-}: {
-  session: AuthSession;
-  restaurantForm: ProfileFormState;
-  newRestaurantName: string;
-  busy: boolean;
-  message?: string;
-  error?: string;
-  onRestaurantNameChange: (value: string) => void;
-  onRestaurantPhotoSelect: (file: File | null) => void;
-  onCreateRestaurantNameChange: (value: string) => void;
-  onSaveRestaurant: () => void;
-  onCreateRestaurant: () => void;
-  onDeleteRestaurant: (restaurantId: string) => void;
-  onActivateRestaurant: (restaurantId: string) => void;
-}) {
-  const { t } = useLocale();
-
-  return (
-    <section className="card account-panel">
-      <div className="section-head">
-        <div>
-          <span className="eyebrow">{String(t("authManageRestaurants"))}</span>
-          <h3>{String(t("authManageRestaurants"))}</h3>
-          <p>{String(t("authManageRestaurantsText"))}</p>
-        </div>
-      </div>
-
-      <div className="account-panel-grid">
-        <section className="account-form-card">
-          <div className="account-avatar-panel">
-            <ProfileAvatar
-              session={{
-                ...session,
-                restaurantName: restaurantForm.restaurantName,
-                profilePhotoUrl: restaurantForm.profilePhotoUrl
-              }}
-              size="lg"
-            />
-            <div>
-              <strong>{String(t("authRestaurantProfile"))}</strong>
-              <p>{String(t("authRestaurantProfileText"))}</p>
-            </div>
-          </div>
-
-          <label className="upload-box compact-upload">
-            <div className="upload-box-top">
-              <span className="upload-order">{String(t("authProfilePhoto"))}</span>
-              <span className="upload-status ready">{busy ? String(t("processing")) : String(t("authUploadPhoto"))}</span>
-            </div>
-            <strong className="upload-title">{restaurantForm.profilePhotoUrl ? restaurantForm.restaurantName : String(t("authUploadPhoto"))}</strong>
-            <small>{String(t("authRestaurantProfileText"))}</small>
-            <div className="upload-box-footer">
-              <span className="upload-action">{String(t("authUploadPhoto"))}</span>
-              <span className="upload-meta">.png .jpg .jpeg</span>
-            </div>
-            <input
-              className="upload-input-hidden"
-              type="file"
-              accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-              onChange={(event) => onRestaurantPhotoSelect(event.target.files?.[0] ?? null)}
-            />
-          </label>
-
-          <label className="auth-field">
-            <span>{String(t("authRestaurantName"))}</span>
-            <input value={restaurantForm.restaurantName} onChange={(event) => onRestaurantNameChange(event.target.value)} />
-          </label>
-
-          {message ? <p className="message success">{message}</p> : null}
-          {error ? <p className="message error">{error}</p> : null}
-
-          <div className="panel-actions">
-            <button type="button" className="primary-button" onClick={onSaveRestaurant} disabled={busy}>
-              {String(t("authSaveProfile"))}
-            </button>
-          </div>
-        </section>
-
-        <section className="account-form-card restaurant-management-card">
-          <div className="restaurant-member-list">
-            {(session.memberships ?? []).map((membership) => {
-              const isActive = membership.restaurantId === session.activeRestaurantId;
-              const canDeleteThisRestaurant = membership.role === "owner" && (session.memberships?.length ?? 0) > 1;
-
-              return (
-                <article
-                  key={membership.membershipId}
-                  className={`restaurant-member-card ${isActive ? "active" : ""}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onActivateRestaurant(membership.restaurantId)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onActivateRestaurant(membership.restaurantId);
-                    }
-                  }}
-                >
-                  <div>
-                    <strong>{membership.restaurantName}</strong>
-                    <p>{membership.role === "owner" ? String(t("authRoleOwner")) : String(t("authRoleViewer"))}</p>
-                  </div>
-                  <div className="restaurant-member-actions">
-                    <span className={`status ${isActive ? "ok" : ""}`}>
-                      {isActive ? String(t("authActive")) : String(t("authActivate"))}
-                    </span>
-                    {canDeleteThisRestaurant ? (
-                      <button
-                        type="button"
-                        className="ghost-button danger-button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onDeleteRestaurant(membership.restaurantId);
-                        }}
-                        disabled={busy}
-                      >
-                        {String(t("authDeleteRestaurant"))}
-                      </button>
-                    ) : null}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-
-          <div className="restaurant-create-box">
-            <div>
-              <strong>{String(t("authCreateRestaurant"))}</strong>
-              <p>{String(t("authCreateRestaurantText"))}</p>
-            </div>
-            <label className="auth-field">
-              <span>{String(t("authRestaurantName"))}</span>
-              <input value={newRestaurantName} onChange={(event) => onCreateRestaurantNameChange(event.target.value)} />
-            </label>
-            <div className="panel-actions">
-              <button type="button" className="primary-button" onClick={onCreateRestaurant} disabled={busy}>
-                {String(t("authCreateRestaurantAction"))}
-              </button>
-            </div>
-          </div>
-        </section>
       </div>
     </section>
   );
@@ -4129,6 +3669,37 @@ export default function App() {
     ...(canManageRestaurants ? [{ key: "restaurants" as InternalSection, label: String(t("navRestaurants")) }] : []),
     ...(canManageTeam ? [{ key: "team" as InternalSection, label: String(t("navTeam")) }] : [])
   ];
+  const accountPanelCopy = {
+    settings: String(t("authSettings")),
+    settingsText: String(t("authSettingsText")),
+    close: String(t("authClose")),
+    userProfile: String(t("authUserProfile")),
+    userProfileText: String(t("authUserProfileText")),
+    profilePhoto: String(t("authProfilePhoto")),
+    uploadPhoto: String(t("authUploadPhoto")),
+    fullName: String(t("authFullName")),
+    email: String(t("authEmail")),
+    accountStatus: String(t("authAccountStatus")),
+    roleOwner: String(t("authRoleOwner")),
+    roleViewer: String(t("authRoleViewer")),
+    restaurantsCount: String(t("authRestaurantsCount")),
+    saveProfile: String(t("authSaveProfile")),
+    manageRestaurants: String(t("authManageRestaurants")),
+    manageRestaurantsText: String(t("authManageRestaurantsText")),
+    restaurantProfile: String(t("authRestaurantProfile")),
+    restaurantProfileText: String(t("authRestaurantProfileText")),
+    restaurantName: String(t("authRestaurantName")),
+    activate: String(t("authActivate")),
+    active: String(t("authActive")),
+    deleteRestaurant: String(t("authDeleteRestaurant")),
+    createRestaurant: String(t("authCreateRestaurant")),
+    createRestaurantText: String(t("authCreateRestaurantText")),
+    createRestaurantAction: String(t("authCreateRestaurantAction")),
+    dangerZone: String(t("authDangerZone")),
+    deleteAccount: String(t("authDeleteAccount")),
+    deleteHint: String(t("authDeleteHint")),
+    processing: String(t("processing"))
+  };
   const copyBySection: Record<Exclude<InternalSection, "account">, { eyebrow: string; title: string; text: string }> = {
     dashboard: {
       eyebrow: String(t("navDashboard")),
@@ -5457,21 +5028,30 @@ export default function App() {
               />
             ) : null}
             {currentSection === "restaurants" && canManageRestaurants ? (
-              <RestaurantManagementPanel
-                session={effectiveSession}
-                restaurantForm={restaurantProfileForm}
-                newRestaurantName={newRestaurantName}
-                busy={accountBusy}
-                message={accountMessage}
-                error={accountError}
-                onRestaurantNameChange={handleRestaurantNameChange}
-                onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
-                onCreateRestaurantNameChange={setNewRestaurantName}
-                onSaveRestaurant={handleSaveRestaurantAccount}
-                onCreateRestaurant={handleCreateRestaurant}
-                onDeleteRestaurant={handleDeleteRestaurant}
-                onActivateRestaurant={handleSelectRestaurant}
-              />
+              <Suspense
+                fallback={
+                  <section className="card">
+                    <p className="message">{String(t("processing"))}</p>
+                  </section>
+                }
+              >
+                <LazyRestaurantManagementPanel
+                  session={effectiveSession}
+                  restaurantForm={restaurantProfileForm}
+                  newRestaurantName={newRestaurantName}
+                  busy={accountBusy}
+                  message={accountMessage}
+                  error={accountError}
+                  onRestaurantNameChange={handleRestaurantNameChange}
+                  onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
+                  onCreateRestaurantNameChange={setNewRestaurantName}
+                  onSaveRestaurant={handleSaveRestaurantAccount}
+                  onCreateRestaurant={handleCreateRestaurant}
+                  onDeleteRestaurant={handleDeleteRestaurant}
+                  onActivateRestaurant={handleSelectRestaurant}
+                  copy={accountPanelCopy}
+                />
+              </Suspense>
             ) : null}
             {currentSection === "team" && canManageTeam ? (
               <TeamPermissionsPanel
@@ -5495,31 +5075,40 @@ export default function App() {
               />
             ) : null}
             {currentSection === "account" ? (
-          <AccountSettingsPanel
-            session={effectiveSession}
-            userForm={userProfileForm}
-            restaurantForm={restaurantProfileForm}
-            newRestaurantName={newRestaurantName}
-            busy={accountBusy}
-            message={accountMessage}
-            error={accountError}
-            onClose={() => {
-              resetAccountPanelState();
-              setCurrentSection("dashboard");
-            }}
-            onUserNameChange={(value) => setUserProfileForm((current) => ({ ...current, fullName: value }))}
-            onRestaurantNameChange={handleRestaurantNameChange}
-            onUserPhotoSelect={handleUserPhotoSelect}
-            onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
-            onCreateRestaurantNameChange={setNewRestaurantName}
-            onSaveUser={handleSaveUserAccount}
-            onSaveRestaurant={handleSaveRestaurantAccount}
-            onCreateRestaurant={handleCreateRestaurant}
-            onDeleteRestaurant={handleDeleteRestaurant}
-            onDeleteAccount={handleDeleteAccount}
-            onActivateRestaurant={handleSelectRestaurant}
-            canManageRestaurants={false}
-          />
+              <Suspense
+                fallback={
+                  <section className="card">
+                    <p className="message">{String(t("processing"))}</p>
+                  </section>
+                }
+              >
+                <LazyAccountSettingsPanel
+                  session={effectiveSession}
+                  userForm={userProfileForm}
+                  restaurantForm={restaurantProfileForm}
+                  newRestaurantName={newRestaurantName}
+                  busy={accountBusy}
+                  message={accountMessage}
+                  error={accountError}
+                  onClose={() => {
+                    resetAccountPanelState();
+                    setCurrentSection("dashboard");
+                  }}
+                  onUserNameChange={(value) => setUserProfileForm((current) => ({ ...current, fullName: value }))}
+                  onRestaurantNameChange={handleRestaurantNameChange}
+                  onUserPhotoSelect={handleUserPhotoSelect}
+                  onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
+                  onCreateRestaurantNameChange={setNewRestaurantName}
+                  onSaveUser={handleSaveUserAccount}
+                  onSaveRestaurant={handleSaveRestaurantAccount}
+                  onCreateRestaurant={handleCreateRestaurant}
+                  onDeleteRestaurant={handleDeleteRestaurant}
+                  onDeleteAccount={handleDeleteAccount}
+                  onActivateRestaurant={handleSelectRestaurant}
+                  canManageRestaurants={false}
+                  copy={accountPanelCopy}
+                />
+              </Suspense>
             ) : null}
             {authError ? (
               <section className="card">
