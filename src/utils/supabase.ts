@@ -2,8 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const isSupabaseForcedOff = import.meta.env.VITE_FORCE_LOCAL_AUTH === "true";
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConfigured = !isSupabaseForcedOff && Boolean(supabaseUrl && supabaseAnonKey);
 
 const shouldUseSupabaseProxy = () => {
   if (typeof window === "undefined") {
