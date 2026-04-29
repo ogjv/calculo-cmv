@@ -18,6 +18,9 @@ export default defineConfig({
                     if (id.includes("src/components/accountPanels")) {
                         return "account-panels";
                     }
+                    if (id.includes("src/components/teamPanels")) {
+                        return "team-panels";
+                    }
                     return undefined;
                 }
             }

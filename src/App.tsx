@@ -6,6 +6,7 @@ import type { AccountInvitation, AccountMember, AuthSession, DashboardData, DreI
 import { buildDashboardData, buildDashboardSlice, formatCurrency, formatNumber, formatPercent, mapRecipeRows, mapSalesRows } from "./utils/cmv";
 import { AuthScreen, BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from "./components/appChrome";
 import { DashboardReadOnlyGuide, RestaurantNavigatorPanel } from "./components/dashboardPanels";
+import { DEFAULT_INVITE_FEATURE, type InviteFormState } from "./components/teamPanels";
 import { parseDreSpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
 import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
 import { createAccountInvitation, createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, getSupabaseSession, hydrateSupabaseSession, loadAccountInvitations, loadAccountMembers, loadCloudWorkspace, registerRestaurantWithSupabase, removeAccountMemberAccess, revokeAccountInvitation, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateAccountMemberAccess, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "./utils/cloudAuth";
@@ -19,6 +20,9 @@ const LazyAccountSettingsPanel = lazy(() =>
 );
 const LazyRestaurantManagementPanel = lazy(() =>
   import("./components/accountPanels").then((module) => ({ default: module.RestaurantManagementPanel }))
+);
+const LazyTeamPermissionsPanel = lazy(() =>
+  import("./components/teamPanels").then((module) => ({ default: module.TeamPermissionsPanel }))
 );
 
 const piePalette = ["#1f7a5a", "#e09f3e", "#d95d39", "#457b9d", "#8d6a9f", "#c36f6f", "#49796b", "#7b8cde"];
@@ -54,18 +58,11 @@ type UserProfileFormState = {
   userPhotoUrl?: string;
 };
 
-type InviteFormState = {
-  email: string;
-  featureIds: string[];
-  restaurantIds: string[];
-};
-
 type InternalSection = "account" | "dashboard" | "dre" | "restaurants" | "team";
 
 const TOTAL_VIEW = "__TOTAL__";
 const TOTAL_PERIOD = "__ALL_PERIODS__";
 const DEFAULT_DRE_PERIOD = "__LATEST_DRE__";
-const DEFAULT_INVITE_FEATURE = "cmv_dashboard";
 const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
 const THEME_STORAGE_KEY = "grest.theme";
 const AUTH_BOOT_TIMEOUT_MS = 30000;
@@ -3087,468 +3084,6 @@ function DreAnalysisPanel({
   );
 }
 
-function TeamMemberCard({
-  session,
-  member,
-  canManageTeam,
-  onSave,
-  onRemove
-}: {
-  session: AuthSession;
-  member: AccountMember;
-  canManageTeam: boolean;
-  onSave: (input: {
-    member: AccountMember;
-    accountRole: "user";
-    restaurantRole: "viewer";
-    restaurantIds: string[];
-  }) => Promise<void>;
-  onRemove: (member: AccountMember) => Promise<void>;
-}) {
-  const { t } = useLocale();
-  const [featureIds, setFeatureIds] = useState<string[]>([DEFAULT_INVITE_FEATURE]);
-  const [restaurantIds, setRestaurantIds] = useState<string[]>(member.restaurants.map((restaurant) => restaurant.restaurantId));
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string>();
-  const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    setFeatureIds([DEFAULT_INVITE_FEATURE]);
-    setRestaurantIds(member.restaurants.map((restaurant) => restaurant.restaurantId));
-    setMessage(undefined);
-    setError(undefined);
-  }, [member]);
-
-  const formatAccountRole = (role: AccountMember["role"]) => {
-    if (role === "owner") {
-      return String(t("teamRoleOwner"));
-    }
-
-    return String(t("teamRoleUser"));
-  };
-
-  const formatRestaurantRole = (role: "owner" | "viewer") => {
-    if (role === "owner") {
-      return String(t("teamRoleOwner"));
-    }
-
-    return String(t("teamRoleViewer"));
-  };
-
-  const canEditMember =
-    canManageTeam &&
-    member.userId !== session.userId &&
-    member.role === "user" &&
-    !member.restaurants.some((restaurant) => restaurant.role === "owner");
-  const assignableRestaurants = [
-    ...(session.memberships ?? []).map((membership) => ({
-      restaurantId: membership.restaurantId,
-      restaurantName: membership.restaurantName,
-      role: membership.role
-    })),
-    ...member.restaurants
-  ]
-    .filter(
-      (restaurant, index, restaurants) =>
-        restaurants.findIndex((item) => item.restaurantId === restaurant.restaurantId) === index
-    )
-    .sort((left, right) => left.restaurantName.localeCompare(right.restaurantName));
-  const memberRestaurantAccessById = new Map(
-    member.restaurants.map((restaurant) => [restaurant.restaurantId, restaurant])
-  );
-
-  const hasChanges =
-    JSON.stringify([...featureIds].sort()) !== JSON.stringify([DEFAULT_INVITE_FEATURE]) ||
-    JSON.stringify([...restaurantIds].sort()) !==
-      JSON.stringify(member.restaurants.map((restaurant) => restaurant.restaurantId).sort());
-
-  const handleRestaurantToggle = (restaurantId: string) => {
-    setRestaurantIds((current) =>
-      current.includes(restaurantId) ? current.filter((id) => id !== restaurantId) : [...current, restaurantId]
-    );
-  };
-
-  const handleFeatureToggle = (featureId: string) => {
-    setFeatureIds((current) =>
-      current.includes(featureId) ? current.filter((id) => id !== featureId) : [...current, featureId]
-    );
-  };
-
-  const handleSave = async () => {
-    try {
-      setBusy(true);
-      setError(undefined);
-      setMessage(undefined);
-      if (featureIds.length === 0) {
-        throw new Error("Selecione ao menos uma funcionalidade.");
-      }
-      await onSave({
-        member,
-        accountRole: "user",
-        restaurantRole: "viewer",
-        restaurantIds
-      });
-      setMessage(String(t("teamMemberUpdated")));
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(t("teamMemberImmutable")));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRemove = async () => {
-    try {
-      setBusy(true);
-      setError(undefined);
-      setMessage(undefined);
-      await onRemove(member);
-      setMessage(String(t("teamMemberRemoved")));
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(t("teamMemberImmutable")));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <article className="team-member-card">
-      <div className="team-member-head">
-        <div className="team-member-identity">
-          <div className={`profile-avatar sm ${member.photoUrl ? "has-photo" : ""}`}>
-            {member.photoUrl ? (
-              <img src={member.photoUrl} alt={member.fullName ?? member.email ?? member.userId} />
-            ) : (
-              <span>{(member.fullName ?? member.email ?? member.userId).slice(0, 2).toUpperCase()}</span>
-            )}
-          </div>
-          <div>
-            <strong>{member.fullName ?? member.email ?? member.userId}</strong>
-            <p>{member.userId === session.userId ? String(t("teamYou")) : member.email ?? member.userId}</p>
-          </div>
-        </div>
-        <span className={`status-chip ${member.role === "owner" ? "danger" : "good"}`}>
-          {formatAccountRole(member.role)}
-        </span>
-      </div>
-
-      <div className="team-member-meta">
-        <span className="eyebrow">{String(t("teamRestaurantAccess"))}</span>
-        <div className="team-restaurant-chips">
-          {member.restaurants.length > 0 ? (
-            member.restaurants.map((restaurant) => (
-              <span key={`${member.membershipId}-${restaurant.restaurantId}`} className="team-restaurant-chip">
-                <strong>{restaurant.restaurantName}</strong>
-                <small>{formatRestaurantRole(restaurant.role)}</small>
-              </span>
-            ))
-          ) : (
-            <span className="team-restaurant-chip muted">{String(t("teamNoRestaurants"))}</span>
-          )}
-        </div>
-      </div>
-
-      {canManageTeam ? (
-        <div className="team-member-actions">
-          <div>
-            <span className="eyebrow">{String(t("teamManageMember"))}</span>
-            <p className="team-member-actions-text">{String(t("teamManageMemberText"))}</p>
-          </div>
-
-          {canEditMember ? (
-            <>
-              <div className="team-restaurant-selector">
-                <span>{String(t("teamInviteFeatures"))}</span>
-                <div className="team-restaurant-chips">
-                  <button
-                    type="button"
-                    className={`team-restaurant-chip selectable ${featureIds.includes(DEFAULT_INVITE_FEATURE) ? "selected" : ""}`}
-                    onClick={() => handleFeatureToggle(DEFAULT_INVITE_FEATURE)}
-                    disabled={busy}
-                  >
-                    <strong>{String(t("teamFeatureDashboard"))}</strong>
-                    <small>{String(t("teamRoleUser"))}</small>
-                  </button>
-                </div>
-              </div>
-
-              <div className="team-restaurant-selector">
-                <span>{String(t("teamInviteRestaurants"))}</span>
-                <div className="team-restaurant-chips">
-                  {assignableRestaurants.map((restaurant) => {
-                    const isSelected = restaurantIds.includes(restaurant.restaurantId);
-                    const memberRestaurantAccess = memberRestaurantAccessById.get(restaurant.restaurantId);
-
-                    return (
-                      <button
-                        key={`member-${member.membershipId}-${restaurant.restaurantId}`}
-                        type="button"
-                        className={`team-restaurant-chip selectable ${isSelected ? "selected" : ""}`}
-                        onClick={() => handleRestaurantToggle(restaurant.restaurantId)}
-                        disabled={busy}
-                        aria-pressed={isSelected}
-                      >
-                        <strong>{restaurant.restaurantName}</strong>
-                        <small>
-                          {isSelected
-                            ? `Selecionado · ${formatRestaurantRole(memberRestaurantAccess?.role ?? "viewer")}`
-                            : "Sem acesso"}
-                        </small>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {error ? <p className="message error">{error}</p> : null}
-              {message ? <p className="message success">{message}</p> : null}
-
-              <div className="panel-actions">
-                <button type="button" className="primary-button" onClick={handleSave} disabled={busy || !hasChanges}>
-                  {busy ? String(t("processing")) : String(t("teamSaveMember"))}
-                </button>
-                <button type="button" className="ghost-button danger-button" onClick={handleRemove} disabled={busy}>
-                  {String(t("teamRemoveMember"))}
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="message">{String(t("teamMemberImmutable"))}</p>
-          )}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function TeamPermissionsPanel({
-  session,
-  members,
-  invitations,
-  loading,
-  invitationsLoading,
-  canManageTeam,
-  inviteForm,
-  inviteBusy,
-  inviteMessage,
-  inviteError,
-  onInviteEmailChange,
-  onInviteFeatureToggle,
-  onInviteRestaurantToggle,
-  onCreateInvitation,
-  onRevokeInvitation,
-  onUpdateMember,
-  onRemoveMember
-}: {
-  session: AuthSession;
-  members: AccountMember[];
-  invitations: AccountInvitation[];
-  loading: boolean;
-  invitationsLoading: boolean;
-  canManageTeam: boolean;
-  inviteForm: InviteFormState;
-  inviteBusy: boolean;
-  inviteMessage?: string;
-  inviteError?: string;
-  onInviteEmailChange: (value: string) => void;
-  onInviteFeatureToggle: (featureId: string) => void;
-  onInviteRestaurantToggle: (restaurantId: string) => void;
-  onCreateInvitation: () => void;
-  onRevokeInvitation: (invitationId: string) => void;
-  onUpdateMember: (input: {
-    member: AccountMember;
-    accountRole: "user";
-    restaurantRole: "viewer";
-    restaurantIds: string[];
-  }) => Promise<void>;
-  onRemoveMember: (member: AccountMember) => Promise<void>;
-}) {
-  const { t } = useLocale();
-  const ownerCount = members.filter((member) => member.role === "owner").length;
-  const commonUsersCount = members.filter((member) => member.role === "user").length;
-  const coveredRestaurants = new Set(
-    members.flatMap((member) => member.restaurants.map((restaurant) => restaurant.restaurantId))
-  ).size;
-
-  const formatAccountRole = (role: AccountMember["role"]) =>
-    role === "owner" ? String(t("teamRoleOwner")) : String(t("teamRoleUser"));
-
-  const formatRestaurantRole = (role: "owner" | "viewer") =>
-    role === "owner" ? String(t("teamRoleOwner")) : String(t("teamRoleViewer"));
-
-  return (
-    <section className="card">
-      <div className="section-head">
-        <div>
-          <span className="eyebrow">{String(t("navTeam"))}</span>
-          <h3>{String(t("teamTitle"))}</h3>
-          <p>{String(t("teamText"))}</p>
-        </div>
-      </div>
-
-      <div className="totals-grid">
-        <div className="totals-box compact">
-          <span className="eyebrow">{String(t("teamAccessModel"))}</span>
-          <strong>{session.globalRole === "owner" ? "OWNER" : "USER"}</strong>
-          <p>{String(t("teamAccessModelText"))}</p>
-        </div>
-        <div className="totals-box compact">
-          <span className="eyebrow">{String(t("teamMembersTotal"))}</span>
-          <strong>{formatNumber(members.length)}</strong>
-          <p>{String(t("teamAccountRole"))}</p>
-        </div>
-        <div className="totals-box compact">
-          <span className="eyebrow">{String(t("teamAdminsTotal"))}</span>
-          <strong>{formatNumber(ownerCount)}</strong>
-          <p>{String(t("teamRoleOwner"))}</p>
-        </div>
-        <div className="totals-box compact">
-          <span className="eyebrow">{String(t("teamUsersTotal"))}</span>
-          <strong>{formatNumber(commonUsersCount)}</strong>
-          <p>{String(t("teamRestaurantAccess"))}</p>
-        </div>
-        <div className="totals-box compact">
-          <span className="eyebrow">{String(t("teamRestaurantsTotal"))}</span>
-          <strong>{formatNumber(coveredRestaurants)}</strong>
-          <p>{String(t("authRestaurants"))}</p>
-        </div>
-      </div>
-
-      {loading ? <p className="message">{String(t("processing"))}</p> : null}
-      {!loading && members.length === 0 ? <p className="message">{String(t("teamEmpty"))}</p> : null}
-
-      {!loading && members.length > 0 ? (
-        <div className="team-members-grid">
-          {members.map((member) => (
-            <TeamMemberCard
-              key={member.membershipId}
-              session={session}
-              member={member}
-              canManageTeam={canManageTeam}
-              onSave={onUpdateMember}
-              onRemove={onRemoveMember}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {canManageTeam ? (
-        <section className="team-management-grid">
-          <article className="team-member-card">
-            <div className="section-head compact">
-              <div>
-                <span className="eyebrow">{String(t("teamInviteTitle"))}</span>
-                <h3>{String(t("teamInviteTitle"))}</h3>
-                <p>{String(t("teamInviteText"))}</p>
-              </div>
-            </div>
-
-            <div className="team-invite-form">
-              <label className="auth-field">
-                <span>{String(t("teamInviteEmail"))}</span>
-                <input
-                  value={inviteForm.email}
-                  onChange={(event) => onInviteEmailChange(event.target.value)}
-                  placeholder="nome@empresa.com"
-                />
-              </label>
-
-              <div className="team-restaurant-selector">
-                <span>{String(t("teamInviteFeatures"))}</span>
-                <div className="team-restaurant-chips">
-                  <button
-                    type="button"
-                    className={`team-restaurant-chip selectable ${inviteForm.featureIds.includes(DEFAULT_INVITE_FEATURE) ? "selected" : ""}`}
-                    onClick={() => onInviteFeatureToggle(DEFAULT_INVITE_FEATURE)}
-                  >
-                    <strong>{String(t("teamFeatureDashboard"))}</strong>
-                    <small>{String(t("teamRoleUser"))}</small>
-                  </button>
-                </div>
-              </div>
-
-              <div className="team-restaurant-selector">
-                <span>{String(t("teamInviteRestaurants"))}</span>
-                <div className="team-restaurant-chips">
-                  {(session.memberships ?? []).map((membership) => (
-                    <button
-                      key={`invite-${membership.restaurantId}`}
-                      type="button"
-                      className={`team-restaurant-chip selectable ${inviteForm.restaurantIds.includes(membership.restaurantId) ? "selected" : ""}`}
-                      onClick={() => onInviteRestaurantToggle(membership.restaurantId)}
-                    >
-                      <strong>{membership.restaurantName}</strong>
-                      <small>
-                        {formatRestaurantRole(membership.role)}
-                      </small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <p className="message">{String(t("teamInviteHint"))}</p>
-              {inviteError ? <p className="message error">{inviteError}</p> : null}
-              {inviteMessage ? <p className="message success">{inviteMessage}</p> : null}
-
-              <div className="panel-actions">
-                <button type="button" className="primary-button" onClick={onCreateInvitation} disabled={inviteBusy}>
-                  {inviteBusy ? String(t("processing")) : String(t("teamInviteAction"))}
-                </button>
-              </div>
-            </div>
-          </article>
-
-          <article className="team-member-card">
-            <div className="section-head compact">
-              <div>
-                <span className="eyebrow">{String(t("teamInvitePending"))}</span>
-                <h3>{String(t("teamInvitePending"))}</h3>
-                <p>{String(t("teamInviteHint"))}</p>
-              </div>
-            </div>
-
-            {invitationsLoading ? <p className="message">{String(t("processing"))}</p> : null}
-            {!invitationsLoading && invitations.length === 0 ? <p className="message">{String(t("teamInviteEmpty"))}</p> : null}
-
-            {!invitationsLoading && invitations.length > 0 ? (
-              <div className="team-members-grid compact">
-                {invitations.map((invitation) => (
-                  <article key={invitation.invitationId} className="team-member-card nested">
-                    <div className="team-member-head">
-                      <div>
-                        <strong>{invitation.email}</strong>
-                        <p>{formatAccountRole(invitation.accountRole)} · {String(t("teamFeatureDashboard"))}</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="ghost-button danger-button"
-                        onClick={() => onRevokeInvitation(invitation.invitationId)}
-                        disabled={inviteBusy}
-                      >
-                        {String(t("teamInviteRevoke"))}
-                      </button>
-                    </div>
-                    <div className="team-restaurant-chips">
-                      {invitation.restaurants.map((restaurant) => (
-                        <span key={`${invitation.invitationId}-${restaurant.restaurantId}`} className="team-restaurant-chip">
-                          <strong>{restaurant.restaurantName}</strong>
-                        </span>
-                      ))}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-          </article>
-        </section>
-      ) : (
-        <p className="message">
-          A gestão de equipe fica disponível apenas para o owner.
-        </p>
-      )}
-    </section>
-  );
-}
-
 export default function App() {
   const [locale, setLocale] = useState<Locale>("pt");
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
@@ -3699,6 +3234,49 @@ export default function App() {
     deleteAccount: String(t("authDeleteAccount")),
     deleteHint: String(t("authDeleteHint")),
     processing: String(t("processing"))
+  };
+  const teamPanelCopy = {
+    processing: String(t("processing")),
+    navTeam: String(t("navTeam")),
+    teamTitle: String(t("teamTitle")),
+    teamText: String(t("teamText")),
+    teamAccessModel: String(t("teamAccessModel")),
+    teamAccessModelText: String(t("teamAccessModelText")),
+    teamMembersTotal: String(t("teamMembersTotal")),
+    teamAccountRole: String(t("teamAccountRole")),
+    teamAdminsTotal: String(t("teamAdminsTotal")),
+    teamUsersTotal: String(t("teamUsersTotal")),
+    teamRestaurantsTotal: String(t("teamRestaurantsTotal")),
+    authRestaurants: String(t("authRestaurants")),
+    teamEmpty: String(t("teamEmpty")),
+    teamRoleOwner: String(t("teamRoleOwner")),
+    teamRoleUser: String(t("teamRoleUser")),
+    teamRoleViewer: String(t("teamRoleViewer")),
+    teamRestaurantAccess: String(t("teamRestaurantAccess")),
+    teamNoRestaurants: String(t("teamNoRestaurants")),
+    teamManageMember: String(t("teamManageMember")),
+    teamManageMemberText: String(t("teamManageMemberText")),
+    teamInviteFeatures: String(t("teamInviteFeatures")),
+    teamFeatureDashboard: String(t("teamFeatureDashboard")),
+    teamInviteRestaurants: String(t("teamInviteRestaurants")),
+    teamSaveMember: String(t("teamSaveMember")),
+    teamRemoveMember: String(t("teamRemoveMember")),
+    teamMemberImmutable: String(t("teamMemberImmutable")),
+    teamMemberUpdated: String(t("teamMemberUpdated")),
+    teamMemberRemoved: String(t("teamMemberRemoved")),
+    teamYou: String(t("teamYou")),
+    teamInviteTitle: String(t("teamInviteTitle")),
+    teamInviteText: String(t("teamInviteText")),
+    teamInviteEmail: String(t("teamInviteEmail")),
+    teamInviteHint: String(t("teamInviteHint")),
+    teamInviteAction: String(t("teamInviteAction")),
+    teamInvitePending: String(t("teamInvitePending")),
+    teamInviteEmpty: String(t("teamInviteEmpty")),
+    teamInviteRevoke: String(t("teamInviteRevoke")),
+    ownerOnlyMessage: "A gestão de equipe fica disponível apenas para o owner.",
+    featureRequired: "Selecione ao menos uma funcionalidade.",
+    selectedLabel: "Selecionado",
+    noAccessLabel: "Sem acesso"
   };
   const copyBySection: Record<Exclude<InternalSection, "account">, { eyebrow: string; title: string; text: string }> = {
     dashboard: {
@@ -5054,25 +4632,34 @@ export default function App() {
               </Suspense>
             ) : null}
             {currentSection === "team" && canManageTeam ? (
-              <TeamPermissionsPanel
-                session={effectiveSession}
-                members={accountMembers}
-                invitations={accountInvitations}
-                loading={accountMembersLoading}
-                invitationsLoading={accountInvitationsLoading}
-                canManageTeam={Boolean(canManageTeam)}
-                inviteForm={inviteForm}
-                inviteBusy={inviteBusy}
-                inviteMessage={inviteMessage}
-                inviteError={inviteError}
-                onInviteEmailChange={(value) => setInviteForm((current) => ({ ...current, email: value }))}
-                onInviteFeatureToggle={handleInviteFeatureToggle}
-                onInviteRestaurantToggle={handleInviteRestaurantToggle}
-                onCreateInvitation={() => void handleCreateInvitation()}
-                onRevokeInvitation={(invitationId) => void handleRevokeInvitation(invitationId)}
-                onUpdateMember={handleUpdateMember}
-                onRemoveMember={handleRemoveMember}
-              />
+              <Suspense
+                fallback={
+                  <section className="card">
+                    <p className="message">{String(t("processing"))}</p>
+                  </section>
+                }
+              >
+                <LazyTeamPermissionsPanel
+                  session={effectiveSession}
+                  members={accountMembers}
+                  invitations={accountInvitations}
+                  loading={accountMembersLoading}
+                  invitationsLoading={accountInvitationsLoading}
+                  canManageTeam={Boolean(canManageTeam)}
+                  inviteForm={inviteForm}
+                  inviteBusy={inviteBusy}
+                  inviteMessage={inviteMessage}
+                  inviteError={inviteError}
+                  copy={teamPanelCopy}
+                  onInviteEmailChange={(value) => setInviteForm((current) => ({ ...current, email: value }))}
+                  onInviteFeatureToggle={handleInviteFeatureToggle}
+                  onInviteRestaurantToggle={handleInviteRestaurantToggle}
+                  onCreateInvitation={() => void handleCreateInvitation()}
+                  onRevokeInvitation={(invitationId) => void handleRevokeInvitation(invitationId)}
+                  onUpdateMember={handleUpdateMember}
+                  onRemoveMember={handleRemoveMember}
+                />
+              </Suspense>
             ) : null}
             {currentSection === "account" ? (
               <Suspense
