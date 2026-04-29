@@ -3,6 +3,7 @@ import type { ChangeEvent, CSSProperties, DragEvent } from "react";
 import { useRef } from "react";
 import type { AccountInvitation, AccountMember, AuthSession, DashboardData, DreImportData, DrePeriodData, GroupSummary, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, SalesTotalRow, UploadFeedbackItem } from "./types";
 import { buildDashboardData, buildDashboardSlice, formatCurrency, formatNumber, formatPercent, mapRecipeRows, mapSalesRows } from "./utils/cmv";
+import { DashboardReadOnlyGuide, RestaurantNavigatorPanel } from "./components/dashboardPanels";
 import { parseDreSpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
 import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
 import { createAccountInvitation, createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, getSupabaseSession, hydrateSupabaseSession, loadAccountInvitations, loadAccountMembers, loadCloudWorkspace, registerRestaurantWithSupabase, removeAccountMemberAccess, revokeAccountInvitation, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateAccountMemberAccess, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "./utils/cloudAuth";
@@ -10,35 +11,6 @@ import { isSupabaseConfigured } from "./utils/supabase";
 
 type Locale = "pt" | "es" | "en";
 type ThemeMode = "light" | "dark";
-
-const sampleSales = [
-  { codigo: "1001", produto: "Pizza Margherita", qte: 42, total: 1764, grupo: "Pizzas", subgrupo: "Tradicionais" },
-  { codigo: "1002", produto: "Pizza Calabresa", qte: 35, total: 1610, grupo: "Pizzas", subgrupo: "Tradicionais" },
-  { codigo: "2001", produto: "Risoto Funghi", qte: 18, total: 972, grupo: "Cozinha", subgrupo: "Principais" },
-  { codigo: "3001", produto: "Limonada", qte: 29, total: 406, grupo: "Bebidas", subgrupo: "Sem alcool" }
-];
-
-const sampleRecipes = [
-  { codigo: "1001", "produto do cardapio": "Pizza Margherita", praca: "Salao", preco: 42, custo: 17.5, cmv: 41.7, grupo: "Pizzas", subgrupo: "Tradicionais" },
-  { codigo: "1002", "produto do cardapio": "Pizza Calabresa", praca: "Salao", preco: 46, custo: 19.2, cmv: 41.7, grupo: "Pizzas", subgrupo: "Tradicionais" },
-  { codigo: "2001", "produto do cardapio": "Risoto Funghi", praca: "Salao", preco: 54, custo: 21.4, cmv: 39.6, grupo: "Cozinha", subgrupo: "Principais" },
-  { codigo: "3001", "produto do cardapio": "Limonada", praca: "Bar", preco: 14, custo: 4.8, cmv: 34.3, grupo: "Bebidas", subgrupo: "Sem alcool" }
-];
-
-const sampleDashboard = buildDashboardData(mapSalesRows(sampleSales), mapRecipeRows(sampleRecipes), [
-  { level: "subgroup", label: "TOTAL SUBGRUPO", group: "Pizzas", subgroup: "Tradicionais", quantity: 77, revenue: 3374 },
-  { level: "group", label: "TOTAL GRUPO", group: "Pizzas", subgroup: "", quantity: 77, revenue: 3374 },
-  { level: "general", label: "TOTAL GERAL", group: "", subgroup: "", quantity: 124, revenue: 4752 }
-], {
-  rawLabel: "ABERT.: 01/03/26 | FECH.: 29/03/26",
-  startDate: "01/03/26",
-  endDate: "29/03/26",
-  displayLabel: "01/03/26 a 29/03/26",
-  periodKey: "2026-03",
-  periodLabel: "Mar/2026",
-  month: 3,
-  year: 2026
-});
 
 const piePalette = ["#1f7a5a", "#e09f3e", "#d95d39", "#457b9d", "#8d6a9f", "#c36f6f", "#49796b", "#7b8cde"];
 const drePalette = ["#2f6f5e", "#c9823a", "#b84e3f", "#496f9f", "#8b6f47", "#6f7785", "#a55c7a", "#5f7f4f"];
@@ -89,8 +61,6 @@ const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
 const THEME_STORAGE_KEY = "grest.theme";
 const AUTH_BOOT_TIMEOUT_MS = 30000;
 const AUTH_HYDRATE_TIMEOUT_MS = 15000;
-const INTERNAL_SECTIONS: InternalSection[] = ["dashboard", "dre", "account", "restaurants", "team"];
-
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string) =>
   new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => reject(new Error(message)), ms);
@@ -960,9 +930,6 @@ const savePreferredRestaurant = (userId: string, restaurantId: string) => {
   window.localStorage.setItem(`${ACTIVE_RESTAURANT_STORAGE_PREFIX}${userId}`, restaurantId);
 };
 
-const isInternalSection = (value: string | undefined): value is InternalSection =>
-  Boolean(value && INTERNAL_SECTIONS.includes(value as InternalSection));
-
 const applyActiveRestaurant = (session: AuthSession, restaurantId?: string): AuthSession => {
   const memberships = session.memberships ?? [];
   const activeMembership =
@@ -1140,47 +1107,6 @@ const readFileAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-function IconUpload() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M12 16V7" />
-      <path d="M8.5 10.5 12 7l3.5 3.5" />
-      <path d="M5 18.5h14" />
-    </svg>
-  );
-}
-
-function IconChart() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M5 18.5h14" />
-      <path d="M8 18.5v-6" />
-      <path d="M12 18.5v-9" />
-      <path d="M16 18.5v-4" />
-    </svg>
-  );
-}
-
-function IconShield() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M12 4l6 2.5v5.5c0 3.8-2.5 6.9-6 8-3.5-1.1-6-4.2-6-8V6.5L12 4Z" />
-      <path d="m9.5 12 1.7 1.8L14.8 10" />
-    </svg>
-  );
-}
-
-function IconCalendar() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M7 4.5v3" />
-      <path d="M17 4.5v3" />
-      <path d="M5 9.5h14" />
-      <rect x="4.5" y="6.5" width="15" height="13" rx="3" />
-    </svg>
-  );
-}
-
 function IconSpark() {
   return (
     <svg viewBox="0 0 32 32" className="kpi-art" aria-hidden="true">
@@ -1190,10 +1116,6 @@ function IconSpark() {
       />
     </svg>
   );
-}
-
-function IconAsset({ src, alt }: { src: string; alt: string }) {
-  return <img src={src} alt={alt} className="icon-chip-image" />;
 }
 
 function BrandMark() {
@@ -1207,46 +1129,6 @@ function BrandMark() {
         <span className="brand-name">G/REST</span>
         <span className="brand-tagline">{String(t("brandTagline"))}</span>
       </div>
-    </div>
-  );
-}
-
-function HeroHighlights() {
-  const { t } = useLocale();
-  const items = [
-    {
-      icon: <IconUpload />,
-      title: String(t("uploadOriented")),
-      text: String(t("uploadOrientedText"))
-    },
-    {
-      icon: <IconChart />,
-      title: String(t("executiveReading")),
-      text: String(t("executiveReadingText"))
-    },
-    {
-      icon: <IconCalendar />,
-      title: String(t("competenceBase")),
-      text: String(t("competenceBaseText"))
-    },
-    {
-      icon: <IconShield />,
-      title: String(t("prioritizedActions")),
-      text: String(t("prioritizedActionsText"))
-    }
-  ];
-
-  return (
-    <div className="hero-highlights">
-      {items.map((item) => (
-        <article key={item.title} className="hero-highlight-card">
-          <span className="icon-chip">{item.icon}</span>
-          <div>
-            <strong>{item.title}</strong>
-            <p>{item.text}</p>
-          </div>
-        </article>
-      ))}
     </div>
   );
 }
@@ -1453,43 +1335,6 @@ function KPIGrid({ data }: { data: DashboardData }) {
   );
 }
 
-function PeriodBanner({
-  period,
-  selectedPeriod,
-  dashboards
-}: {
-  period?: DashboardData["reportPeriod"];
-  selectedPeriod: string;
-  dashboards: PeriodDashboard[];
-}) {
-  const { t } = useLocale();
-  if (!period && dashboards.length === 0) {
-    return null;
-  }
-
-  const isTotal = selectedPeriod === TOTAL_PERIOD;
-  const title = isTotal
-    ? dashboards.length > 1
-      ? (t("importedPeriods") as (count: number) => string)(dashboards.length)
-      : dashboards[0]
-        ? getPeriodLabel(dashboards[0])
-        : String(t("periodImported"))
-    : period?.displayLabel ?? String(t("periodImported"));
-  const description = isTotal
-    ? dashboards.map((dashboard) => getPeriodLabel(dashboard)).join(" • ")
-    : period?.rawLabel ?? "";
-
-  return (
-    <section className="card compact-card period-banner">
-      <div>
-        <span className="eyebrow">{isTotal ? String(t("consolidatedBase")) : String(t("periodImported"))}</span>
-        <strong>{title}</strong>
-      </div>
-      <p>{description}</p>
-    </section>
-  );
-}
-
 function UploadPanel({
   state,
   onUpload,
@@ -1605,41 +1450,6 @@ function UploadPanel({
   );
 }
 
-function AuthHighlights() {
-  const { t } = useLocale();
-  const items = [
-    {
-      icon: <IconAsset src="/organizacao.svg" alt="Organização" />,
-      title: String(t("homeHeroStat1")),
-      text: String(t("homeHeroStat1Text"))
-    },
-    {
-      icon: <IconAsset src="/segundo.svg" alt="Agilidade" />,
-      title: String(t("homeHeroStat2")),
-      text: String(t("homeHeroStat2Text"))
-    },
-    {
-      icon: <IconAsset src="/clareza.svg" alt="Clareza" />,
-      title: String(t("homeHeroStat3")),
-      text: String(t("homeHeroStat3Text"))
-    }
-  ];
-
-  return (
-    <div className="auth-highlights">
-      {items.map((item) => (
-        <article key={item.title} className="auth-highlight-card">
-          <span className="icon-chip soft">{item.icon}</span>
-          <div>
-            <strong>{item.title}</strong>
-            <p>{item.text}</p>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
 function ProfileAvatar({
   session,
   size = "md"
@@ -1679,15 +1489,6 @@ function UserAvatar({
         <span>{userLabel.slice(0, 2).toUpperCase()}</span>
       )}
     </div>
-  );
-}
-
-function IconSettings() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6Z" />
-      <path d="M19.4 12a7.6 7.6 0 0 0-.1-1.1l2-1.5-1.9-3.2-2.4 1a8.6 8.6 0 0 0-1.9-1.1l-.4-2.6H10l-.4 2.6c-.7.2-1.3.6-1.9 1.1l-2.4-1-1.9 3.2 2 1.5a7.6 7.6 0 0 0 0 2.2l-2 1.5 1.9 3.2 2.4-1c.6.5 1.2.8 1.9 1.1l.4 2.6h3.8l.4-2.6c.7-.2 1.3-.6 1.9-1.1l2.4 1 1.9-3.2-2-1.5c.1-.4.1-.8.1-1.1Z" />
-    </svg>
   );
 }
 
@@ -1778,15 +1579,6 @@ function IconArrowRight() {
   );
 }
 
-function IconCamera() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M8 7.5 9.2 5h5.6L16 7.5h2.5A2.5 2.5 0 0 1 21 10v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17v-7A2.5 2.5 0 0 1 5.5 7.5H8Z" />
-      <path d="M12 9.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" />
-    </svg>
-  );
-}
-
 function IconTrash() {
   return (
     <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
@@ -1846,61 +1638,6 @@ function IconUsersNav() {
       <path d="M4.5 19.5c0-2.7 2.4-4.5 5.5-4.5s5.5 1.8 5.5 4.5" />
       <path d="M14.5 19.5c.2-1.9 1.9-3.2 4.2-3.2 1 0 1.9.2 2.8.7" />
     </svg>
-  );
-}
-
-function UploadFeedbackPanel({
-  items,
-  periods,
-  onRemovePeriod
-}: {
-  items: UploadFeedbackItem[];
-  periods: PeriodDashboard[];
-  onRemovePeriod: (periodKey: string) => void;
-}) {
-  if (items.length === 0 && periods.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="card">
-      <div className="section-head">
-        <div>
-          <h3>Base carregada</h3>
-          <p>Acompanhe os arquivos processados e remova um mês específico sem reiniciar toda a análise.</p>
-        </div>
-      </div>
-
-      {periods.length > 0 ? (
-        <div className="loaded-periods">
-          {periods.map((period) => (
-            <div key={period.key} className="loaded-period-card">
-              <div>
-                <span className="eyebrow">Competência</span>
-                <strong>{period.label}</strong>
-              </div>
-              <button type="button" className="ghost-button" onClick={() => onRemovePeriod(period.key)}>
-                Remover mês
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {items.length > 0 ? (
-        <div className="issue-grid">
-          {items.map((item) => (
-            <article key={item.id} className={`issue-card ${item.status === "error" ? "danger" : item.status === "success" ? "good" : "info"}`}>
-              <span className="eyebrow">{item.kind === "sales" ? "Arquivo de vendas" : "Ficha técnica"}</span>
-              <strong>{item.fileName}</strong>
-              <p>
-                {item.status === "pending" ? "Processando arquivo..." : item.status === "success" ? "Arquivo processado com sucesso." : item.detail ?? "Falha no processamento."}
-              </p>
-            </article>
-          ))}
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -2825,46 +2562,6 @@ function AuthScreen({
   );
 }
 
-function WorkspaceHeader({
-  session,
-  onLogout,
-  onOpenSettings,
-  canOpenSettings
-}: {
-  session: AuthSession;
-  onLogout: () => void;
-  onOpenSettings: () => void;
-  canOpenSettings: boolean;
-}) {
-  const { t } = useLocale();
-
-  return (
-    <section className="card workspace-header">
-      <div className="workspace-copy">
-        <UserAvatar session={session} size="lg" />
-        <span className="eyebrow">{String(t("authUserProfile"))}</span>
-        <h2>{session.userFullName ?? session.email}</h2>
-        <p>{String(t("authUserProfileText"))}</p>
-      </div>
-      <div className="workspace-actions">
-        <div className="workspace-badge">
-          <strong>{session.userFullName ?? String(t("authGreeting"))}</strong>
-          <span>{session.email}</span>
-          <span>{session.memberships?.length ?? 0} restaurante(s)</span>
-        </div>
-        {canOpenSettings ? (
-          <button type="button" className="ghost-button" onClick={onOpenSettings}>
-            {String(t("authSettings"))}
-          </button>
-        ) : null}
-        <button type="button" className="ghost-button" onClick={onLogout}>
-          {String(t("authLogout"))}
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function DashboardShellHeader({
   session,
   section,
@@ -3188,147 +2885,6 @@ function AccountSettingsPanel({
             {String(t("authDeleteAccount"))}
           </button>
         </section>
-      </div>
-    </section>
-  );
-}
-
-function RestaurantNavigatorPanel({
-  session,
-  onActivateRestaurant
-}: {
-  session: AuthSession;
-  onActivateRestaurant: (restaurantId: string) => void;
-}) {
-  const { t } = useLocale();
-  const memberships = session.memberships ?? [];
-  const hasMultipleRestaurants = memberships.length > 1;
-
-  return (
-    <section className="card restaurant-overview-panel">
-      <div className="section-head compact">
-        <div>
-          <span className="eyebrow">{String(t("authRestaurantNavigator"))}</span>
-          <h3>{String(t("authRestaurantNavigator"))}</h3>
-          {hasMultipleRestaurants ? <p>{String(t("authRestaurantNavigatorText"))}</p> : null}
-        </div>
-      </div>
-
-      <div className="restaurant-navigator-grid">
-        {memberships.map((membership) => {
-          const isActive = membership.restaurantId === session.activeRestaurantId;
-
-          return (
-            <button
-              key={membership.membershipId}
-              type="button"
-              className={`restaurant-tile ${isActive ? "active" : ""}`}
-              onClick={() => onActivateRestaurant(membership.restaurantId)}
-            >
-              <div className={`restaurant-tile-avatar ${membership.photoUrl ? "has-photo" : ""}`}>
-                {membership.photoUrl ? (
-                  <img src={membership.photoUrl} alt={membership.restaurantName} />
-                ) : (
-                  <span>{membership.restaurantName.slice(0, 2).toUpperCase()}</span>
-                )}
-              </div>
-              <div className="restaurant-tile-copy">
-                <strong>{membership.restaurantName}</strong>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function DashboardReadOnlyGuide() {
-  const { t } = useLocale();
-  const guideSignals = [
-    {
-      title: String(t("dashboardGuideKpisTitle")),
-      text: String(t("dashboardGuideKpisText")),
-      tone: "good"
-    },
-    {
-      title: String(t("dashboardGuideChartsTitle")),
-      text: String(t("dashboardGuideChartsText")),
-      tone: "mid"
-    },
-    {
-      title: String(t("dashboardGuideAlertsTitle")),
-      text: String(t("dashboardGuideAlertsText")),
-      tone: "bad"
-    }
-  ];
-  const bars = [
-    { label: String(t("dashboardGuideBarPizzas")), value: 78, color: "#2f6f5e" },
-    { label: String(t("dashboardGuideBarDrinks")), value: 56, color: "#c9823a" },
-    { label: String(t("dashboardGuideBarKitchen")), value: 38, color: "#496f9f" }
-  ];
-
-  return (
-    <section className="card dashboard-guide-card">
-      <div className="dashboard-guide-copy">
-        <div>
-          <span className="eyebrow">{String(t("navDashboard"))}</span>
-          <h3>{String(t("dashboardGuideTitle"))}</h3>
-          <p>{String(t("dashboardGuideText"))}</p>
-        </div>
-
-        <div className="dashboard-guide-signal-grid">
-          {guideSignals.map((item) => (
-            <article key={item.title} className={`dashboard-guide-signal ${item.tone}`}>
-              <strong>{item.title}</strong>
-              <p>{item.text}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-
-      <div className="dashboard-guide-visual">
-        <article className="dashboard-guide-kpi">
-          <span>{String(t("dashboardGuideRevenueLabel"))}</span>
-          <strong>R$ 128 mil</strong>
-          <small>{String(t("dashboardGuideRevenueTrend"))}</small>
-        </article>
-
-        <article className="dashboard-guide-chart bars" aria-label="Exemplo de vendas por grupo">
-          <div className="dashboard-guide-chart-head">
-            <strong>{String(t("dashboardGuideSalesChartTitle"))}</strong>
-            <span>{String(t("dashboardGuideSalesChartHint"))}</span>
-          </div>
-          <div className="dashboard-guide-bars">
-            {bars.map((bar) => (
-              <div key={bar.label} className="dashboard-guide-bar-row">
-                <span>{bar.label}</span>
-                <div>
-                  <i
-                    style={{
-                      width: `${bar.value}%`,
-                      backgroundColor: bar.color
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="dashboard-guide-chart donut" aria-label="Exemplo de composição de CMV">
-          <div className="dashboard-guide-donut" />
-          <div>
-            <strong>{String(t("dashboardGuideCmvTitle"))}</strong>
-            <span>{String(t("dashboardGuideCmvText"))}</span>
-          </div>
-        </article>
-
-        <article className="dashboard-guide-alert">
-          <span>{String(t("dashboardGuideAlertLabel"))}</span>
-          <strong>{String(t("dashboardGuideAlertTitle"))}</strong>
-          <p>{String(t("dashboardGuideAlertText"))}</p>
-        </article>
       </div>
     </section>
   );
@@ -4929,16 +4485,40 @@ export default function App() {
   const latestStateRef = useRef<UploadState>({});
   const latestUploadFeedbackRef = useRef<UploadFeedbackItem[]>([]);
   const latestDrePeriodsRef = useRef<DrePeriodData[]>([]);
+  const latestWorkspaceMetaRef = useRef({
+    locale: "pt" as Locale,
+    selectedPeriod: TOTAL_PERIOD,
+    selectedView: TOTAL_VIEW,
+    selectedDrePeriod: DEFAULT_DRE_PERIOD,
+    currentSection: "dashboard" as InternalSection
+  });
   const t = <K extends keyof typeof translations.pt>(key: K) => withLocaleFallback<typeof translations.pt>(locale, key);
   const effectiveSession = useMemo(
     () => (session ? applyActiveRestaurant(session, getPreferredRestaurant(session.userId)) : null),
     [session]
+  );
+  const activeWorkspaceSession = useMemo(
+    () =>
+      effectiveSession
+        ? {
+            authMode: effectiveSession.authMode,
+            restaurantId: effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId ?? ""
+          }
+        : null,
+    [effectiveSession]
   );
   const activeWorkspaceKey = getWorkspaceSessionKey(effectiveSession);
   latestWorkspaceRestaurantIdRef.current = workspaceRestaurantId;
   latestStateRef.current = state;
   latestUploadFeedbackRef.current = uploadFeedback;
   latestDrePeriodsRef.current = drePeriods;
+  latestWorkspaceMetaRef.current = {
+    locale,
+    selectedPeriod,
+    selectedView,
+    selectedDrePeriod,
+    currentSection
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -4969,7 +4549,7 @@ export default function App() {
     effectiveSession?.activeAccountRole === "owner" ||
     activeRole === "owner";
   const canManageTeam = effectiveSession?.globalRole === "owner";
-  const periodDashboards = state.periodDashboards ?? [];
+  const periodDashboards = useMemo(() => state.periodDashboards ?? [], [state.periodDashboards]);
   const consolidatedPeriodDashboard = useMemo(
     () => (!state.data && periodDashboards.length > 0 ? buildConsolidatedDashboard(periodDashboards) : undefined),
     [periodDashboards, state.data]
@@ -5068,7 +4648,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [canManageTeam, effectiveSession?.activeAccountId, effectiveSession?.authMode]);
+  }, [canManageTeam, effectiveSession]);
 
   useEffect(() => {
     if (selectedView !== TOTAL_VIEW && !dashboard?.groups.some((group) => group.name === selectedView)) {
@@ -5269,7 +4849,7 @@ export default function App() {
   }, [session]);
 
   useEffect(() => {
-    if (!effectiveSession) {
+    if (!activeWorkspaceSession) {
       setWorkspaceReady(false);
       setWorkspaceRestaurantId(undefined);
       setSalesFiles([]);
@@ -5285,14 +4865,14 @@ export default function App() {
       return;
     }
 
-    if (effectiveSession.authMode === "supabase" && !(effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId)) {
+    if (activeWorkspaceSession.authMode === "supabase" && !activeWorkspaceSession.restaurantId) {
       setWorkspaceReady(false);
       setWorkspaceRestaurantId(undefined);
       return;
     }
 
     let mounted = true;
-    const targetRestaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId ?? "";
+    const targetRestaurantId = activeWorkspaceSession.restaurantId;
     const localWorkspace = loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
     setWorkspaceReady(false);
     setWorkspaceRestaurantId(undefined);
@@ -5316,7 +4896,7 @@ export default function App() {
     const loadWorkspace = async () => {
       try {
         const cloudWorkspace =
-          effectiveSession.authMode === "supabase"
+          activeWorkspaceSession.authMode === "supabase"
             ? await loadCloudWorkspace(targetRestaurantId)
             : localWorkspace;
         const workspace = cloudWorkspace ?? localWorkspace;
@@ -5328,14 +4908,14 @@ export default function App() {
         const currentWorkspaceHasContent =
           latestWorkspaceRestaurantIdRef.current === targetRestaurantId &&
           hasPersistedWorkspaceContent({
-            locale,
+            locale: latestWorkspaceMetaRef.current.locale,
             state: latestStateRef.current as PersistedWorkspace["state"],
             uploadFeedback: latestUploadFeedbackRef.current,
             drePeriods: latestDrePeriodsRef.current,
-            selectedPeriod,
-            selectedView,
-            selectedDrePeriod,
-            currentSection
+            selectedPeriod: latestWorkspaceMetaRef.current.selectedPeriod,
+            selectedView: latestWorkspaceMetaRef.current.selectedView,
+            selectedDrePeriod: latestWorkspaceMetaRef.current.selectedDrePeriod,
+            currentSection: latestWorkspaceMetaRef.current.currentSection
           });
 
         if (currentWorkspaceHasContent) {
@@ -5376,7 +4956,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [activeWorkspaceKey]);
+  }, [activeWorkspaceKey, activeWorkspaceSession]);
 
   useEffect(() => {
     if (!effectiveSession || !workspaceReady) {
@@ -6230,7 +5810,11 @@ export default function App() {
 
             {currentSection === "dashboard" || currentSection === "dre" ? (
               <RestaurantNavigatorPanel
-                session={effectiveSession}
+                eyebrow={String(t("authRestaurantNavigator"))}
+                title={String(t("authRestaurantNavigator"))}
+                description={String(t("authRestaurantNavigatorText"))}
+                memberships={effectiveSession.memberships ?? []}
+                activeRestaurantId={effectiveSession.activeRestaurantId}
                 onActivateRestaurant={handleSelectRestaurant}
               />
             ) : null}
@@ -6338,7 +5922,43 @@ export default function App() {
                     </div>
                   </section>
                 ) : !hasDashboardData ? (
-                  <DashboardReadOnlyGuide />
+                  <DashboardReadOnlyGuide
+                    eyebrow={String(t("navDashboard"))}
+                    title={String(t("dashboardGuideTitle"))}
+                    text={String(t("dashboardGuideText"))}
+                    revenueLabel={String(t("dashboardGuideRevenueLabel"))}
+                    revenueValue="R$ 128 mil"
+                    revenueTrend={String(t("dashboardGuideRevenueTrend"))}
+                    salesChartTitle={String(t("dashboardGuideSalesChartTitle"))}
+                    salesChartHint={String(t("dashboardGuideSalesChartHint"))}
+                    cmvTitle={String(t("dashboardGuideCmvTitle"))}
+                    cmvText={String(t("dashboardGuideCmvText"))}
+                    alertLabel={String(t("dashboardGuideAlertLabel"))}
+                    alertTitle={String(t("dashboardGuideAlertTitle"))}
+                    alertText={String(t("dashboardGuideAlertText"))}
+                    signals={[
+                      {
+                        title: String(t("dashboardGuideKpisTitle")),
+                        text: String(t("dashboardGuideKpisText")),
+                        tone: "good"
+                      },
+                      {
+                        title: String(t("dashboardGuideChartsTitle")),
+                        text: String(t("dashboardGuideChartsText")),
+                        tone: "mid"
+                      },
+                      {
+                        title: String(t("dashboardGuideAlertsTitle")),
+                        text: String(t("dashboardGuideAlertsText")),
+                        tone: "bad"
+                      }
+                    ]}
+                    bars={[
+                      { label: String(t("dashboardGuideBarPizzas")), value: 78, color: "#2f6f5e" },
+                      { label: String(t("dashboardGuideBarDrinks")), value: 56, color: "#c9823a" },
+                      { label: String(t("dashboardGuideBarKitchen")), value: 38, color: "#496f9f" }
+                    ]}
+                  />
                 ) : (
                   <>
                     {dashboard ? (

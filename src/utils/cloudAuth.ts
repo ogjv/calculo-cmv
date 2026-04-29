@@ -315,7 +315,7 @@ const ensureUserProfile = async (user: User) => {
   return nextProfile;
 };
 
-const createInitialRestaurantForUser = async (user: User, restaurantName?: string) => {
+export const createInitialRestaurantForUser = async (user: User, restaurantName?: string) => {
   if (!supabase) {
     throw new Error("Supabase não configurado.");
   }
@@ -345,7 +345,7 @@ const createInitialRestaurantForUser = async (user: User, restaurantName?: strin
   return data;
 };
 
-const ensurePrimaryRestaurantContext = async (user: User, restaurantNameOverride?: string) => {
+export const ensurePrimaryRestaurantContext = async (user: User, restaurantNameOverride?: string) => {
   const profile = await ensureUserProfile(user);
   await acceptPendingAccountInvitations();
   void restaurantNameOverride;
