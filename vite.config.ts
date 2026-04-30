@@ -31,6 +31,10 @@ export default defineConfig({
             return "dre-panels";
           }
 
+          if (id.includes("src/components/cmvPanels")) {
+            return "cmv-panels";
+          }
+
           return undefined;
         }
       }

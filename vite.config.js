@@ -24,6 +24,9 @@ export default defineConfig({
                     if (id.includes("src/components/drePanels")) {
                         return "dre-panels";
                     }
+                    if (id.includes("src/components/cmvPanels")) {
+                        return "cmv-panels";
+                    }
                     return undefined;
                 }
             }
