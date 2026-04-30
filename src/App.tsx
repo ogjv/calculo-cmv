@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
 import { Suspense, lazy } from "react";
-import type { AccountInvitation, AccountMember, AuthSession } from "./types";
 import { AuthScreen, BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from "./components/appChrome";
 import { RestaurantNavigatorPanel } from "./components/dashboardPanels";
 import type { DrePanelCopy } from "./components/drePanels";
-import { DEFAULT_INVITE_FEATURE, type InviteFormState } from "./components/teamPanels";
-import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
-import { createAccountInvitation, createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, loadAccountInvitations, loadAccountMembers, removeAccountMemberAccess, revokeAccountInvitation, signOutFromSupabase, updateAccountMemberAccess, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "./utils/cloudAuth";
 import { isSupabaseConfigured } from "./utils/supabase";
 import { LocaleContext, type Locale, translations, withLocaleFallback } from "./i18n";
-import { type AppSection as InternalSection, savePreferredRestaurant, useSessionWorkspace } from "./hooks/useSessionWorkspace";
+import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
 import { useOperationalData } from "./hooks/useOperationalData";
+import { useTeamManagement } from "./hooks/useTeamManagement";
+import { useAccountManagement } from "./hooks/useAccountManagement";
 
 type ThemeMode = "light" | "dark";
 
@@ -30,16 +28,6 @@ const LazyTeamPermissionsPanel = lazy(() =>
   import("./components/teamPanels").then((module) => ({ default: module.TeamPermissionsPanel }))
 );
 
-type ProfileFormState = {
-  restaurantName: string;
-  profilePhotoUrl?: string;
-};
-
-type UserProfileFormState = {
-  fullName: string;
-  userPhotoUrl?: string;
-};
-
 const TOTAL_VIEW = "__TOTAL__";
 const THEME_STORAGE_KEY = "grest.theme";
 
@@ -56,13 +44,6 @@ const getInitialTheme = (): ThemeMode => {
   return "light";
 };
 
-const readFileAsDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-    reader.onerror = () => reject(new Error("Não foi possível ler a imagem selecionada."));
-    reader.readAsDataURL(file);
-  });
 
 function IconLogout() {
   return (
@@ -78,27 +59,7 @@ function IconLogout() {
 export default function App() {
   const [locale, setLocale] = useState<Locale>("pt");
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
-  const [accountBusy, setAccountBusy] = useState(false);
-  const [accountMessage, setAccountMessage] = useState<string>();
-  const [accountError, setAccountError] = useState<string>();
   const [currentSection, setCurrentSection] = useState<InternalSection>("dashboard");
-  const [accountMembers, setAccountMembers] = useState<AccountMember[]>([]);
-  const [accountMembersLoading, setAccountMembersLoading] = useState(false);
-  const [accountInvitations, setAccountInvitations] = useState<AccountInvitation[]>([]);
-  const [accountInvitationsLoading, setAccountInvitationsLoading] = useState(false);
-  const [inviteBusy, setInviteBusy] = useState(false);
-  const [inviteMessage, setInviteMessage] = useState<string>();
-  const [inviteError, setInviteError] = useState<string>();
-  const [inviteForm, setInviteForm] = useState<InviteFormState>({
-    email: "",
-    featureIds: [DEFAULT_INVITE_FEATURE],
-    restaurantIds: []
-  });
-  const [userProfileForm, setUserProfileForm] = useState<UserProfileFormState>({ fullName: "" });
-  const [restaurantProfileForm, setRestaurantProfileForm] = useState<ProfileFormState>({ restaurantName: "" });
-  const [restaurantProfileDirty, setRestaurantProfileDirty] = useState(false);
-  const [restaurantProfileRestaurantId, setRestaurantProfileRestaurantId] = useState<string>();
-  const [newRestaurantName, setNewRestaurantName] = useState("");
   const t = <K extends keyof typeof translations.pt>(key: K) => withLocaleFallback<typeof translations.pt>(locale, key);
   const {
     setSalesFiles,
@@ -182,6 +143,52 @@ export default function App() {
     effectiveSession?.activeAccountRole === "owner" ||
     activeRole === "owner";
   const canManageTeam = effectiveSession?.globalRole === "owner";
+  const {
+    accountMembers,
+    accountMembersLoading,
+    accountInvitations,
+    accountInvitationsLoading,
+    inviteBusy,
+    inviteMessage,
+    inviteError,
+    inviteForm,
+    setInviteForm,
+    handleInviteRestaurantToggle,
+    handleInviteFeatureToggle,
+    handleCreateInvitation,
+    handleRevokeInvitation,
+    handleUpdateMember,
+    handleRemoveMember,
+    refreshTeamData
+  } = useTeamManagement(effectiveSession, canManageTeam);
+  const {
+    accountBusy,
+    accountMessage,
+    accountError,
+    setAccountError,
+    setAccountMessage,
+    userProfileForm,
+    setUserProfileForm,
+    restaurantProfileForm,
+    newRestaurantName,
+    setNewRestaurantName,
+    handleUserPhotoSelect,
+    handleRestaurantPhotoSelect,
+    handleRestaurantNameChange,
+    handleSaveUserAccount,
+    handleSaveRestaurantAccount,
+    handleCreateRestaurant,
+    handleDeleteRestaurant,
+    handleDeleteAccount,
+    resetAccountPanelState
+  } = useAccountManagement({
+    effectiveSession,
+    session,
+    setSession,
+    refreshTeamData,
+    profileUpdatedMessage: String(t("authProfileUpdated")),
+    deleteConfirmMessage: String(t("authDeleteConfirm"))
+  });
   const themeLabels = {
     label: String(t("theme")),
     light: String(t("themeLight")),
@@ -346,438 +353,10 @@ export default function App() {
   const dashboardHeaderCopy = copyBySection[activeHeaderSection];
 
   useEffect(() => {
-    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
-      setAccountMembers([]);
-      setAccountMembersLoading(false);
-      setAccountInvitations([]);
-      setAccountInvitationsLoading(false);
-      return;
-    }
-
-    let mounted = true;
-    setAccountMembersLoading(true);
-    setAccountInvitationsLoading(true);
-
-    void loadAccountMembers(effectiveSession.activeAccountId)
-      .then((members) => {
-        if (mounted) {
-          setAccountMembers(members);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setAccountMembers([]);
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setAccountMembersLoading(false);
-        }
-      });
-
-    void loadAccountInvitations(effectiveSession.activeAccountId)
-      .then((invitations) => {
-        if (mounted) {
-          setAccountInvitations(invitations);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setAccountInvitations([]);
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setAccountInvitationsLoading(false);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [canManageTeam, effectiveSession]);
-
-  useEffect(() => {
-    if (!effectiveSession) {
-      setUserProfileForm({ fullName: "" });
-      setRestaurantProfileForm({ restaurantName: "" });
-      setRestaurantProfileDirty(false);
-      setRestaurantProfileRestaurantId(undefined);
-      setInviteForm({
-        email: "",
-        featureIds: [DEFAULT_INVITE_FEATURE],
-        restaurantIds: []
-      });
-      return;
-    }
-
-    setUserProfileForm({
-      fullName: effectiveSession.userFullName ?? effectiveSession.restaurantName ?? "",
-      userPhotoUrl: effectiveSession.userPhotoUrl
-    });
-    const currentRestaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId;
-    if (!restaurantProfileDirty || restaurantProfileRestaurantId !== currentRestaurantId) {
-      setRestaurantProfileForm({
-        restaurantName: effectiveSession.restaurantName ?? effectiveSession.activeRestaurantName ?? "",
-        profilePhotoUrl: effectiveSession.profilePhotoUrl
-      });
-      setRestaurantProfileRestaurantId(currentRestaurantId);
-      setRestaurantProfileDirty(false);
-    }
-    setInviteForm((current) => ({
-      ...current,
-      featureIds: current.featureIds.length > 0 ? current.featureIds : [DEFAULT_INVITE_FEATURE],
-      restaurantIds:
-        current.restaurantIds.length > 0
-          ? current.restaurantIds
-          : (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
-    }));
-  }, [effectiveSession, restaurantProfileDirty, restaurantProfileRestaurantId]);
-
-  useEffect(() => {
     if ((currentSection === "restaurants" && !canManageRestaurants) || (currentSection === "team" && !canManageTeam)) {
       setCurrentSection("dashboard");
     }
   }, [canManageRestaurants, canManageTeam, currentSection]);
-
-  const refreshTeamData = async (currentSession: AuthSession) => {
-    if (currentSession.globalRole !== "owner" || currentSession.authMode !== "supabase" || !currentSession.activeAccountId) {
-      setAccountMembers([]);
-      setAccountInvitations([]);
-      return;
-    }
-
-    setAccountMembersLoading(true);
-    setAccountInvitationsLoading(true);
-
-    try {
-      const [members, invitations] = await Promise.all([
-        loadAccountMembers(currentSession.activeAccountId),
-        loadAccountInvitations(currentSession.activeAccountId)
-      ]);
-      setAccountMembers(members);
-      setAccountInvitations(invitations);
-    } finally {
-      setAccountMembersLoading(false);
-      setAccountInvitationsLoading(false);
-    }
-  };
-
-  const handleInviteRestaurantToggle = (restaurantId: string) => {
-    setInviteForm((current) => ({
-      ...current,
-      restaurantIds: current.restaurantIds.includes(restaurantId)
-        ? current.restaurantIds.filter((id) => id !== restaurantId)
-        : [...current.restaurantIds, restaurantId]
-    }));
-  };
-
-  const handleInviteFeatureToggle = (featureId: string) => {
-    setInviteForm((current) => ({
-      ...current,
-      featureIds: current.featureIds.includes(featureId)
-        ? current.featureIds.filter((id) => id !== featureId)
-        : [...current.featureIds, featureId]
-    }));
-  };
-
-  const handleCreateInvitation = async () => {
-    if (!effectiveSession || effectiveSession.authMode !== "supabase") {
-      return;
-    }
-
-    if (!effectiveSession.activeAccountId) {
-      setInviteError("Não foi possível identificar a conta ativa deste usuário. Atualize o vínculo da conta no banco antes de enviar convites.");
-      return;
-    }
-
-    if (inviteForm.featureIds.length === 0) {
-      setInviteError("Selecione ao menos uma funcionalidade para este convite.");
-      return;
-    }
-
-    try {
-      setInviteBusy(true);
-      setInviteError(undefined);
-      setInviteMessage(undefined);
-      await createAccountInvitation({
-        email: inviteForm.email,
-        accountRole: "user",
-        restaurantRole: "viewer",
-        restaurantIds: inviteForm.restaurantIds
-      });
-      await refreshTeamData(effectiveSession);
-      setInviteMessage("Convite criado com sucesso.");
-      setInviteForm({
-        email: "",
-        featureIds: [DEFAULT_INVITE_FEATURE],
-        restaurantIds: (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
-      });
-    } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "Não foi possível criar o convite.");
-    } finally {
-      setInviteBusy(false);
-    }
-  };
-
-  const handleRevokeInvitation = async (invitationId: string) => {
-    if (!effectiveSession || effectiveSession.authMode !== "supabase") {
-      return;
-    }
-
-    try {
-      setInviteBusy(true);
-      setInviteError(undefined);
-      setInviteMessage(undefined);
-      await revokeAccountInvitation(invitationId);
-      await refreshTeamData(effectiveSession);
-      setInviteMessage("Convite revogado com sucesso.");
-    } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "Não foi possível revogar o convite.");
-    } finally {
-      setInviteBusy(false);
-    }
-  };
-
-  const handleUpdateMember = async ({
-    member,
-    accountRole,
-    restaurantRole,
-    restaurantIds
-  }: {
-    member: AccountMember;
-    accountRole: "user";
-    restaurantRole: "viewer";
-    restaurantIds: string[];
-  }) => {
-    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
-      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
-    }
-
-    const targetAccountId = member.accountId || effectiveSession.activeAccountId;
-    await updateAccountMemberAccess({
-      accountId: targetAccountId,
-      userId: member.userId,
-      accountRole,
-      restaurantRole,
-      restaurantIds
-    });
-    await refreshTeamData(effectiveSession);
-  };
-
-  const handleRemoveMember = async (member: AccountMember) => {
-    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
-      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
-    }
-
-    const targetAccountId = member.accountId || effectiveSession.activeAccountId;
-    await removeAccountMemberAccess({
-      accountId: targetAccountId,
-      userId: member.userId
-    });
-    await refreshTeamData(effectiveSession);
-  };
-
-  const handleUserPhotoSelect = async (file: File | null) => {
-    if (!file) {
-      return;
-    }
-
-    try {
-      const imageData = await readFileAsDataUrl(file);
-      setUserProfileForm((current) => ({
-        ...current,
-        userPhotoUrl: imageData
-      }));
-      setAccountError(undefined);
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem.");
-    }
-  };
-
-  const handleRestaurantPhotoSelect = async (file: File | null) => {
-    if (!file) {
-      return;
-    }
-
-    try {
-      const imageData = await readFileAsDataUrl(file);
-      setRestaurantProfileDirty(true);
-      setRestaurantProfileRestaurantId(effectiveSession?.activeRestaurantId ?? effectiveSession?.restaurantId);
-      setRestaurantProfileForm((current) => ({
-        ...current,
-        profilePhotoUrl: imageData
-      }));
-      setAccountError(undefined);
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem.");
-    }
-  };
-
-  const handleRestaurantNameChange = (value: string) => {
-    setRestaurantProfileDirty(true);
-    setRestaurantProfileRestaurantId(effectiveSession?.activeRestaurantId ?? effectiveSession?.restaurantId);
-    setRestaurantProfileForm((current) => ({ ...current, restaurantName: value }));
-  };
-
-  const handleSaveUserAccount = async () => {
-    if (!session) {
-      return;
-    }
-
-    try {
-      setAccountBusy(true);
-      setAccountError(undefined);
-      setAccountMessage(undefined);
-
-      const nextSession =
-        session.authMode === "supabase"
-          ? await updateSupabaseUserProfile(session, userProfileForm)
-          : updateLocalUserProfile(session, userProfileForm);
-
-      setSession(nextSession);
-      if (nextSession.authMode === "supabase") {
-        await refreshTeamData(nextSession);
-      }
-      setAccountMessage(String(t("authProfileUpdated")));
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
-    } finally {
-      setAccountBusy(false);
-    }
-  };
-
-  const handleSaveRestaurantAccount = async () => {
-    if (!session) {
-      return;
-    }
-
-    try {
-      setAccountBusy(true);
-      setAccountError(undefined);
-      setAccountMessage(undefined);
-
-      const nextSession =
-        session.authMode === "supabase"
-          ? await updateSupabaseRestaurantProfile(session, restaurantProfileForm)
-          : updateLocalRestaurantProfile(session, restaurantProfileForm);
-
-      setSession(nextSession);
-      setRestaurantProfileDirty(false);
-      setRestaurantProfileRestaurantId(nextSession.activeRestaurantId ?? nextSession.restaurantId);
-      setAccountMessage(String(t("authProfileUpdated")));
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
-    } finally {
-      setAccountBusy(false);
-    }
-  };
-
-  const handleCreateRestaurant = async () => {
-    if (!session) {
-      return;
-    }
-
-    try {
-      setAccountBusy(true);
-      setAccountError(undefined);
-      setAccountMessage(undefined);
-
-      const nextSession =
-        session.authMode === "supabase"
-          ? await createSupabaseRestaurantForCurrentUser(session, newRestaurantName)
-          : createLocalRestaurantForAccount(session, newRestaurantName);
-
-      const nextRestaurantId = nextSession.activeRestaurantId ?? nextSession.restaurantId;
-      if (nextRestaurantId) {
-        savePreferredRestaurant(nextSession.userId, nextRestaurantId);
-      }
-      setSession(nextSession);
-      setNewRestaurantName("");
-      setAccountMessage("Restaurante cadastrado com sucesso.");
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível cadastrar o restaurante.");
-    } finally {
-      setAccountBusy(false);
-    }
-  };
-
-  const handleDeleteRestaurant = async (restaurantId: string) => {
-    if (!session) {
-      return;
-    }
-
-    if (!window.confirm("Tem certeza que deseja excluir este restaurante? Esta ação remove a base dessa unidade.")) {
-      return;
-    }
-
-    try {
-      setAccountBusy(true);
-      setAccountError(undefined);
-      setAccountMessage(undefined);
-
-      const nextSession =
-        session.authMode === "supabase"
-          ? await deleteSupabaseRestaurantFromAccount(session, restaurantId)
-          : deleteLocalRestaurantFromAccount(session, restaurantId);
-
-      const nextRestaurantId = nextSession.activeRestaurantId ?? nextSession.restaurantId;
-      if (nextRestaurantId) {
-        savePreferredRestaurant(nextSession.userId, nextRestaurantId);
-      }
-      setSession(nextSession);
-      setAccountMessage("Restaurante excluído com sucesso.");
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível excluir o restaurante.");
-    } finally {
-      setAccountBusy(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!session) {
-      return;
-    }
-
-    if (!window.confirm(String(t("authDeleteConfirm")))) {
-      return;
-    }
-
-    try {
-      setAccountBusy(true);
-      if (session.authMode === "supabase") {
-        await deleteSupabaseRestaurantAccount();
-        await signOutFromSupabase();
-      } else {
-        deleteLocalRestaurantAccount(session);
-      }
-      setSession(null);
-    } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível excluir a conta.");
-    } finally {
-      setAccountBusy(false);
-    }
-  };
-
-  const resetAccountPanelState = () => {
-    if (!effectiveSession) {
-      return;
-    }
-
-    setAccountMessage(undefined);
-    setAccountError(undefined);
-    setUserProfileForm({
-      fullName: effectiveSession.userFullName ?? effectiveSession.restaurantName ?? "",
-      userPhotoUrl: effectiveSession.userPhotoUrl
-    });
-    setRestaurantProfileForm({
-      restaurantName: effectiveSession.restaurantName ?? effectiveSession.activeRestaurantName ?? "",
-      profilePhotoUrl: effectiveSession.profilePhotoUrl
-    });
-    setRestaurantProfileDirty(false);
-    setRestaurantProfileRestaurantId(effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId);
-    setNewRestaurantName("");
-  };
 
   if (authLoading || authHydrating) {
     return (
@@ -803,18 +382,18 @@ export default function App() {
           onChangeLocale={setLocale}
           theme={theme}
           onChangeTheme={setTheme}
-          onLogin={handleLogin}
-          onRegister={handleRegister}
-          error={authError}
           isCloudEnabled={isSupabaseConfigured}
+          onLogin={(email, password) => void handleLogin(email, password)}
+          onRegister={(fullName, email, password) => void handleRegister(fullName, email, password)}
           busy={authSubmitting}
+          error={authError}
           copy={{
             brandTagline: String(t("brandTagline")),
-            title: String(t("authTitle")),
-            loginTab: String(t("authLoginTab")),
-            registerTab: String(t("authRegisterTab")),
-            fullName: String(t("authFullName")),
-            fullNameHint: String(t("authFullNameHint")),
+            title: String(t("heroTitle")),
+            loginTab: String(t("authSubmitLogin")),
+            registerTab: String(t("authSubmitRegister")),
+            fullName: "Nome completo",
+            fullNameHint: "Como deseja aparecer no sistema.",
             email: String(t("authEmail")),
             password: String(t("authPassword")),
             processing: String(t("processing")),
