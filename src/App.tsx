@@ -1,37 +1,22 @@
 import { useEffect, useState } from "react";
-import { AuthScreen } from "./components/appChrome";
+import { AppAccessGate } from "./components/appAccessGate";
 import { DashboardShell } from "./components/dashboardShell";
-import { isSupabaseConfigured } from "./utils/supabase";
 import { LocaleContext, type Locale, translations, withLocaleFallback } from "./i18n";
-import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
-import { useOperationalData } from "./hooks/useOperationalData";
-import { useTeamManagement } from "./hooks/useTeamManagement";
 import { useAccountManagement } from "./hooks/useAccountManagement";
 import { useAppPresentation } from "./hooks/useAppPresentation";
-
-type ThemeMode = "light" | "dark";
+import { useOperationalData } from "./hooks/useOperationalData";
+import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
+import { useTeamManagement } from "./hooks/useTeamManagement";
+import { useThemePreference } from "./hooks/useThemePreference";
 
 const TOTAL_VIEW = "__TOTAL__";
-const THEME_STORAGE_KEY = "grest.theme";
-
-const getInitialTheme = (): ThemeMode => {
-  if (typeof window === "undefined") {
-    return "light";
-  }
-
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (storedTheme === "light" || storedTheme === "dark") {
-    return storedTheme;
-  }
-
-  return "light";
-};
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>("pt");
-  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
+  const { theme, setTheme } = useThemePreference();
   const [currentSection, setCurrentSection] = useState<InternalSection>("dashboard");
   const t = <K extends keyof typeof translations.pt>(key: K) => withLocaleFallback<typeof translations.pt>(locale, key);
+
   const {
     setSalesFiles,
     setRecipeFile,
@@ -60,6 +45,7 @@ export default function App() {
     handleClearAll,
     handleResetFlow
   } = useOperationalData();
+
   const {
     session,
     setSession,
@@ -92,17 +78,6 @@ export default function App() {
     setSalesFiles,
     setRecipeFile
   });
-  const activateRestaurant = (restaurantId: string) => {
-    handleSelectRestaurant(restaurantId);
-    setAccountError(undefined);
-    setAccountMessage(undefined);
-  };
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-  }, [theme]);
 
   const {
     authScreenCopy,
@@ -116,6 +91,7 @@ export default function App() {
     canManageOperationalData,
     canManageTeam
   } = useAppPresentation({ currentSection, effectiveSession, t });
+
   const {
     accountMembers,
     accountMembersLoading,
@@ -134,6 +110,7 @@ export default function App() {
     handleRemoveMember,
     refreshTeamData
   } = useTeamManagement(effectiveSession, canManageTeam);
+
   const {
     accountBusy,
     accountMessage,
@@ -163,42 +140,33 @@ export default function App() {
     deleteConfirmMessage: String(t("authDeleteConfirm"))
   });
 
+  const activateRestaurant = (restaurantId: string) => {
+    handleSelectRestaurant(restaurantId);
+    setAccountError(undefined);
+    setAccountMessage(undefined);
+  };
+
   useEffect(() => {
     if ((currentSection === "restaurants" && !canManageRestaurants) || (currentSection === "team" && !canManageTeam)) {
       setCurrentSection("dashboard");
     }
   }, [canManageRestaurants, canManageTeam, currentSection]);
 
-  if (authLoading || authHydrating) {
+  if (authLoading || authHydrating || !effectiveSession) {
     return (
       <LocaleContext.Provider value={locale}>
-        <div className="app-shell refined auth-shell">
-          <section className="card">
-            <p className="message">
-              {authLoading
-                ? "Inicializando acesso e verificando a sua conta..."
-                : "Carregando restaurantes e permissões da sua conta..."}
-            </p>
-          </section>
-        </div>
-      </LocaleContext.Provider>
-    );
-  }
-
-  if (!effectiveSession) {
-    return (
-      <LocaleContext.Provider value={locale}>
-        <AuthScreen
+        <AppAccessGate
           locale={locale}
-          onChangeLocale={setLocale}
           theme={theme}
+          authLoading={authLoading}
+          authHydrating={authHydrating}
+          authSubmitting={authSubmitting}
+          authError={authError}
+          authScreenCopy={authScreenCopy}
+          onChangeLocale={setLocale}
           onChangeTheme={setTheme}
-          isCloudEnabled={isSupabaseConfigured}
           onLogin={(email, password) => void handleLogin(email, password)}
           onRegister={(fullName, email, password) => void handleRegister(fullName, email, password)}
-          busy={authSubmitting}
-          error={authError}
-          copy={authScreenCopy}
         />
       </LocaleContext.Provider>
     );
@@ -322,7 +290,3 @@ export default function App() {
     </LocaleContext.Provider>
   );
 }
-
-
-
-
