@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { Suspense, lazy } from "react";
 import { AuthScreen, BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from "./components/appChrome";
 import { RestaurantNavigatorPanel } from "./components/dashboardPanels";
-import type { DrePanelCopy } from "./components/drePanels";
 import { isSupabaseConfigured } from "./utils/supabase";
 import { LocaleContext, type Locale, translations, withLocaleFallback } from "./i18n";
 import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
 import { useOperationalData } from "./hooks/useOperationalData";
 import { useTeamManagement } from "./hooks/useTeamManagement";
 import { useAccountManagement } from "./hooks/useAccountManagement";
+import { useAppPresentation } from "./hooks/useAppPresentation";
 
 type ThemeMode = "light" | "dark";
 
@@ -133,16 +133,18 @@ export default function App() {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
-  const activeRole = effectiveSession?.activeRole ?? "viewer";
-  const canManageRestaurants =
-    effectiveSession?.globalRole === "owner" ||
-    effectiveSession?.activeAccountRole === "owner" ||
-    activeRole === "owner";
-  const canManageOperationalData =
-    effectiveSession?.globalRole === "owner" ||
-    effectiveSession?.activeAccountRole === "owner" ||
-    activeRole === "owner";
-  const canManageTeam = effectiveSession?.globalRole === "owner";
+  const {
+    authScreenCopy,
+    accountPanelCopy,
+    drePanelCopy,
+    teamPanelCopy,
+    dashboardHeaderCopy,
+    themeLabels,
+    navigationItems,
+    canManageRestaurants,
+    canManageOperationalData,
+    canManageTeam
+  } = useAppPresentation({ currentSection, effectiveSession, t });
   const {
     accountMembers,
     accountMembersLoading,
@@ -189,168 +191,6 @@ export default function App() {
     profileUpdatedMessage: String(t("authProfileUpdated")),
     deleteConfirmMessage: String(t("authDeleteConfirm"))
   });
-  const themeLabels = {
-    label: String(t("theme")),
-    light: String(t("themeLight")),
-    dark: String(t("themeDark"))
-  };
-  const navigationItems = [
-    { key: "dashboard" as InternalSection, label: String(t("navDashboard")) },
-    { key: "dre" as InternalSection, label: String(t("navDre")) },
-    ...(canManageRestaurants ? [{ key: "restaurants" as InternalSection, label: String(t("navRestaurants")) }] : []),
-    ...(canManageTeam ? [{ key: "team" as InternalSection, label: String(t("navTeam")) }] : [])
-  ];
-  const accountPanelCopy = {
-    settings: String(t("authSettings")),
-    settingsText: String(t("authSettingsText")),
-    close: String(t("authClose")),
-    userProfile: String(t("authUserProfile")),
-    userProfileText: String(t("authUserProfileText")),
-    profilePhoto: String(t("authProfilePhoto")),
-    uploadPhoto: String(t("authUploadPhoto")),
-    fullName: String(t("authFullName")),
-    email: String(t("authEmail")),
-    accountStatus: String(t("authAccountStatus")),
-    roleOwner: String(t("authRoleOwner")),
-    roleViewer: String(t("authRoleViewer")),
-    restaurantsCount: String(t("authRestaurantsCount")),
-    saveProfile: String(t("authSaveProfile")),
-    manageRestaurants: String(t("authManageRestaurants")),
-    manageRestaurantsText: String(t("authManageRestaurantsText")),
-    restaurantProfile: String(t("authRestaurantProfile")),
-    restaurantProfileText: String(t("authRestaurantProfileText")),
-    restaurantName: String(t("authRestaurantName")),
-    activate: String(t("authActivate")),
-    active: String(t("authActive")),
-    deleteRestaurant: String(t("authDeleteRestaurant")),
-    createRestaurant: String(t("authCreateRestaurant")),
-    createRestaurantText: String(t("authCreateRestaurantText")),
-    createRestaurantAction: String(t("authCreateRestaurantAction")),
-    dangerZone: String(t("authDangerZone")),
-    deleteAccount: String(t("authDeleteAccount")),
-    deleteHint: String(t("authDeleteHint")),
-    processing: String(t("processing"))
-  };
-  const drePanelCopy: DrePanelCopy = {
-    navDre: String(t("navDre")),
-    dreParsedTitle: String(t("dreParsedTitle")),
-    dreEmptyTitle: String(t("dreEmptyTitle")),
-    dreEmptyText: String(t("dreEmptyText")),
-    dreUploadTitle: String(t("dreUploadTitle")),
-    dreUploadAction: String(t("dreUploadAction")),
-    dreUploadHint: String(t("dreUploadHint")),
-    dreProcessing: String(t("dreProcessing")),
-    drePeriod: String(t("drePeriod")),
-    dreSelectPeriod: String(t("dreSelectPeriod")),
-    dreRevenue: String(t("dreRevenue")),
-    dreOutflows: String(t("dreOutflows")),
-    dreFinalBalance: String(t("dreFinalBalance")),
-    dreResultMap: String(t("dreResultMap")),
-    dreResultMapText: String(t("dreResultMapText")),
-    dreSectionChart: String(t("dreSectionChart")),
-    dreSectionChartText: String(t("dreSectionChartText")),
-    dreParticipationTitle: String(t("dreParticipationTitle")),
-    dreParticipationText: String(t("dreParticipationText")),
-    dreStrategicTitle: String(t("dreStrategicTitle")),
-    dreStrategicText: String(t("dreStrategicText")),
-    dreRevenueConcentration: String(t("dreRevenueConcentration")),
-    dreNoData: String(t("dreNoData")),
-    dreLargestExpense: String(t("dreLargestExpense")),
-    dreFinalMargin: String(t("dreFinalMargin")),
-    dreExpenseRatio: String(t("dreExpenseRatio")),
-    dreRestaurantDiagnostics: String(t("dreRestaurantDiagnostics")),
-    dreRestaurantDiagnosticsText: String(t("dreRestaurantDiagnosticsText")),
-    dreFinalMarginCard: String(t("dreFinalMarginCard")),
-    dreOperationalMarginCard: String(t("dreOperationalMarginCard")),
-    dreInputsOnRevenue: String(t("dreInputsOnRevenue")),
-    drePeopleOnRevenue: String(t("drePeopleOnRevenue")),
-    dreStructureOnRevenue: String(t("dreStructureOnRevenue")),
-    dreHealthy: String(t("dreHealthy")),
-    dreCritical: String(t("dreCritical")),
-    dreAttention: String(t("dreAttention")),
-    dreAttentionPoints: String(t("dreAttentionPoints")),
-    dreRevenueMixTitle: String(t("dreRevenueMixTitle")),
-    dreRevenueMixText: String(t("dreRevenueMixText")),
-    dreMenuMixTitle: String(t("dreMenuMixTitle")),
-    dreMenuMixText: String(t("dreMenuMixText")),
-    dreCardFeesTitle: String(t("dreCardFeesTitle")),
-    dreCardFeesText: String(t("dreCardFeesText")),
-    dreRevenueVsExpenses: String(t("dreRevenueVsExpenses")),
-    dreRevenueVsExpensesText: String(t("dreRevenueVsExpensesText")),
-    dreOperationalResultChart: String(t("dreOperationalResultChart")),
-    dreOperationalResultChartText: String(t("dreOperationalResultChartText")),
-    total: String(t("total"))
-  };
-  const teamPanelCopy = {
-    processing: String(t("processing")),
-    navTeam: String(t("navTeam")),
-    teamTitle: String(t("teamTitle")),
-    teamText: String(t("teamText")),
-    teamAccessModel: String(t("teamAccessModel")),
-    teamAccessModelText: String(t("teamAccessModelText")),
-    teamMembersTotal: String(t("teamMembersTotal")),
-    teamAccountRole: String(t("teamAccountRole")),
-    teamAdminsTotal: String(t("teamAdminsTotal")),
-    teamUsersTotal: String(t("teamUsersTotal")),
-    teamRestaurantsTotal: String(t("teamRestaurantsTotal")),
-    authRestaurants: String(t("authRestaurants")),
-    teamEmpty: String(t("teamEmpty")),
-    teamRoleOwner: String(t("teamRoleOwner")),
-    teamRoleUser: String(t("teamRoleUser")),
-    teamRoleViewer: String(t("teamRoleViewer")),
-    teamRestaurantAccess: String(t("teamRestaurantAccess")),
-    teamNoRestaurants: String(t("teamNoRestaurants")),
-    teamManageMember: String(t("teamManageMember")),
-    teamManageMemberText: String(t("teamManageMemberText")),
-    teamInviteFeatures: String(t("teamInviteFeatures")),
-    teamFeatureDashboard: String(t("teamFeatureDashboard")),
-    teamInviteRestaurants: String(t("teamInviteRestaurants")),
-    teamSaveMember: String(t("teamSaveMember")),
-    teamRemoveMember: String(t("teamRemoveMember")),
-    teamMemberImmutable: String(t("teamMemberImmutable")),
-    teamMemberUpdated: String(t("teamMemberUpdated")),
-    teamMemberRemoved: String(t("teamMemberRemoved")),
-    teamYou: String(t("teamYou")),
-    teamInviteTitle: String(t("teamInviteTitle")),
-    teamInviteText: String(t("teamInviteText")),
-    teamInviteEmail: String(t("teamInviteEmail")),
-    teamInviteHint: String(t("teamInviteHint")),
-    teamInviteAction: String(t("teamInviteAction")),
-    teamInvitePending: String(t("teamInvitePending")),
-    teamInviteEmpty: String(t("teamInviteEmpty")),
-    teamInviteRevoke: String(t("teamInviteRevoke")),
-    ownerOnlyMessage: "A gestão de equipe fica disponível apenas para o owner.",
-    featureRequired: "Selecione ao menos uma funcionalidade.",
-    selectedLabel: "Selecionado",
-    noAccessLabel: "Sem acesso"
-  };
-  const copyBySection: Record<Exclude<InternalSection, "account">, { eyebrow: string; title: string; text: string }> = {
-    dashboard: {
-      eyebrow: String(t("navDashboard")),
-      title: effectiveSession?.activeRestaurantName ?? effectiveSession?.restaurantName ?? String(t("navDashboard")),
-      text:
-        effectiveSession?.activeRole === "owner"
-          ? "Visão executiva completa para leitura, upload e tomada de decisão."
-          : "Acompanhe os indicadores e o desempenho da unidade selecionada."
-    },
-    dre: {
-      eyebrow: String(t("navDre")),
-      title: String(t("dreTitle")),
-      text: String(t("dreText"))
-    },
-    restaurants: {
-      eyebrow: String(t("navRestaurants")),
-      title: String(t("authManageRestaurants")),
-      text: String(t("authManageRestaurantsText"))
-    },
-    team: {
-      eyebrow: String(t("navTeam")),
-      title: String(t("teamTitle")),
-      text: String(t("teamText"))
-    }
-  };
-  const activeHeaderSection = currentSection === "account" ? "dashboard" : currentSection;
-  const dashboardHeaderCopy = copyBySection[activeHeaderSection];
 
   useEffect(() => {
     if ((currentSection === "restaurants" && !canManageRestaurants) || (currentSection === "team" && !canManageTeam)) {
@@ -387,22 +227,7 @@ export default function App() {
           onRegister={(fullName, email, password) => void handleRegister(fullName, email, password)}
           busy={authSubmitting}
           error={authError}
-          copy={{
-            brandTagline: String(t("brandTagline")),
-            title: String(t("heroTitle")),
-            loginTab: String(t("authSubmitLogin")),
-            registerTab: String(t("authSubmitRegister")),
-            fullName: "Nome completo",
-            fullNameHint: "Como deseja aparecer no sistema.",
-            email: String(t("authEmail")),
-            password: String(t("authPassword")),
-            processing: String(t("processing")),
-            submitLogin: String(t("authSubmitLogin")),
-            submitRegister: String(t("authSubmitRegister")),
-            demoHint: String(t("authDemoHint")),
-            language: String(t("language")),
-            ...themeLabels
-          }}
+          copy={authScreenCopy}
         />
       </LocaleContext.Provider>
     );
