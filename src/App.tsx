@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Suspense, lazy } from "react";
-import { AuthScreen, BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from "./components/appChrome";
-import { RestaurantNavigatorPanel } from "./components/dashboardPanels";
+import { AuthScreen } from "./components/appChrome";
+import { DashboardShell } from "./components/dashboardShell";
 import { isSupabaseConfigured } from "./utils/supabase";
 import { LocaleContext, type Locale, translations, withLocaleFallback } from "./i18n";
 import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
@@ -11,22 +10,6 @@ import { useAccountManagement } from "./hooks/useAccountManagement";
 import { useAppPresentation } from "./hooks/useAppPresentation";
 
 type ThemeMode = "light" | "dark";
-
-const LazyAccountSettingsPanel = lazy(() =>
-  import("./components/accountPanels").then((module) => ({ default: module.AccountSettingsPanel }))
-);
-const LazyRestaurantManagementPanel = lazy(() =>
-  import("./components/accountPanels").then((module) => ({ default: module.RestaurantManagementPanel }))
-);
-const LazyDreAnalysisPanel = lazy(() =>
-  import("./components/drePanels").then((module) => ({ default: module.DreAnalysisPanel }))
-);
-const LazyDashboardPanels = lazy(() =>
-  import("./components/cmvPanels").then((module) => ({ default: module.DashboardPanels }))
-);
-const LazyTeamPermissionsPanel = lazy(() =>
-  import("./components/teamPanels").then((module) => ({ default: module.TeamPermissionsPanel }))
-);
 
 const TOTAL_VIEW = "__TOTAL__";
 const THEME_STORAGE_KEY = "grest.theme";
@@ -43,18 +26,6 @@ const getInitialTheme = (): ThemeMode => {
 
   return "light";
 };
-
-
-function IconLogout() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M9 7H6.8A1.8 1.8 0 0 0 5 8.8v6.4A1.8 1.8 0 0 0 6.8 17H9" />
-      <path d="M13 8.5 17 12l-4 3.5" />
-      <path d="M17 12H9" />
-    </svg>
-  );
-}
-
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>("pt");
@@ -235,208 +206,119 @@ export default function App() {
 
   return (
     <LocaleContext.Provider value={locale}>
-      <div className="dashboard-shell">
-        <aside className="dashboard-sidebar">
-          <div className="dashboard-sidebar-brand">
-            <BrandMark tagline={String(t("brandTagline"))} />
-          </div>
-          <InternalNavigation
-            section={currentSection}
-            onChange={setCurrentSection}
-            items={navigationItems}
-          />
-          <div className="dashboard-sidebar-footer">
-            <button
-              type="button"
-              className="sidebar-footer-action icon-only"
-              onClick={handleLogout}
-              title={String(t("authLogout"))}
-              aria-label={String(t("authLogout"))}
-            >
-              <IconLogout />
-            </button>
-            <button
-              type="button"
-              className="sidebar-avatar-button"
-              onClick={() => {
-                resetAccountPanelState();
-                setCurrentSection("account");
-              }}
-              title={String(t("navMyAccount"))}
-              aria-label={String(t("navMyAccount"))}
-            >
-              <UserAvatar session={effectiveSession} size="lg" />
-            </button>
-          </div>
-        </aside>
-
-        <main className="dashboard-main">
-          <div className="content dashboard-content">
-            <DashboardShellHeader
-              session={effectiveSession}
-              eyebrow={dashboardHeaderCopy.eyebrow}
-              title={dashboardHeaderCopy.title}
-              text={dashboardHeaderCopy.text}
-              locale={locale}
-              onChangeLocale={setLocale}
-              theme={theme}
-              onChangeTheme={setTheme}
-              languageLabel={String(t("language"))}
-              themeLabels={themeLabels}
-            />
-
-            {currentSection === "dashboard" || currentSection === "dre" ? (
-              <RestaurantNavigatorPanel
-                eyebrow={String(t("authRestaurantNavigator"))}
-                title={String(t("authRestaurantNavigator"))}
-                description={String(t("authRestaurantNavigatorText"))}
-                memberships={effectiveSession.memberships ?? []}
-                activeRestaurantId={effectiveSession.activeRestaurantId}
-                onActivateRestaurant={activateRestaurant}
-              />
-            ) : null}
-            {currentSection === "dre" ? (
-              <Suspense
-                fallback={
-                  <section className="card">
-                    <p className="message">{String(t("processing"))}</p>
-                  </section>
-                }
-              >
-                <LazyDreAnalysisPanel
-                  data={dreData}
-                  periods={drePeriods}
-                  selectedPeriod={selectedDrePeriod}
-                  error={dreError}
-                  processing={dreProcessing}
-                  canManageData={canManageOperationalData}
-                  copy={drePanelCopy}
-                  onImport={(file) => void handleDreImport(file)}
-                  onSelectPeriod={setSelectedDrePeriod}
-                />
-              </Suspense>
-            ) : null}
-            {currentSection === "restaurants" && canManageRestaurants ? (
-              <Suspense
-                fallback={
-                  <section className="card">
-                    <p className="message">{String(t("processing"))}</p>
-                  </section>
-                }
-              >
-                <LazyRestaurantManagementPanel
-                  session={effectiveSession}
-                  restaurantForm={restaurantProfileForm}
-                  newRestaurantName={newRestaurantName}
-                  busy={accountBusy}
-                  message={accountMessage}
-                  error={accountError}
-                  onRestaurantNameChange={handleRestaurantNameChange}
-                  onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
-                  onCreateRestaurantNameChange={setNewRestaurantName}
-                  onSaveRestaurant={handleSaveRestaurantAccount}
-                  onCreateRestaurant={handleCreateRestaurant}
-                  onDeleteRestaurant={handleDeleteRestaurant}
-                  onActivateRestaurant={activateRestaurant}
-                  copy={accountPanelCopy}
-                />
-              </Suspense>
-            ) : null}
-            {currentSection === "team" && canManageTeam ? (
-              <Suspense
-                fallback={
-                  <section className="card">
-                    <p className="message">{String(t("processing"))}</p>
-                  </section>
-                }
-              >
-                <LazyTeamPermissionsPanel
-                  session={effectiveSession}
-                  members={accountMembers}
-                  invitations={accountInvitations}
-                  loading={accountMembersLoading}
-                  invitationsLoading={accountInvitationsLoading}
-                  canManageTeam={Boolean(canManageTeam)}
-                  inviteForm={inviteForm}
-                  inviteBusy={inviteBusy}
-                  inviteMessage={inviteMessage}
-                  inviteError={inviteError}
-                  copy={teamPanelCopy}
-                  onInviteEmailChange={(value) => setInviteForm((current) => ({ ...current, email: value }))}
-                  onInviteFeatureToggle={handleInviteFeatureToggle}
-                  onInviteRestaurantToggle={handleInviteRestaurantToggle}
-                  onCreateInvitation={() => void handleCreateInvitation()}
-                  onRevokeInvitation={(invitationId) => void handleRevokeInvitation(invitationId)}
-                  onUpdateMember={handleUpdateMember}
-                  onRemoveMember={handleRemoveMember}
-                />
-              </Suspense>
-            ) : null}
-            {currentSection === "account" ? (
-              <Suspense
-                fallback={
-                  <section className="card">
-                    <p className="message">{String(t("processing"))}</p>
-                  </section>
-                }
-              >
-                <LazyAccountSettingsPanel
-                  session={effectiveSession}
-                  userForm={userProfileForm}
-                  restaurantForm={restaurantProfileForm}
-                  newRestaurantName={newRestaurantName}
-                  busy={accountBusy}
-                  message={accountMessage}
-                  error={accountError}
-                  onClose={() => {
-                    resetAccountPanelState();
-                    setCurrentSection("dashboard");
-                  }}
-                  onUserNameChange={(value) => setUserProfileForm((current) => ({ ...current, fullName: value }))}
-                  onRestaurantNameChange={handleRestaurantNameChange}
-                  onUserPhotoSelect={handleUserPhotoSelect}
-                  onRestaurantPhotoSelect={handleRestaurantPhotoSelect}
-                  onCreateRestaurantNameChange={setNewRestaurantName}
-                  onSaveUser={handleSaveUserAccount}
-                  onSaveRestaurant={handleSaveRestaurantAccount}
-                  onCreateRestaurant={handleCreateRestaurant}
-                  onDeleteRestaurant={handleDeleteRestaurant}
-                  onDeleteAccount={handleDeleteAccount}
-                  onActivateRestaurant={activateRestaurant}
-                  canManageRestaurants={false}
-                  copy={accountPanelCopy}
-                />
-              </Suspense>
-            ) : null}
-            {authError ? (
-              <section className="card">
-                <p className="message error">{authError}</p>
-              </section>
-            ) : null}
-            {currentSection === "dashboard" ? (
-              <Suspense fallback={<section className="card"><p className="message">{String(t("processing"))}</p></section>}>
-                <LazyDashboardPanels
-                  state={state}
-                  dashboard={dashboard}
-                  periodDashboards={periodDashboards}
-                  selectedPeriod={selectedPeriod}
-                  selectedView={selectedView}
-                  totalView={TOTAL_VIEW}
-                  hasDashboardData={hasDashboardData}
-                  hasSalesFile={hasSalesFile}
-                  canManageOperationalData={canManageOperationalData}
-                  onUpload={handleUpload}
-                  onClearAll={handleClearAll}
-                  onResetFlow={handleResetFlow}
-                  onSelectPeriod={setSelectedPeriod}
-                  onRemovePeriod={canManageOperationalData ? handleRemovePeriod : undefined}
-                  onSelectView={setSelectedView}
-                />
-              </Suspense>
-            ) : null}
-          </div>
-        </main>
-      </div>
+      <DashboardShell
+        locale={locale}
+        theme={theme}
+        currentSection={currentSection}
+        effectiveSession={effectiveSession}
+        authError={authError}
+        navigationItems={navigationItems}
+        dashboardHeaderCopy={dashboardHeaderCopy}
+        languageLabel={String(t("language"))}
+        themeLabels={themeLabels}
+        accountPanelCopy={accountPanelCopy}
+        drePanelCopy={drePanelCopy}
+        teamPanelCopy={teamPanelCopy}
+        restaurantNavigatorCopy={{
+          eyebrow: String(t("authRestaurantNavigator")),
+          title: String(t("authRestaurantNavigator")),
+          description: String(t("authRestaurantNavigatorText"))
+        }}
+        dreAnalysisProps={{
+          data: dreData,
+          periods: drePeriods,
+          selectedPeriod: selectedDrePeriod,
+          error: dreError,
+          processing: dreProcessing,
+          onImport: (file) => void handleDreImport(file),
+          onSelectPeriod: setSelectedDrePeriod
+        }}
+        dashboardPanelProps={{
+          state,
+          dashboard,
+          periodDashboards,
+          selectedPeriod,
+          selectedView,
+          totalView: TOTAL_VIEW,
+          hasDashboardData,
+          hasSalesFile,
+          canManageOperationalData,
+          onUpload: handleUpload,
+          onClearAll: handleClearAll,
+          onResetFlow: handleResetFlow,
+          onSelectPeriod: setSelectedPeriod,
+          onRemovePeriod: canManageOperationalData ? handleRemovePeriod : undefined,
+          onSelectView: setSelectedView
+        }}
+        restaurantManagementProps={{
+          restaurantForm: restaurantProfileForm,
+          newRestaurantName,
+          busy: accountBusy,
+          message: accountMessage,
+          error: accountError,
+          onRestaurantNameChange: handleRestaurantNameChange,
+          onRestaurantPhotoSelect: handleRestaurantPhotoSelect,
+          onCreateRestaurantNameChange: setNewRestaurantName,
+          onSaveRestaurant: handleSaveRestaurantAccount,
+          onCreateRestaurant: handleCreateRestaurant,
+          onDeleteRestaurant: handleDeleteRestaurant
+        }}
+        teamManagementProps={{
+          members: accountMembers,
+          invitations: accountInvitations,
+          loading: accountMembersLoading,
+          invitationsLoading: accountInvitationsLoading,
+          inviteForm,
+          inviteBusy,
+          inviteMessage,
+          inviteError,
+          onInviteEmailChange: (value) => setInviteForm((current) => ({ ...current, email: value })),
+          onInviteFeatureToggle: handleInviteFeatureToggle,
+          onInviteRestaurantToggle: handleInviteRestaurantToggle,
+          onCreateInvitation: () => void handleCreateInvitation(),
+          onRevokeInvitation: (invitationId) => void handleRevokeInvitation(invitationId),
+          onUpdateMember: handleUpdateMember,
+          onRemoveMember: handleRemoveMember
+        }}
+        accountSettingsProps={{
+          userForm: userProfileForm,
+          restaurantForm: restaurantProfileForm,
+          newRestaurantName,
+          busy: accountBusy,
+          message: accountMessage,
+          error: accountError,
+          onUserNameChange: (value) => setUserProfileForm((current) => ({ ...current, fullName: value })),
+          onRestaurantNameChange: handleRestaurantNameChange,
+          onUserPhotoSelect: handleUserPhotoSelect,
+          onRestaurantPhotoSelect: handleRestaurantPhotoSelect,
+          onCreateRestaurantNameChange: setNewRestaurantName,
+          onSaveUser: handleSaveUserAccount,
+          onSaveRestaurant: handleSaveRestaurantAccount,
+          onCreateRestaurant: handleCreateRestaurant,
+          onDeleteRestaurant: handleDeleteRestaurant,
+          onDeleteAccount: handleDeleteAccount
+        }}
+        canManageRestaurants={canManageRestaurants}
+        canManageOperationalData={canManageOperationalData}
+        canManageTeam={canManageTeam}
+        onChangeLocale={setLocale}
+        onChangeTheme={setTheme}
+        onChangeSection={setCurrentSection}
+        onLogout={handleLogout}
+        onOpenAccount={() => {
+          resetAccountPanelState();
+          setCurrentSection("account");
+        }}
+        onCloseAccount={() => {
+          resetAccountPanelState();
+          setCurrentSection("dashboard");
+        }}
+        onActivateRestaurant={activateRestaurant}
+        logoutLabel={String(t("authLogout"))}
+        myAccountLabel={String(t("navMyAccount"))}
+        brandTagline={String(t("brandTagline"))}
+        processingLabel={String(t("processing"))}
+      />
     </LocaleContext.Provider>
   );
 }
