@@ -1,15 +1,10 @@
 import type { DrePanelCopy } from "../components/drePanels";
-import { translations } from "../i18n";
+import type { TranslationKey } from "../i18n";
+import type { AppPresentationModel, HeaderCopy } from "../presentation/contracts";
 import type { AppSection } from "./useSessionWorkspace";
 import type { AuthSession } from "../types";
 
-type Translate = <K extends keyof typeof translations.pt>(key: K) => unknown;
-
-type HeaderCopy = {
-  eyebrow: string;
-  title: string;
-  text: string;
-};
+type Translate = (key: TranslationKey) => unknown;
 
 type UseAppPresentationOptions = {
   currentSection: AppSection;
@@ -17,7 +12,7 @@ type UseAppPresentationOptions = {
   t: Translate;
 };
 
-export function useAppPresentation({ currentSection, effectiveSession, t }: UseAppPresentationOptions) {
+export function useAppPresentation({ currentSection, effectiveSession, t }: UseAppPresentationOptions): AppPresentationModel {
   const activeRole = effectiveSession?.activeRole ?? "viewer";
   const canManageRestaurants =
     effectiveSession?.globalRole === "owner" ||

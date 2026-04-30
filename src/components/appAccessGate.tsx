@@ -2,6 +2,7 @@ import { AuthScreen } from "./appChrome";
 import type { Locale } from "../i18n";
 import { isSupabaseConfigured } from "../utils/supabase";
 import type { ThemeMode } from "../hooks/useThemePreference";
+import type { AuthScreenCopy } from "../presentation/contracts";
 
 type AppAccessGateProps = {
   locale: Locale;
@@ -10,7 +11,7 @@ type AppAccessGateProps = {
   authHydrating: boolean;
   authSubmitting: boolean;
   authError?: string;
-  authScreenCopy: Parameters<typeof AuthScreen>[0]["copy"];
+  authScreenCopy: AuthScreenCopy;
   onChangeLocale: (locale: Locale) => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onLogin: (email: string, password: string) => void | Promise<void>;

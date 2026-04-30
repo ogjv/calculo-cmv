@@ -737,6 +737,8 @@ export const translations = {
   }
 } as const;
 
+export type TranslationKey = keyof typeof translations.pt;
+
 export const withLocaleFallback = <T extends Record<string, unknown>>(locale: Locale, key: keyof typeof translations.pt) => {
   const selected = translations[locale] as Record<string, unknown>;
   const fallback = translations.pt as Record<string, unknown>;

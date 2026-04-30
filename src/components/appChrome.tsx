@@ -1,31 +1,10 @@
 import { useState } from "react";
 import type { AuthSession } from "../types";
+import type { AuthScreenCopy, ThemeLabels, NavigationItem } from "../presentation/contracts";
 
 type Locale = "pt" | "es" | "en";
 type ThemeMode = "light" | "dark";
 type AppSection = "account" | "dashboard" | "dre" | "restaurants" | "team";
-
-type ThemeLabels = {
-  label: string;
-  light: string;
-  dark: string;
-};
-
-type AuthScreenCopy = {
-  brandTagline: string;
-  title: string;
-  loginTab: string;
-  registerTab: string;
-  fullName: string;
-  fullNameHint: string;
-  email: string;
-  password: string;
-  processing: string;
-  submitLogin: string;
-  submitRegister: string;
-  demoHint: string;
-  language: string;
-} & ThemeLabels;
 
 type AuthScreenProps = {
   locale: Locale;
@@ -53,15 +32,10 @@ type DashboardShellHeaderProps = {
   themeLabels: ThemeLabels;
 };
 
-type InternalNavigationItem = {
-  key: AppSection;
-  label: string;
-};
-
 type InternalNavigationProps = {
   section: AppSection;
   onChange: (section: AppSection) => void;
-  items: InternalNavigationItem[];
+  items: NavigationItem[];
 };
 
 export function BrandMark({ tagline }: { tagline: string }) {

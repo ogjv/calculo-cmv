@@ -3,6 +3,7 @@ import { BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from 
 import { RestaurantNavigatorPanel } from "./dashboardPanels";
 import type { AppSection } from "../hooks/useSessionWorkspace";
 import type { AuthSession } from "../types";
+import type { AccountPanelCopy, HeaderCopy, NavigationItem, RestaurantNavigatorCopy, ThemeLabels } from "../presentation/contracts";
 import { AccountSettingsPanel, RestaurantManagementPanel } from "./accountPanels";
 import { TeamPermissionsPanel } from "./teamPanels";
 import { DreAnalysisPanel } from "./drePanels";
@@ -24,11 +25,6 @@ const LazyTeamPermissionsPanel = lazy(() =>
   import("./teamPanels").then((module) => ({ default: module.TeamPermissionsPanel }))
 );
 
-type NavigationItem = {
-  key: AppSection;
-  label: string;
-};
-
 type DashboardShellProps = {
   locale: "pt" | "es" | "en";
   theme: "light" | "dark";
@@ -36,21 +32,13 @@ type DashboardShellProps = {
   effectiveSession: AuthSession;
   authError?: string;
   navigationItems: NavigationItem[];
-  dashboardHeaderCopy: {
-    eyebrow: string;
-    title: string;
-    text: string;
-  };
+  dashboardHeaderCopy: HeaderCopy;
   languageLabel: string;
-  themeLabels: Parameters<typeof DashboardShellHeader>[0]["themeLabels"];
-  accountPanelCopy: Parameters<typeof AccountSettingsPanel>[0]["copy"];
+  themeLabels: ThemeLabels;
+  accountPanelCopy: AccountPanelCopy;
   drePanelCopy: Parameters<typeof DreAnalysisPanel>[0]["copy"];
   teamPanelCopy: Parameters<typeof TeamPermissionsPanel>[0]["copy"];
-  restaurantNavigatorCopy: {
-    eyebrow: string;
-    title: string;
-    description: string;
-  };
+  restaurantNavigatorCopy: RestaurantNavigatorCopy;
   dreAnalysisProps: Omit<Parameters<typeof DreAnalysisPanel>[0], "canManageData" | "copy">;
   dashboardPanelProps: Parameters<typeof DashboardPanels>[0];
   restaurantManagementProps: Omit<Parameters<typeof RestaurantManagementPanel>[0], "session" | "copy" | "onActivateRestaurant">;
