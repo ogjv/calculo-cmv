@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Suspense, lazy } from "react";
-import { useRef } from "react";
-import type { AccountInvitation, AccountMember, AuthSession, DashboardData, DrePeriodData, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, UploadFeedbackItem } from "./types";
+import type { AccountInvitation, AccountMember, AuthSession, DrePeriodData, ImportValidation, PeriodDashboard, ProductSummary, RecipeRow, UploadFeedbackItem } from "./types";
 import { buildDashboardData, buildDashboardSlice, mapRecipeRows, mapSalesRows } from "./utils/cmv";
 import { AuthScreen, BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from "./components/appChrome";
 import { RestaurantNavigatorPanel } from "./components/dashboardPanels";
 import { type DrePanelCopy, getDrePeriodKey, getDrePeriodLabel, getDreRevenueGroups, getDreRevenueValue } from "./components/drePanels";
 import { DEFAULT_INVITE_FEATURE, type InviteFormState } from "./components/teamPanels";
 import { parseDreSpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "./utils/file";
-import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
-import { createAccountInvitation, createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, getSupabaseSession, hydrateSupabaseSession, loadAccountInvitations, loadAccountMembers, loadCloudWorkspace, registerRestaurantWithSupabase, removeAccountMemberAccess, revokeAccountInvitation, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateAccountMemberAccess, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "./utils/cloudAuth";
+import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, updateLocalRestaurantProfile, updateLocalUserProfile } from "./utils/auth";
+import { createAccountInvitation, createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, loadAccountInvitations, loadAccountMembers, removeAccountMemberAccess, revokeAccountInvitation, signOutFromSupabase, updateAccountMemberAccess, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "./utils/cloudAuth";
 import { isSupabaseConfigured } from "./utils/supabase";
 import { LocaleContext, type Locale, translations, withLocaleFallback } from "./i18n";
+import { type AppSection as InternalSection, savePreferredRestaurant, type UploadState, useSessionWorkspace } from "./hooks/useSessionWorkspace";
 
 type ThemeMode = "light" | "dark";
 
@@ -31,18 +31,6 @@ const LazyTeamPermissionsPanel = lazy(() =>
   import("./components/teamPanels").then((module) => ({ default: module.TeamPermissionsPanel }))
 );
 
-type UploadState = {
-  salesFileNames?: string[];
-  recipeFileName?: string;
-  data?: DashboardData;
-  periodDashboards?: PeriodDashboard[];
-  validations?: ImportValidation[];
-  recipeBase?: RecipeRow[];
-  duplicateRecipeCodes?: string[];
-  error?: string;
-  processing?: boolean;
-};
-
 type ProfileFormState = {
   restaurantName: string;
   profilePhotoUrl?: string;
@@ -53,28 +41,10 @@ type UserProfileFormState = {
   userPhotoUrl?: string;
 };
 
-type InternalSection = "account" | "dashboard" | "dre" | "restaurants" | "team";
-
 const TOTAL_VIEW = "__TOTAL__";
 const TOTAL_PERIOD = "__ALL_PERIODS__";
 const DEFAULT_DRE_PERIOD = "__LATEST_DRE__";
-const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
 const THEME_STORAGE_KEY = "grest.theme";
-const AUTH_BOOT_TIMEOUT_MS = 30000;
-const AUTH_HYDRATE_TIMEOUT_MS = 15000;
-const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string) =>
-  new Promise<T>((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(message)), ms);
-    promise
-      .then((value) => {
-        window.clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        window.clearTimeout(timer);
-        reject(error);
-      });
-  });
 
 const getInitialTheme = (): ThemeMode => {
   if (typeof window === "undefined") {
@@ -98,64 +68,6 @@ const dedupeFiles = (files: File[]) => {
     map.set(`${file.name}-${file.size}-${file.lastModified}`, file);
   }
   return [...map.values()];
-};
-
-const getPreferredRestaurant = (userId: string) => {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-
-  return window.localStorage.getItem(`${ACTIVE_RESTAURANT_STORAGE_PREFIX}${userId}`) ?? undefined;
-};
-
-const savePreferredRestaurant = (userId: string, restaurantId: string) => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(`${ACTIVE_RESTAURANT_STORAGE_PREFIX}${userId}`, restaurantId);
-};
-
-const applyActiveRestaurant = (session: AuthSession, restaurantId?: string): AuthSession => {
-  const memberships = session.memberships ?? [];
-  const activeMembership =
-    memberships.find((membership) => membership.restaurantId === restaurantId) ??
-    memberships.find((membership) => membership.restaurantId === session.activeRestaurantId) ??
-    memberships[0];
-
-  if (!activeMembership) {
-    return session;
-  }
-
-  const scopedMemberships =
-    session.globalRole === "owner" || !activeMembership.accountId
-      ? memberships
-      : memberships.filter((membership) => membership.accountId === activeMembership.accountId);
-
-  return {
-    ...session,
-    memberships: scopedMemberships,
-    activeRole: activeMembership.role,
-    activeRestaurantId: activeMembership.restaurantId,
-    activeRestaurantName: activeMembership.restaurantName,
-    activeRestaurantPhotoUrl: activeMembership.photoUrl,
-    restaurantId: activeMembership.restaurantId,
-    restaurantName: activeMembership.restaurantName,
-    profilePhotoUrl: activeMembership.photoUrl
-  };
-};
-
-const getWorkspaceSessionKey = (session?: AuthSession | null) => {
-  if (!session) {
-    return undefined;
-  }
-
-  const restaurantId = session.activeRestaurantId ?? session.restaurantId;
-  if (!restaurantId) {
-    return `${session.userId}:${session.authMode}:pending`;
-  }
-
-  return `${session.userId}:${session.authMode}:${restaurantId}`;
 };
 
 const productsToSalesRows = (products: ProductSummary[]) =>
@@ -307,11 +219,6 @@ function IconLogout() {
 export default function App() {
   const [locale, setLocale] = useState<Locale>("pt");
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [authError, setAuthError] = useState<string>();
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authHydrating, setAuthHydrating] = useState(false);
-  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountMessage, setAccountMessage] = useState<string>();
   const [accountError, setAccountError] = useState<string>();
@@ -333,8 +240,6 @@ export default function App() {
   const [restaurantProfileDirty, setRestaurantProfileDirty] = useState(false);
   const [restaurantProfileRestaurantId, setRestaurantProfileRestaurantId] = useState<string>();
   const [newRestaurantName, setNewRestaurantName] = useState("");
-  const [workspaceReady, setWorkspaceReady] = useState(false);
-  const [workspaceRestaurantId, setWorkspaceRestaurantId] = useState<string>();
   const [salesFiles, setSalesFiles] = useState<File[]>([]);
   const [, setRecipeFile] = useState<File | null>(null);
   const [state, setState] = useState<UploadState>({});
@@ -345,43 +250,43 @@ export default function App() {
   const [dreProcessing, setDreProcessing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(TOTAL_PERIOD);
   const [selectedView, setSelectedView] = useState<string>(TOTAL_VIEW);
-  const latestWorkspaceRestaurantIdRef = useRef<string>();
-  const latestStateRef = useRef<UploadState>({});
-  const latestUploadFeedbackRef = useRef<UploadFeedbackItem[]>([]);
-  const latestDrePeriodsRef = useRef<DrePeriodData[]>([]);
-  const latestWorkspaceMetaRef = useRef({
-    locale: "pt" as Locale,
-    selectedPeriod: TOTAL_PERIOD,
-    selectedView: TOTAL_VIEW,
-    selectedDrePeriod: DEFAULT_DRE_PERIOD,
-    currentSection: "dashboard" as InternalSection
-  });
   const t = <K extends keyof typeof translations.pt>(key: K) => withLocaleFallback<typeof translations.pt>(locale, key);
-  const effectiveSession = useMemo(
-    () => (session ? applyActiveRestaurant(session, getPreferredRestaurant(session.userId)) : null),
-    [session]
-  );
-  const activeWorkspaceSession = useMemo(
-    () =>
-      effectiveSession
-        ? {
-            authMode: effectiveSession.authMode,
-            restaurantId: effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId ?? ""
-          }
-        : null,
-    [effectiveSession]
-  );
-  const activeWorkspaceKey = getWorkspaceSessionKey(effectiveSession);
-  latestWorkspaceRestaurantIdRef.current = workspaceRestaurantId;
-  latestStateRef.current = state;
-  latestUploadFeedbackRef.current = uploadFeedback;
-  latestDrePeriodsRef.current = drePeriods;
-  latestWorkspaceMetaRef.current = {
+  const {
+    session,
+    setSession,
+    effectiveSession,
+    authError,
+    authLoading,
+    authHydrating,
+    authSubmitting,
+    login: handleLogin,
+    register: handleRegister,
+    logout: handleLogout,
+    selectRestaurant: handleSelectRestaurant
+  } = useSessionWorkspace({
     locale,
-    selectedPeriod,
-    selectedView,
+    setLocale,
+    state,
+    setState,
+    uploadFeedback,
+    setUploadFeedback,
+    drePeriods,
+    setDrePeriods,
     selectedDrePeriod,
-    currentSection
+    setSelectedDrePeriod,
+    selectedPeriod,
+    setSelectedPeriod,
+    selectedView,
+    setSelectedView,
+    currentSection,
+    setCurrentSection,
+    setSalesFiles,
+    setRecipeFile
+  });
+  const activateRestaurant = (restaurantId: string) => {
+    handleSelectRestaurant(restaurantId);
+    setAccountError(undefined);
+    setAccountMessage(undefined);
   };
 
   useEffect(() => {
@@ -391,18 +296,6 @@ export default function App() {
   }, [theme]);
 
   const hasSalesFile = salesFiles.length > 0 || (state.periodDashboards?.length ?? 0) > 0;
-  const hasPersistedWorkspaceContent = (workspace?: PersistedWorkspace | null) =>
-    Boolean(
-      workspace &&
-        (
-          ((workspace.state?.periodDashboards?.length ?? 0) > 0) ||
-          ((workspace.state?.recipeBase?.length ?? 0) > 0) ||
-          ((workspace.state?.salesFileNames?.length ?? 0) > 0) ||
-          ((workspace.drePeriods?.length ?? 0) > 0) ||
-          ((workspace.uploadFeedback?.length ?? 0) > 0) ||
-          workspace.state?.processing
-        )
-    );
   const activeRole = effectiveSession?.activeRole ?? "viewer";
   const canManageRestaurants =
     effectiveSession?.globalRole === "owner" ||
@@ -728,289 +621,6 @@ export default function App() {
       setCurrentSection("dashboard");
     }
   }, [canManageRestaurants, canManageTeam, currentSection]);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setSession(restoreSession());
-      setAuthLoading(false);
-      return;
-    }
-
-    let mounted = true;
-    void withTimeout(getSupabaseSession(), AUTH_BOOT_TIMEOUT_MS, "Tempo limite ao inicializar autenticação.")
-      .then((nextSession) => {
-        if (!mounted) {
-          return;
-        }
-
-        setSession(nextSession);
-      })
-      .catch((error) => {
-        if (mounted) {
-          setSession(null);
-          setAuthError(error instanceof Error ? error.message : "Não foi possível inicializar a autenticação.");
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setAuthLoading(false);
-        }
-      });
-
-    const unsubscribe = subscribeToSupabaseAuth((nextSession) => {
-      if (!mounted) {
-        return;
-      }
-
-      setSession(nextSession);
-      setAuthLoading(false);
-    });
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!session || session.authMode !== "supabase") {
-      setAuthHydrating(false);
-      return;
-    }
-
-    if ((session.memberships?.length ?? 0) > 0 && (session.activeRestaurantId ?? session.restaurantId)) {
-      setAuthHydrating(false);
-      return;
-    }
-
-    let mounted = true;
-    setAuthHydrating(true);
-
-    void withTimeout(
-      hydrateSupabaseSession(session),
-      AUTH_HYDRATE_TIMEOUT_MS,
-      "Tempo limite ao carregar restaurantes e permissões da conta."
-    )
-      .then((nextSession) => {
-        if (!mounted || !nextSession) {
-          return;
-        }
-
-        if (!(nextSession.activeRestaurantId ?? nextSession.restaurantId)) {
-          throw new Error("Login efetuado, mas nenhum restaurante ativo foi encontrado para esta conta.");
-        }
-
-        setSession((current) => {
-          if (!current || current.userId !== nextSession.userId) {
-            return current;
-          }
-
-          const preferredRestaurantId = getPreferredRestaurant(nextSession.userId);
-          return applyActiveRestaurant(nextSession, preferredRestaurantId);
-        });
-        setAuthError(undefined);
-      })
-      .catch((error) => {
-        if (!mounted) {
-          return;
-        }
-
-        setAuthError(error instanceof Error ? error.message : "Não foi possível carregar os restaurantes da conta.");
-        setSession((current) =>
-          current && !(current.activeRestaurantId ?? current.restaurantId) ? null : current
-        );
-      })
-      .finally(() => {
-        if (mounted) {
-          setAuthHydrating(false);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [session]);
-
-  useEffect(() => {
-    if (!session || session.authMode !== "supabase") {
-      return;
-    }
-
-    const refreshSessionAccess = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      void withTimeout(
-        hydrateSupabaseSession(session),
-        AUTH_HYDRATE_TIMEOUT_MS,
-        "Tempo limite ao atualizar restaurantes e permissões da conta."
-      )
-        .then((nextSession) => {
-          if (!nextSession) {
-            return;
-          }
-
-          setSession((current) => {
-            if (!current || current.userId !== nextSession.userId) {
-              return current;
-            }
-
-            const preferredRestaurantId = getPreferredRestaurant(nextSession.userId);
-            return applyActiveRestaurant(nextSession, preferredRestaurantId);
-          });
-        })
-        .catch(() => undefined);
-    };
-
-    window.addEventListener("focus", refreshSessionAccess);
-    document.addEventListener("visibilitychange", refreshSessionAccess);
-
-    return () => {
-      window.removeEventListener("focus", refreshSessionAccess);
-      document.removeEventListener("visibilitychange", refreshSessionAccess);
-    };
-  }, [session]);
-
-  useEffect(() => {
-    if (!activeWorkspaceSession) {
-      setWorkspaceReady(false);
-      setWorkspaceRestaurantId(undefined);
-      setSalesFiles([]);
-      setRecipeFile(null);
-      setState({});
-      setUploadFeedback([]);
-      setDrePeriods([]);
-      setSelectedDrePeriod(DEFAULT_DRE_PERIOD);
-      setSelectedPeriod(TOTAL_PERIOD);
-      setSelectedView(TOTAL_VIEW);
-      setCurrentSection("dashboard");
-      setAuthLoading(false);
-      return;
-    }
-
-    if (activeWorkspaceSession.authMode === "supabase" && !activeWorkspaceSession.restaurantId) {
-      setWorkspaceReady(false);
-      setWorkspaceRestaurantId(undefined);
-      return;
-    }
-
-    let mounted = true;
-    const targetRestaurantId = activeWorkspaceSession.restaurantId;
-    const localWorkspace = loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
-    setWorkspaceReady(false);
-    setWorkspaceRestaurantId(undefined);
-
-    if (localWorkspace) {
-      setLocale(localWorkspace.locale ?? "pt");
-      setState((localWorkspace.state as UploadState | undefined) ?? {});
-      setUploadFeedback(localWorkspace.uploadFeedback ?? []);
-      setDrePeriods(localWorkspace.drePeriods ?? []);
-      setSelectedDrePeriod(
-        localWorkspace.selectedDrePeriod ??
-          localWorkspace.drePeriods?.[localWorkspace.drePeriods.length - 1]?.key ??
-          DEFAULT_DRE_PERIOD
-      );
-      setSelectedPeriod(localWorkspace.selectedPeriod ?? TOTAL_PERIOD);
-      setSelectedView(localWorkspace.selectedView ?? TOTAL_VIEW);
-      setWorkspaceRestaurantId(targetRestaurantId);
-      setWorkspaceReady(true);
-    }
-
-    const loadWorkspace = async () => {
-      try {
-        const cloudWorkspace =
-          activeWorkspaceSession.authMode === "supabase"
-            ? await loadCloudWorkspace(targetRestaurantId)
-            : localWorkspace;
-        const workspace = cloudWorkspace ?? localWorkspace;
-
-        if (!mounted) {
-          return;
-        }
-
-        const currentWorkspaceHasContent =
-          latestWorkspaceRestaurantIdRef.current === targetRestaurantId &&
-          hasPersistedWorkspaceContent({
-            locale: latestWorkspaceMetaRef.current.locale,
-            state: latestStateRef.current as PersistedWorkspace["state"],
-            uploadFeedback: latestUploadFeedbackRef.current,
-            drePeriods: latestDrePeriodsRef.current,
-            selectedPeriod: latestWorkspaceMetaRef.current.selectedPeriod,
-            selectedView: latestWorkspaceMetaRef.current.selectedView,
-            selectedDrePeriod: latestWorkspaceMetaRef.current.selectedDrePeriod,
-            currentSection: latestWorkspaceMetaRef.current.currentSection
-          });
-
-        if (currentWorkspaceHasContent) {
-          setWorkspaceRestaurantId(targetRestaurantId);
-          setWorkspaceReady(true);
-          return;
-        }
-
-        setSalesFiles([]);
-        setRecipeFile(null);
-        setAuthError(undefined);
-        setLocale(workspace?.locale ?? "pt");
-        setState((workspace?.state as UploadState | undefined) ?? {});
-        setUploadFeedback(workspace?.uploadFeedback ?? []);
-        setDrePeriods(workspace?.drePeriods ?? []);
-        setSelectedDrePeriod(
-          workspace?.selectedDrePeriod ??
-            workspace?.drePeriods?.[(workspace.drePeriods?.length ?? 0) - 1]?.key ??
-            DEFAULT_DRE_PERIOD
-        );
-        setSelectedPeriod(workspace?.selectedPeriod ?? TOTAL_PERIOD);
-        setSelectedView(workspace?.selectedView ?? TOTAL_VIEW);
-        setWorkspaceRestaurantId(targetRestaurantId);
-        setWorkspaceReady(true);
-      } catch (error) {
-        if (!mounted) {
-          return;
-        }
-
-        setAuthError(error instanceof Error ? error.message : "Não foi possível carregar a base do restaurante.");
-        setWorkspaceRestaurantId(targetRestaurantId);
-        setWorkspaceReady(true);
-      }
-    };
-
-    void loadWorkspace();
-
-    return () => {
-      mounted = false;
-    };
-  }, [activeWorkspaceKey, activeWorkspaceSession]);
-
-  useEffect(() => {
-    if (!effectiveSession || !workspaceReady) {
-      return;
-    }
-
-    const restaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId;
-    if (!restaurantId || workspaceRestaurantId !== restaurantId) {
-      return;
-    }
-
-    const workspace: PersistedWorkspace = {
-      locale,
-      state: state as PersistedWorkspace["state"],
-      uploadFeedback,
-      selectedPeriod,
-      selectedView,
-      drePeriods,
-      selectedDrePeriod,
-      currentSection
-    };
-
-    saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
-
-    if (effectiveSession.authMode === "supabase") {
-      void saveCloudWorkspace(restaurantId, workspace).catch(() => undefined);
-      return;
-    }
-
-  }, [currentSection, drePeriods, effectiveSession, locale, selectedDrePeriod, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
 
   const createPeriodDashboardsFromImports = (
     fileNames: string[],
@@ -1342,72 +952,6 @@ export default function App() {
       error: undefined,
       processing: false
     }));
-  };
-
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      setAuthSubmitting(true);
-      setAuthError(undefined);
-      const nextSession = isSupabaseConfigured
-        ? await signInWithSupabase(email, password)
-        : signIn(email, password);
-      if (!isSupabaseConfigured && !(nextSession.activeRestaurantId ?? nextSession.restaurantId)) {
-        throw new Error("Login efetuado, mas nenhum restaurante ativo foi encontrado para esta conta.");
-      }
-      setSession(nextSession);
-      setAuthError(undefined);
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Não foi possível entrar.");
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  const handleRegister = async (fullName: string, email: string, password: string) => {
-    try {
-      setAuthSubmitting(true);
-      setAuthError(undefined);
-      const nextSession = isSupabaseConfigured
-        ? await registerRestaurantWithSupabase({ fullName, email, password })
-        : registerRestaurant({ fullName, email, password });
-      setSession(nextSession);
-      setAuthError(undefined);
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Não foi possível criar o acesso.");
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      if (session?.authMode === "supabase") {
-        await signOutFromSupabase();
-      } else {
-        signOut();
-      }
-    } finally {
-      setSession(null);
-    }
-  };
-
-  const handleSelectRestaurant = (restaurantId: string) => {
-    if (!session) {
-      return;
-    }
-
-    savePreferredRestaurant(session.userId, restaurantId);
-    setWorkspaceReady(false);
-    setWorkspaceRestaurantId(undefined);
-    setSalesFiles([]);
-    setRecipeFile(null);
-    setState({});
-    setUploadFeedback([]);
-    setSelectedPeriod(TOTAL_PERIOD);
-    setSelectedView(TOTAL_VIEW);
-    setSession((current) => (current ? applyActiveRestaurant(current, restaurantId) : current));
-    setAccountError(undefined);
-    setAccountMessage(undefined);
   };
 
   const refreshTeamData = async (currentSession: AuthSession) => {
@@ -1858,7 +1402,7 @@ export default function App() {
                 description={String(t("authRestaurantNavigatorText"))}
                 memberships={effectiveSession.memberships ?? []}
                 activeRestaurantId={effectiveSession.activeRestaurantId}
-                onActivateRestaurant={handleSelectRestaurant}
+                onActivateRestaurant={activateRestaurant}
               />
             ) : null}
             {currentSection === "dre" ? (
@@ -1903,7 +1447,7 @@ export default function App() {
                   onSaveRestaurant={handleSaveRestaurantAccount}
                   onCreateRestaurant={handleCreateRestaurant}
                   onDeleteRestaurant={handleDeleteRestaurant}
-                  onActivateRestaurant={handleSelectRestaurant}
+                  onActivateRestaurant={activateRestaurant}
                   copy={accountPanelCopy}
                 />
               </Suspense>
@@ -1968,7 +1512,7 @@ export default function App() {
                   onCreateRestaurant={handleCreateRestaurant}
                   onDeleteRestaurant={handleDeleteRestaurant}
                   onDeleteAccount={handleDeleteAccount}
-                  onActivateRestaurant={handleSelectRestaurant}
+                  onActivateRestaurant={activateRestaurant}
                   canManageRestaurants={false}
                   copy={accountPanelCopy}
                 />
