@@ -21,6 +21,9 @@ export default defineConfig({
                     if (id.includes("src/components/teamPanels")) {
                         return "team-panels";
                     }
+                    if (id.includes("src/components/drePanels")) {
+                        return "dre-panels";
+                    }
                     return undefined;
                 }
             }
