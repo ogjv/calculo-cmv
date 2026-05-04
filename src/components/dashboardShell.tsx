@@ -5,7 +5,6 @@ import type { AppSection } from "../hooks/useSessionWorkspace";
 import type { AuthSession } from "../types";
 import type { AccountPanelCopy, HeaderCopy, NavigationItem, RestaurantNavigatorCopy, ThemeLabels } from "../presentation/contracts";
 import { AccountSettingsPanel, RestaurantManagementPanel } from "./accountPanels";
-import { TeamPermissionsPanel } from "./teamPanels";
 import { DreAnalysisPanel } from "./drePanels";
 import { DashboardPanels } from "./cmvPanels";
 
@@ -21,9 +20,6 @@ const LazyDreAnalysisPanel = lazy(() =>
 const LazyDashboardPanels = lazy(() =>
   import("./cmvPanels").then((module) => ({ default: module.DashboardPanels }))
 );
-const LazyTeamPermissionsPanel = lazy(() =>
-  import("./teamPanels").then((module) => ({ default: module.TeamPermissionsPanel }))
-);
 
 type DashboardShellProps = {
   locale: "pt" | "es" | "en";
@@ -37,19 +33,16 @@ type DashboardShellProps = {
   themeLabels: ThemeLabels;
   accountPanelCopy: AccountPanelCopy;
   drePanelCopy: Parameters<typeof DreAnalysisPanel>[0]["copy"];
-  teamPanelCopy: Parameters<typeof TeamPermissionsPanel>[0]["copy"];
   restaurantNavigatorCopy: RestaurantNavigatorCopy;
   dreAnalysisProps: Omit<Parameters<typeof DreAnalysisPanel>[0], "canManageData" | "copy">;
   dashboardPanelProps: Parameters<typeof DashboardPanels>[0];
   restaurantManagementProps: Omit<Parameters<typeof RestaurantManagementPanel>[0], "session" | "copy" | "onActivateRestaurant">;
-  teamManagementProps: Omit<Parameters<typeof TeamPermissionsPanel>[0], "session" | "copy" | "canManageTeam">;
   accountSettingsProps: Omit<
     Parameters<typeof AccountSettingsPanel>[0],
     "session" | "copy" | "onClose" | "onActivateRestaurant" | "canManageRestaurants"
   >;
   canManageRestaurants: boolean;
   canManageOperationalData: boolean;
-  canManageTeam: boolean;
   onChangeLocale: (locale: "pt" | "es" | "en") => void;
   onChangeTheme: (theme: "light" | "dark") => void;
   onChangeSection: (section: AppSection) => void;
@@ -91,16 +84,13 @@ export function DashboardShell({
   themeLabels,
   accountPanelCopy,
   drePanelCopy,
-  teamPanelCopy,
   restaurantNavigatorCopy,
   dreAnalysisProps,
   dashboardPanelProps,
   restaurantManagementProps,
-  teamManagementProps,
   accountSettingsProps,
   canManageRestaurants,
   canManageOperationalData,
-  canManageTeam,
   onChangeLocale,
   onChangeTheme,
   onChangeSection,
@@ -191,17 +181,6 @@ export function DashboardShell({
                 copy={accountPanelCopy}
                 onActivateRestaurant={onActivateRestaurant}
                 {...restaurantManagementProps}
-              />
-            </Suspense>
-          ) : null}
-
-          {currentSection === "team" && canManageTeam ? (
-            <Suspense fallback={fallbackCard(processingLabel)}>
-              <LazyTeamPermissionsPanel
-                session={effectiveSession}
-                canManageTeam={Boolean(canManageTeam)}
-                copy={teamPanelCopy}
-                {...teamManagementProps}
               />
             </Suspense>
           ) : null}

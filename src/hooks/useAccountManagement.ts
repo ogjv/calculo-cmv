@@ -27,7 +27,7 @@ type UseAccountManagementOptions = {
   effectiveSession: AuthSession | null;
   session: AuthSession | null;
   setSession: Dispatch<SetStateAction<AuthSession | null>>;
-  refreshTeamData: (session: AuthSession) => Promise<void>;
+  refreshTeamData?: (session: AuthSession) => Promise<void>;
   profileUpdatedMessage: string;
   deleteConfirmMessage: string;
 };
@@ -132,7 +132,7 @@ export function useAccountManagement({
           : updateLocalUserProfile(session, userProfileForm);
 
       setSession(nextSession);
-      if (nextSession.authMode === "supabase") {
+      if (nextSession.authMode === "supabase" && refreshTeamData) {
         await refreshTeamData(nextSession);
       }
       setAccountMessage(profileUpdatedMessage);

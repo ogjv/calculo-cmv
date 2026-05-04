@@ -55,13 +55,7 @@ describe("useAppPresentation", () => {
 
     expect(presentation.canManageRestaurants).toBe(true);
     expect(presentation.canManageOperationalData).toBe(true);
-    expect(presentation.canManageTeam).toBe(true);
-    expect(presentation.navigationItems.map((item) => item.key)).toEqual([
-      "dashboard",
-      "dre",
-      "restaurants",
-      "team"
-    ]);
+    expect(presentation.navigationItems.map((item) => item.key)).toEqual(["dashboard", "dre", "restaurants"]);
     expect(presentation.authScreenCopy.fullNameHint).toBe(translations.pt.authFullNameHint);
     expect(presentation.dashboardHeaderCopy.title).toBe("Vista Mar");
   });
@@ -75,7 +69,6 @@ describe("useAppPresentation", () => {
 
     expect(presentation.canManageRestaurants).toBe(false);
     expect(presentation.canManageOperationalData).toBe(false);
-    expect(presentation.canManageTeam).toBe(false);
     expect(presentation.navigationItems.map((item) => item.key)).toEqual(["dashboard", "dre"]);
     expect(presentation.dashboardHeaderCopy.eyebrow).toBe(translations.pt.navDashboard);
     expect(presentation.dashboardHeaderCopy.text).toContain("Acompanhe os indicadores");

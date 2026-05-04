@@ -1,5 +1,4 @@
 import type { DrePanelCopy } from "../components/drePanels";
-import type { TeamPanelCopy } from "../components/teamPanels";
 import type { AppSection } from "../hooks/useSessionWorkspace";
 
 export type ThemeLabels = {
@@ -77,11 +76,9 @@ export type AppPresentationModel = {
   authScreenCopy: AuthScreenCopy;
   accountPanelCopy: AccountPanelCopy;
   drePanelCopy: DrePanelCopy;
-  teamPanelCopy: TeamPanelCopy;
   dashboardHeaderCopy: HeaderCopy;
   themeLabels: ThemeLabels;
   navigationItems: NavigationItem[];
   canManageRestaurants: boolean;
   canManageOperationalData: boolean;
-  canManageTeam: boolean;
 };

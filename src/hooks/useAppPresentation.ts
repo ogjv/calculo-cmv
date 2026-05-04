@@ -1,8 +1,8 @@
+import type { AuthSession } from "../types";
 import type { DrePanelCopy } from "../components/drePanels";
 import type { TranslationKey } from "../i18n";
 import type { AppPresentationModel, HeaderCopy } from "../presentation/contracts";
 import type { AppSection } from "./useSessionWorkspace";
-import type { AuthSession } from "../types";
 
 type Translate = (key: TranslationKey) => unknown;
 
@@ -22,7 +22,6 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     effectiveSession?.globalRole === "owner" ||
     effectiveSession?.activeAccountRole === "owner" ||
     activeRole === "owner";
-  const canManageTeam = effectiveSession?.globalRole === "owner";
 
   const themeLabels = {
     label: String(t("theme")),
@@ -33,8 +32,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
   const navigationItems = [
     { key: "dashboard" as AppSection, label: String(t("navDashboard")) },
     { key: "dre" as AppSection, label: String(t("navDre")) },
-    ...(canManageRestaurants ? [{ key: "restaurants" as AppSection, label: String(t("navRestaurants")) }] : []),
-    ...(canManageTeam ? [{ key: "team" as AppSection, label: String(t("navTeam")) }] : [])
+    ...(canManageRestaurants ? [{ key: "restaurants" as AppSection, label: String(t("navRestaurants")) }] : [])
   ];
 
   const authScreenCopy = {
@@ -137,51 +135,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     total: String(t("total"))
   };
 
-  const teamPanelCopy = {
-    processing: String(t("processing")),
-    navTeam: String(t("navTeam")),
-    teamTitle: String(t("teamTitle")),
-    teamText: String(t("teamText")),
-    teamAccessModel: String(t("teamAccessModel")),
-    teamAccessModelText: String(t("teamAccessModelText")),
-    teamMembersTotal: String(t("teamMembersTotal")),
-    teamAccountRole: String(t("teamAccountRole")),
-    teamAdminsTotal: String(t("teamAdminsTotal")),
-    teamUsersTotal: String(t("teamUsersTotal")),
-    teamRestaurantsTotal: String(t("teamRestaurantsTotal")),
-    authRestaurants: String(t("authRestaurants")),
-    teamEmpty: String(t("teamEmpty")),
-    teamRoleOwner: String(t("teamRoleOwner")),
-    teamRoleUser: String(t("teamRoleUser")),
-    teamRoleViewer: String(t("teamRoleViewer")),
-    teamRestaurantAccess: String(t("teamRestaurantAccess")),
-    teamNoRestaurants: String(t("teamNoRestaurants")),
-    teamManageMember: String(t("teamManageMember")),
-    teamManageMemberText: String(t("teamManageMemberText")),
-    teamInviteFeatures: String(t("teamInviteFeatures")),
-    teamFeatureDashboard: String(t("teamFeatureDashboard")),
-    teamInviteRestaurants: String(t("teamInviteRestaurants")),
-    teamSaveMember: String(t("teamSaveMember")),
-    teamRemoveMember: String(t("teamRemoveMember")),
-    teamMemberImmutable: String(t("teamMemberImmutable")),
-    teamMemberUpdated: String(t("teamMemberUpdated")),
-    teamMemberRemoved: String(t("teamMemberRemoved")),
-    teamYou: String(t("teamYou")),
-    teamInviteTitle: String(t("teamInviteTitle")),
-    teamInviteText: String(t("teamInviteText")),
-    teamInviteEmail: String(t("teamInviteEmail")),
-    teamInviteHint: String(t("teamInviteHint")),
-    teamInviteAction: String(t("teamInviteAction")),
-    teamInvitePending: String(t("teamInvitePending")),
-    teamInviteEmpty: String(t("teamInviteEmpty")),
-    teamInviteRevoke: String(t("teamInviteRevoke")),
-    ownerOnlyMessage: "A gestão de equipe fica disponível apenas para o owner.",
-    featureRequired: "Selecione ao menos uma funcionalidade.",
-    selectedLabel: "Selecionado",
-    noAccessLabel: "Sem acesso"
-  };
-
-  const copyBySection: Record<Exclude<AppSection, "account">, HeaderCopy> = {
+  const copyBySection: Record<Exclude<AppSection, "account" | "team">, HeaderCopy> = {
     dashboard: {
       eyebrow: String(t("navDashboard")),
       title: effectiveSession?.activeRestaurantName ?? effectiveSession?.restaurantName ?? String(t("navDashboard")),
@@ -199,27 +153,20 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
       eyebrow: String(t("navRestaurants")),
       title: String(t("authManageRestaurants")),
       text: String(t("authManageRestaurantsText"))
-    },
-    team: {
-      eyebrow: String(t("navTeam")),
-      title: String(t("teamTitle")),
-      text: String(t("teamText"))
     }
   };
 
-  const activeHeaderSection = currentSection === "account" ? "dashboard" : currentSection;
+  const activeHeaderSection = currentSection === "account" || currentSection === "team" ? "dashboard" : currentSection;
   const dashboardHeaderCopy = copyBySection[activeHeaderSection];
 
   return {
     authScreenCopy,
     accountPanelCopy,
     drePanelCopy,
-    teamPanelCopy,
     dashboardHeaderCopy,
     themeLabels,
     navigationItems,
     canManageRestaurants,
-    canManageOperationalData,
-    canManageTeam
+    canManageOperationalData
   };
 }

@@ -6,7 +6,6 @@ import { useAccountManagement } from "./hooks/useAccountManagement";
 import { useAppPresentation } from "./hooks/useAppPresentation";
 import { useOperationalData } from "./hooks/useOperationalData";
 import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
-import { useTeamManagement } from "./hooks/useTeamManagement";
 import { useThemePreference } from "./hooks/useThemePreference";
 
 const TOTAL_VIEW = "__TOTAL__";
@@ -83,33 +82,12 @@ export default function App() {
     authScreenCopy,
     accountPanelCopy,
     drePanelCopy,
-    teamPanelCopy,
     dashboardHeaderCopy,
     themeLabels,
     navigationItems,
     canManageRestaurants,
-    canManageOperationalData,
-    canManageTeam
+    canManageOperationalData
   } = useAppPresentation({ currentSection, effectiveSession, t });
-
-  const {
-    accountMembers,
-    accountMembersLoading,
-    accountInvitations,
-    accountInvitationsLoading,
-    inviteBusy,
-    inviteMessage,
-    inviteError,
-    inviteForm,
-    setInviteForm,
-    handleInviteRestaurantToggle,
-    handleInviteFeatureToggle,
-    handleCreateInvitation,
-    handleRevokeInvitation,
-    handleUpdateMember,
-    handleRemoveMember,
-    refreshTeamData
-  } = useTeamManagement(effectiveSession, canManageTeam);
 
   const {
     accountBusy,
@@ -135,7 +113,6 @@ export default function App() {
     effectiveSession,
     session,
     setSession,
-    refreshTeamData,
     profileUpdatedMessage: String(t("authProfileUpdated")),
     deleteConfirmMessage: String(t("authDeleteConfirm"))
   });
@@ -147,10 +124,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if ((currentSection === "restaurants" && !canManageRestaurants) || (currentSection === "team" && !canManageTeam)) {
+    if (currentSection === "team" || (currentSection === "restaurants" && !canManageRestaurants)) {
       setCurrentSection("dashboard");
     }
-  }, [canManageRestaurants, canManageTeam, currentSection]);
+  }, [canManageRestaurants, currentSection]);
 
   if (authLoading || authHydrating || !effectiveSession) {
     return (
@@ -186,7 +163,6 @@ export default function App() {
         themeLabels={themeLabels}
         accountPanelCopy={accountPanelCopy}
         drePanelCopy={drePanelCopy}
-        teamPanelCopy={teamPanelCopy}
         restaurantNavigatorCopy={{
           eyebrow: String(t("authRestaurantNavigator")),
           title: String(t("authRestaurantNavigator")),
@@ -231,23 +207,6 @@ export default function App() {
           onCreateRestaurant: handleCreateRestaurant,
           onDeleteRestaurant: handleDeleteRestaurant
         }}
-        teamManagementProps={{
-          members: accountMembers,
-          invitations: accountInvitations,
-          loading: accountMembersLoading,
-          invitationsLoading: accountInvitationsLoading,
-          inviteForm,
-          inviteBusy,
-          inviteMessage,
-          inviteError,
-          onInviteEmailChange: (value) => setInviteForm((current) => ({ ...current, email: value })),
-          onInviteFeatureToggle: handleInviteFeatureToggle,
-          onInviteRestaurantToggle: handleInviteRestaurantToggle,
-          onCreateInvitation: () => void handleCreateInvitation(),
-          onRevokeInvitation: (invitationId) => void handleRevokeInvitation(invitationId),
-          onUpdateMember: handleUpdateMember,
-          onRemoveMember: handleRemoveMember
-        }}
         accountSettingsProps={{
           userForm: userProfileForm,
           restaurantForm: restaurantProfileForm,
@@ -268,7 +227,6 @@ export default function App() {
         }}
         canManageRestaurants={canManageRestaurants}
         canManageOperationalData={canManageOperationalData}
-        canManageTeam={canManageTeam}
         onChangeLocale={setLocale}
         onChangeTheme={setTheme}
         onChangeSection={setCurrentSection}

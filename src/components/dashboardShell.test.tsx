@@ -103,7 +103,6 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
         themeLabels={presentation.themeLabels}
         accountPanelCopy={presentation.accountPanelCopy}
         drePanelCopy={presentation.drePanelCopy}
-        teamPanelCopy={presentation.teamPanelCopy}
         restaurantNavigatorCopy={{
           eyebrow: translations.pt.authRestaurantNavigator,
           title: translations.pt.authRestaurantNavigator,
@@ -141,21 +140,6 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
           onCreateRestaurant: () => undefined,
           onDeleteRestaurant: () => undefined
         }}
-        teamManagementProps={{
-          members: [],
-          invitations: [],
-          loading: false,
-          invitationsLoading: false,
-          inviteForm: { email: "", featureIds: [], restaurantIds: [] },
-          inviteBusy: false,
-          onInviteEmailChange: () => undefined,
-          onInviteFeatureToggle: () => undefined,
-          onInviteRestaurantToggle: () => undefined,
-          onCreateInvitation: () => undefined,
-          onRevokeInvitation: () => undefined,
-          onUpdateMember: async () => undefined,
-          onRemoveMember: async () => undefined
-        }}
         accountSettingsProps={{
           userForm: { fullName: "Marcos" },
           restaurantForm: { restaurantName: "Vista Mar" },
@@ -174,7 +158,6 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
         }}
         canManageRestaurants={presentation.canManageRestaurants}
         canManageOperationalData={presentation.canManageOperationalData}
-        canManageTeam={presentation.canManageTeam}
         onChangeLocale={() => undefined}
         onChangeTheme={() => undefined}
         onChangeSection={onChangeSection}
