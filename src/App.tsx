@@ -4,9 +4,9 @@ import { DashboardShell } from "./components/dashboardShell";
 import { LocaleContext, type Locale, translations, withLocaleFallback } from "./i18n";
 import { useAccountManagement } from "./hooks/useAccountManagement";
 import { useAppPresentation } from "./hooks/useAppPresentation";
+import { useOwnerInvitations } from "./hooks/useOwnerInvitations";
 import { useOperationalData } from "./hooks/useOperationalData";
 import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
-import { useTeamManagement } from "./hooks/useTeamManagement";
 import { useThemePreference } from "./hooks/useThemePreference";
 
 const TOTAL_VIEW = "__TOTAL__";
@@ -102,8 +102,8 @@ export default function App() {
     handleInviteRestaurantToggle,
     handleCreateInvitation,
     handleRevokeInvitation,
-    refreshTeamData
-  } = useTeamManagement(effectiveSession, canManageOwnerInvites);
+    refreshOwnerInvitationData
+  } = useOwnerInvitations(effectiveSession, canManageOwnerInvites);
 
   const {
     accountBusy,
@@ -129,7 +129,7 @@ export default function App() {
     effectiveSession,
     session,
     setSession,
-    refreshTeamData,
+    refreshOwnerInvitationData,
     profileUpdatedMessage: String(t("authProfileUpdated")),
     deleteConfirmMessage: String(t("authDeleteConfirm"))
   });

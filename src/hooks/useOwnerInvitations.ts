@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import type { AccountInvitation, AccountMember, AuthSession } from "../types";
-import { createAccountInvitation, loadAccountInvitations, loadAccountMembers, removeAccountMemberAccess, revokeAccountInvitation, updateAccountMemberAccess } from "../utils/cloudAuth";
+import {
+  createAccountInvitation,
+  loadAccountInvitations,
+  loadAccountMembers,
+  removeAccountMemberAccess,
+  revokeAccountInvitation,
+  updateAccountMemberAccess
+} from "../utils/cloudAuth";
 
-export type InviteFormState = {
+export type OwnerInvitationFormState = {
   email: string;
   featureIds: string[];
   restaurantIds: string[];
@@ -10,7 +17,7 @@ export type InviteFormState = {
 
 const DEFAULT_INVITE_FEATURE = "cmv_dashboard";
 
-export function useTeamManagement(effectiveSession: AuthSession | null, canManageTeam: boolean) {
+export function useOwnerInvitations(effectiveSession: AuthSession | null, canManageOwnerInvites: boolean) {
   const [accountMembers, setAccountMembers] = useState<AccountMember[]>([]);
   const [accountMembersLoading, setAccountMembersLoading] = useState(false);
   const [accountInvitations, setAccountInvitations] = useState<AccountInvitation[]>([]);
@@ -18,7 +25,7 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<string>();
   const [inviteError, setInviteError] = useState<string>();
-  const [inviteForm, setInviteForm] = useState<InviteFormState>({
+  const [inviteForm, setInviteForm] = useState<OwnerInvitationFormState>({
     email: "",
     featureIds: [DEFAULT_INVITE_FEATURE],
     restaurantIds: []
@@ -45,7 +52,12 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
   }, [effectiveSession]);
 
   useEffect(() => {
-    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
+    if (
+      !effectiveSession ||
+      !canManageOwnerInvites ||
+      effectiveSession.authMode !== "supabase" ||
+      !effectiveSession.activeAccountId
+    ) {
       setAccountMembers([]);
       setAccountMembersLoading(false);
       setAccountInvitations([]);
@@ -94,9 +106,9 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
     return () => {
       mounted = false;
     };
-  }, [canManageTeam, effectiveSession]);
+  }, [canManageOwnerInvites, effectiveSession]);
 
-  const refreshTeamData = async (currentSession: AuthSession) => {
+  const refreshOwnerInvitationData = async (currentSession: AuthSession) => {
     if (currentSession.globalRole !== "owner" || currentSession.authMode !== "supabase" || !currentSession.activeAccountId) {
       setAccountMembers([]);
       setAccountInvitations([]);
@@ -143,7 +155,7 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
     }
 
     if (!effectiveSession.activeAccountId) {
-      setInviteError("Não foi possível identificar a conta ativa deste usuário. Atualize o vínculo da conta no banco antes de enviar convites.");
+      setInviteError("NÃ£o foi possÃ­vel identificar a conta ativa deste usuÃ¡rio. Atualize o vÃ­nculo da conta no banco antes de enviar convites.");
       return;
     }
 
@@ -162,7 +174,7 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
         restaurantRole: "viewer",
         restaurantIds: inviteForm.restaurantIds
       });
-      await refreshTeamData(effectiveSession);
+      await refreshOwnerInvitationData(effectiveSession);
       setInviteMessage("Convite criado com sucesso.");
       setInviteForm({
         email: "",
@@ -170,7 +182,7 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
         restaurantIds: (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
       });
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "Não foi possível criar o convite.");
+      setInviteError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel criar o convite.");
     } finally {
       setInviteBusy(false);
     }
@@ -186,10 +198,10 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
       setInviteError(undefined);
       setInviteMessage(undefined);
       await revokeAccountInvitation(invitationId);
-      await refreshTeamData(effectiveSession);
+      await refreshOwnerInvitationData(effectiveSession);
       setInviteMessage("Convite revogado com sucesso.");
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "Não foi possível revogar o convite.");
+      setInviteError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel revogar o convite.");
     } finally {
       setInviteBusy(false);
     }
@@ -206,8 +218,13 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
     restaurantRole: "viewer";
     restaurantIds: string[];
   }) => {
-    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
-      throw new Error("Não foi possível identificar a conta ativa.");
+    if (
+      !effectiveSession ||
+      !canManageOwnerInvites ||
+      effectiveSession.authMode !== "supabase" ||
+      !effectiveSession.activeAccountId
+    ) {
+      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
     }
 
     const targetAccountId = member.accountId || effectiveSession.activeAccountId;
@@ -218,12 +235,17 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
       restaurantRole,
       restaurantIds
     });
-    await refreshTeamData(effectiveSession);
+    await refreshOwnerInvitationData(effectiveSession);
   };
 
   const handleRemoveMember = async (member: AccountMember) => {
-    if (!effectiveSession || !canManageTeam || effectiveSession.authMode !== "supabase" || !effectiveSession.activeAccountId) {
-      throw new Error("Não foi possível identificar a conta ativa.");
+    if (
+      !effectiveSession ||
+      !canManageOwnerInvites ||
+      effectiveSession.authMode !== "supabase" ||
+      !effectiveSession.activeAccountId
+    ) {
+      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
     }
 
     const targetAccountId = member.accountId || effectiveSession.activeAccountId;
@@ -231,7 +253,7 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
       accountId: targetAccountId,
       userId: member.userId
     });
-    await refreshTeamData(effectiveSession);
+    await refreshOwnerInvitationData(effectiveSession);
   };
 
   return {
@@ -250,6 +272,6 @@ export function useTeamManagement(effectiveSession: AuthSession | null, canManag
     handleRevokeInvitation,
     handleUpdateMember,
     handleRemoveMember,
-    refreshTeamData
+    refreshOwnerInvitationData
   };
 }
