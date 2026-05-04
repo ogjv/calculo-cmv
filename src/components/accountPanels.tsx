@@ -1,4 +1,4 @@
-import type { AuthSession } from "../types";
+import type { AccountInvitation, AuthSession } from "../types";
 import type { AccountPanelCopy } from "../presentation/contracts";
 import { ProfileAvatar, UserAvatar } from "./appChrome";
 
@@ -33,6 +33,20 @@ type AccountSettingsPanelProps = {
   onDeleteAccount: () => void;
   onActivateRestaurant: (restaurantId: string) => void;
   canManageRestaurants: boolean;
+  canManageOwnerInvites: boolean;
+  inviteForm: {
+    email: string;
+    restaurantIds: string[];
+  };
+  inviteBusy: boolean;
+  inviteMessage?: string;
+  inviteError?: string;
+  invitations: AccountInvitation[];
+  invitationsLoading: boolean;
+  onInviteEmailChange: (value: string) => void;
+  onInviteRestaurantToggle: (restaurantId: string) => void;
+  onCreateInvitation: () => void;
+  onRevokeInvitation: (invitationId: string) => void;
   copy: AccountPanelCopy;
 };
 
@@ -74,6 +88,17 @@ export function AccountSettingsPanel({
   onDeleteAccount,
   onActivateRestaurant,
   canManageRestaurants,
+  canManageOwnerInvites,
+  inviteForm,
+  inviteBusy,
+  inviteMessage,
+  inviteError,
+  invitations,
+  invitationsLoading,
+  onInviteEmailChange,
+  onInviteRestaurantToggle,
+  onCreateInvitation,
+  onRevokeInvitation,
   copy
 }: AccountSettingsPanelProps) {
   return (
@@ -277,6 +302,106 @@ export function AccountSettingsPanel({
                     </button>
                   </div>
                 </div>
+              </section>
+            </div>
+          </section>
+        ) : null}
+
+        {canManageOwnerInvites ? (
+          <section className="account-restaurant-section">
+            <div className="section-head compact">
+              <div>
+                <span className="eyebrow">{copy.inviteTitle}</span>
+                <h3>{copy.inviteTitle}</h3>
+                <p>{copy.inviteText}</p>
+              </div>
+            </div>
+
+            <div className="account-panel-grid">
+              <section className="account-form-card">
+                <label className="auth-field">
+                  <span>{copy.inviteEmail}</span>
+                  <input
+                    value={inviteForm.email}
+                    onChange={(event) => onInviteEmailChange(event.target.value)}
+                    placeholder="nome@empresa.com"
+                  />
+                </label>
+
+                <div className="team-restaurant-selector">
+                  <span>{copy.inviteRestaurants}</span>
+                  <div className="team-restaurant-chips">
+                    {(session.memberships ?? []).map((membership) => {
+                      const isSelected = inviteForm.restaurantIds.includes(membership.restaurantId);
+
+                      return (
+                        <button
+                          key={`account-invite-${membership.restaurantId}`}
+                          type="button"
+                          className={`team-restaurant-chip selectable ${isSelected ? "selected" : ""}`}
+                          onClick={() => onInviteRestaurantToggle(membership.restaurantId)}
+                          aria-pressed={isSelected}
+                        >
+                          <strong>{membership.restaurantName}</strong>
+                          <small>{copy.inviteAccessLabel}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <p className="message">{copy.inviteHint}</p>
+                {inviteError ? <p className="message error">{inviteError}</p> : null}
+                {inviteMessage ? <p className="message success">{inviteMessage}</p> : null}
+
+                <div className="panel-actions">
+                  <button type="button" className="primary-button" onClick={onCreateInvitation} disabled={inviteBusy}>
+                    {inviteBusy ? copy.processing : copy.inviteAction}
+                  </button>
+                </div>
+              </section>
+
+              <section className="account-form-card">
+                <div className="section-head compact">
+                  <div>
+                    <span className="eyebrow">{copy.invitePending}</span>
+                    <h3>{copy.invitePending}</h3>
+                    <p>{copy.inviteHint}</p>
+                  </div>
+                </div>
+
+                {invitationsLoading ? <p className="message">{copy.processing}</p> : null}
+                {!invitationsLoading && invitations.length === 0 ? <p className="message">{copy.inviteEmpty}</p> : null}
+
+                {!invitationsLoading && invitations.length > 0 ? (
+                  <div className="restaurant-member-list">
+                    {invitations.map((invitation) => (
+                      <article key={invitation.invitationId} className="restaurant-member-card">
+                        <div>
+                          <strong>{invitation.email}</strong>
+                          <p>{copy.inviteAccessLabel}</p>
+                        </div>
+                        <div className="restaurant-member-actions">
+                          <button
+                            type="button"
+                            className="ghost-button danger-button"
+                            onClick={() => onRevokeInvitation(invitation.invitationId)}
+                            disabled={inviteBusy}
+                          >
+                            {copy.inviteRevoke}
+                          </button>
+                        </div>
+                        <div className="team-restaurant-chips">
+                          {invitation.restaurants.map((restaurant) => (
+                            <span key={`${invitation.invitationId}-${restaurant.restaurantId}`} className="team-restaurant-chip">
+                              <strong>{restaurant.restaurantName}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
               </section>
             </div>
           </section>

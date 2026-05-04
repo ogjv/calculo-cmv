@@ -6,6 +6,7 @@ import { useAccountManagement } from "./hooks/useAccountManagement";
 import { useAppPresentation } from "./hooks/useAppPresentation";
 import { useOperationalData } from "./hooks/useOperationalData";
 import { type AppSection as InternalSection, useSessionWorkspace } from "./hooks/useSessionWorkspace";
+import { useTeamManagement } from "./hooks/useTeamManagement";
 import { useThemePreference } from "./hooks/useThemePreference";
 
 const TOTAL_VIEW = "__TOTAL__";
@@ -88,6 +89,21 @@ export default function App() {
     canManageRestaurants,
     canManageOperationalData
   } = useAppPresentation({ currentSection, effectiveSession, t });
+  const canManageOwnerInvites = effectiveSession?.globalRole === "owner" && effectiveSession.authMode === "supabase";
+
+  const {
+    accountInvitations,
+    accountInvitationsLoading,
+    inviteBusy,
+    inviteMessage,
+    inviteError,
+    inviteForm,
+    setInviteForm,
+    handleInviteRestaurantToggle,
+    handleCreateInvitation,
+    handleRevokeInvitation,
+    refreshTeamData
+  } = useTeamManagement(effectiveSession, canManageOwnerInvites);
 
   const {
     accountBusy,
@@ -113,6 +129,7 @@ export default function App() {
     effectiveSession,
     session,
     setSession,
+    refreshTeamData,
     profileUpdatedMessage: String(t("authProfileUpdated")),
     deleteConfirmMessage: String(t("authDeleteConfirm"))
   });
@@ -223,7 +240,21 @@ export default function App() {
           onSaveRestaurant: handleSaveRestaurantAccount,
           onCreateRestaurant: handleCreateRestaurant,
           onDeleteRestaurant: handleDeleteRestaurant,
-          onDeleteAccount: handleDeleteAccount
+          onDeleteAccount: handleDeleteAccount,
+          canManageOwnerInvites,
+          inviteForm: {
+            email: inviteForm.email,
+            restaurantIds: inviteForm.restaurantIds
+          },
+          inviteBusy,
+          inviteMessage,
+          inviteError,
+          invitations: accountInvitations,
+          invitationsLoading: accountInvitationsLoading,
+          onInviteEmailChange: (value) => setInviteForm((current) => ({ ...current, email: value })),
+          onInviteRestaurantToggle: handleInviteRestaurantToggle,
+          onCreateInvitation: () => void handleCreateInvitation(),
+          onRevokeInvitation: (invitationId) => void handleRevokeInvitation(invitationId)
         }}
         canManageRestaurants={canManageRestaurants}
         canManageOperationalData={canManageOperationalData}

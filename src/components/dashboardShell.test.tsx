@@ -145,6 +145,11 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
           restaurantForm: { restaurantName: "Vista Mar" },
           newRestaurantName: "",
           busy: false,
+          canManageOwnerInvites: false,
+          inviteForm: { email: "", restaurantIds: [] },
+          inviteBusy: false,
+          invitations: [],
+          invitationsLoading: false,
           onUserNameChange: () => undefined,
           onRestaurantNameChange: () => undefined,
           onUserPhotoSelect: () => undefined,
@@ -154,7 +159,11 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
           onSaveRestaurant: () => undefined,
           onCreateRestaurant: () => undefined,
           onDeleteRestaurant: () => undefined,
-          onDeleteAccount: () => undefined
+          onDeleteAccount: () => undefined,
+          onInviteEmailChange: () => undefined,
+          onInviteRestaurantToggle: () => undefined,
+          onCreateInvitation: () => undefined,
+          onRevokeInvitation: () => undefined
         }}
         canManageRestaurants={presentation.canManageRestaurants}
         canManageOperationalData={presentation.canManageOperationalData}

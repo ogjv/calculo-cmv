@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { AccountInvitation, AccountMember, AuthSession } from "../types";
-import { DEFAULT_INVITE_FEATURE } from "../components/teamPanels";
 import { createAccountInvitation, loadAccountInvitations, loadAccountMembers, removeAccountMemberAccess, revokeAccountInvitation, updateAccountMemberAccess } from "../utils/cloudAuth";
 
 export type InviteFormState = {
@@ -8,6 +7,8 @@ export type InviteFormState = {
   featureIds: string[];
   restaurantIds: string[];
 };
+
+const DEFAULT_INVITE_FEATURE = "cmv_dashboard";
 
 export function useTeamManagement(effectiveSession: AuthSession | null, canManageTeam: boolean) {
   const [accountMembers, setAccountMembers] = useState<AccountMember[]>([]);

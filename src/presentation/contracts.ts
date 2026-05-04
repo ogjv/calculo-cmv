@@ -49,6 +49,16 @@ export type AccountPanelCopy = {
   createRestaurant: string;
   createRestaurantText: string;
   createRestaurantAction: string;
+  inviteTitle: string;
+  inviteText: string;
+  inviteEmail: string;
+  inviteHint: string;
+  inviteAction: string;
+  invitePending: string;
+  inviteEmpty: string;
+  inviteRevoke: string;
+  inviteRestaurants: string;
+  inviteAccessLabel: string;
   dangerZone: string;
   deleteAccount: string;
   deleteHint: string;
