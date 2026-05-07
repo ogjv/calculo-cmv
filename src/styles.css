@@ -4153,6 +4153,19 @@ input {
   color: var(--muted);
 }
 
+.owner-invite-section .section-head.compact p,
+.owner-invite-card .section-head.compact p {
+  max-width: 52ch;
+}
+
+.owner-invite-card .auth-field input {
+  min-height: 48px;
+}
+
+.owner-invite-list-card .restaurant-member-list {
+  gap: 12px;
+}
+
 .team-restaurant-chips {
   display: flex;
   flex-wrap: wrap;
@@ -5136,6 +5149,74 @@ th {
   .dashboard-content,
   .content {
     min-width: 0;
+  }
+
+  .owner-invite-section {
+    gap: 14px;
+  }
+
+  .owner-invite-grid {
+    gap: 12px;
+  }
+
+  .owner-invite-card {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .owner-invite-card .section-head.compact {
+    gap: 6px;
+  }
+
+  .owner-invite-card .section-head.compact h3 {
+    font-size: 1rem;
+  }
+
+  .owner-invite-card .section-head.compact p,
+  .owner-invite-card .message,
+  .owner-invite-section .team-restaurant-selector > span,
+  .owner-invite-section .team-restaurant-chip small {
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .owner-invite-section .auth-field span {
+    font-size: 0.84rem;
+  }
+
+  .owner-invite-section .auth-field input {
+    min-height: 44px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+
+  .owner-invite-section .team-restaurant-chips {
+    gap: 8px;
+  }
+
+  .owner-invite-section .team-restaurant-chip {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 12px;
+  }
+
+  .owner-invite-section .team-restaurant-chip strong,
+  .owner-invite-list-card .restaurant-member-card strong {
+    font-size: 0.92rem;
+  }
+
+  .owner-invite-list-card .restaurant-member-card {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .owner-invite-list-card .restaurant-member-actions {
+    width: 100%;
+  }
+
+  .owner-invite-list-card .restaurant-member-actions .ghost-button {
+    width: 100%;
+    justify-content: center;
   }
 
   .dashboard-shell-topbar {

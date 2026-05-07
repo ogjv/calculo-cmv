@@ -308,7 +308,7 @@ export function AccountSettingsPanel({
         ) : null}
 
         {canManageOwnerInvites ? (
-          <section className="account-restaurant-section">
+          <section className="account-restaurant-section owner-invite-section">
             <div className="section-head compact">
               <div>
                 <span className="eyebrow">{copy.ownerInviteTitle}</span>
@@ -317,8 +317,8 @@ export function AccountSettingsPanel({
               </div>
             </div>
 
-            <div className="account-panel-grid">
-              <section className="account-form-card">
+            <div className="account-panel-grid owner-invite-grid">
+              <section className="account-form-card owner-invite-card">
                 <label className="auth-field">
                   <span>{copy.ownerInviteEmail}</span>
                   <input
@@ -361,7 +361,7 @@ export function AccountSettingsPanel({
                 </div>
               </section>
 
-              <section className="account-form-card">
+              <section className="account-form-card owner-invite-card owner-invite-list-card">
                 <div className="section-head compact">
                   <div>
                     <span className="eyebrow">{copy.ownerInvitePending}</span>
