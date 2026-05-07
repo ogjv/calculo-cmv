@@ -87,11 +87,13 @@ export default function App() {
     themeLabels,
     navigationItems,
     canManageRestaurants,
-    canManageOperationalData
+    canManageOperationalData,
+    canManageUserManagement
   } = useAppPresentation({ currentSection, effectiveSession, t });
-  const canManageOwnerInvites = effectiveSession?.globalRole === "owner" && effectiveSession.authMode === "supabase";
 
   const {
+    accountMembers,
+    accountMembersLoading,
     accountInvitations,
     accountInvitationsLoading,
     inviteBusy,
@@ -102,8 +104,10 @@ export default function App() {
     handleInviteRestaurantToggle,
     handleCreateInvitation,
     handleRevokeInvitation,
+    handleUpdateMember,
+    handleRemoveMember,
     refreshOwnerInvitationData
-  } = useOwnerInvitations(effectiveSession, canManageOwnerInvites);
+  } = useOwnerInvitations(effectiveSession, canManageUserManagement);
 
   const {
     accountBusy,
@@ -144,7 +148,10 @@ export default function App() {
     if (currentSection === "restaurants" && !canManageRestaurants) {
       setCurrentSection("dashboard");
     }
-  }, [canManageRestaurants, currentSection]);
+    if (currentSection === "user-management" && !canManageUserManagement) {
+      setCurrentSection("dashboard");
+    }
+  }, [canManageRestaurants, canManageUserManagement, currentSection]);
 
   if (authLoading || authHydrating || !effectiveSession) {
     return (
@@ -226,22 +233,17 @@ export default function App() {
         }}
         accountSettingsProps={{
           userForm: userProfileForm,
-          restaurantForm: restaurantProfileForm,
-          newRestaurantName,
           busy: accountBusy,
           message: accountMessage,
           error: accountError,
           onUserNameChange: (value) => setUserProfileForm((current) => ({ ...current, fullName: value })),
-          onRestaurantNameChange: handleRestaurantNameChange,
           onUserPhotoSelect: handleUserPhotoSelect,
-          onRestaurantPhotoSelect: handleRestaurantPhotoSelect,
-          onCreateRestaurantNameChange: setNewRestaurantName,
           onSaveUser: handleSaveUserAccount,
-          onSaveRestaurant: handleSaveRestaurantAccount,
-          onCreateRestaurant: handleCreateRestaurant,
-          onDeleteRestaurant: handleDeleteRestaurant,
-          onDeleteAccount: handleDeleteAccount,
-          canManageOwnerInvites,
+          onDeleteAccount: handleDeleteAccount
+        }}
+        userManagementProps={{
+          members: accountMembers,
+          membersLoading: accountMembersLoading,
           inviteForm: {
             email: inviteForm.email,
             restaurantIds: inviteForm.restaurantIds
@@ -254,10 +256,13 @@ export default function App() {
           onInviteEmailChange: (value) => setInviteForm((current) => ({ ...current, email: value })),
           onInviteRestaurantToggle: handleInviteRestaurantToggle,
           onCreateInvitation: () => void handleCreateInvitation(),
-          onRevokeInvitation: (invitationId) => void handleRevokeInvitation(invitationId)
+          onRevokeInvitation: (invitationId) => void handleRevokeInvitation(invitationId),
+          onUpdateMember: (payload) => handleUpdateMember(payload),
+          onRemoveMember: (member) => handleRemoveMember(member)
         }}
         canManageRestaurants={canManageRestaurants}
         canManageOperationalData={canManageOperationalData}
+        canManageUserManagement={canManageUserManagement}
         onChangeLocale={setLocale}
         onChangeTheme={setTheme}
         onChangeSection={setCurrentSection}

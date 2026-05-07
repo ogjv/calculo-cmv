@@ -270,5 +270,5 @@ export type PersistedWorkspace = {
   selectedView: string;
   drePeriods?: DrePeriodData[];
   selectedDrePeriod?: string;
-  currentSection?: "account" | "dashboard" | "dre" | "restaurants";
+  currentSection?: "account" | "dashboard" | "dre" | "restaurants" | "user-management";
 };

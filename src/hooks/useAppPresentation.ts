@@ -22,6 +22,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     effectiveSession?.globalRole === "owner" ||
     effectiveSession?.activeAccountRole === "owner" ||
     activeRole === "owner";
+  const canManageUserManagement = effectiveSession?.globalRole === "owner" && effectiveSession?.authMode === "supabase";
 
   const themeLabels = {
     label: String(t("theme")),
@@ -32,7 +33,8 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
   const navigationItems = [
     { key: "dashboard" as AppSection, label: String(t("navDashboard")) },
     { key: "dre" as AppSection, label: String(t("navDre")) },
-    ...(canManageRestaurants ? [{ key: "restaurants" as AppSection, label: String(t("navRestaurants")) }] : [])
+    ...(canManageRestaurants ? [{ key: "restaurants" as AppSection, label: String(t("navRestaurants")) }] : []),
+    ...(canManageUserManagement ? [{ key: "user-management" as AppSection, label: String(t("navTeam")) }] : [])
   ];
 
   const authScreenCopy = {
@@ -89,6 +91,29 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     ownerInviteRevoke: String(t("ownerInviteRevoke")),
     ownerInviteRestaurants: String(t("ownerInviteRestaurants")),
     ownerInviteAccessLabel: String(t("ownerInviteAccessLabel")),
+    teamTitle: String(t("teamTitle")),
+    teamText: String(t("teamText")),
+    teamEmpty: String(t("teamEmpty")),
+    teamAccessModel: String(t("teamAccessModel")),
+    teamAccessModelText: String(t("teamAccessModelText")),
+    teamMembersTotal: String(t("teamMembersTotal")),
+    teamAdminsTotal: String(t("teamAdminsTotal")),
+    teamUsersTotal: String(t("teamUsersTotal")),
+    teamRestaurantsTotal: String(t("teamRestaurantsTotal")),
+    teamAccountRole: String(t("teamAccountRole")),
+    teamRestaurantAccess: String(t("teamRestaurantAccess")),
+    teamNoRestaurants: String(t("teamNoRestaurants")),
+    teamYou: String(t("teamYou")),
+    teamRoleOwner: String(t("teamRoleOwner")),
+    teamRoleUser: String(t("teamRoleUser")),
+    teamRoleViewer: String(t("teamRoleViewer")),
+    teamManageMember: String(t("teamManageMember")),
+    teamManageMemberText: String(t("teamManageMemberText")),
+    teamSaveMember: String(t("teamSaveMember")),
+    teamRemoveMember: String(t("teamRemoveMember")),
+    teamMemberUpdated: String(t("teamMemberUpdated")),
+    teamMemberRemoved: String(t("teamMemberRemoved")),
+    teamMemberImmutable: String(t("teamMemberImmutable")),
     dangerZone: String(t("authDangerZone")),
     deleteAccount: String(t("authDeleteAccount")),
     deleteHint: String(t("authDeleteHint")),
@@ -164,6 +189,11 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
       eyebrow: String(t("navRestaurants")),
       title: String(t("authManageRestaurants")),
       text: String(t("authManageRestaurantsText"))
+    },
+    "user-management": {
+      eyebrow: String(t("navTeam")),
+      title: String(t("teamTitle")),
+      text: String(t("teamText"))
     }
   };
 
@@ -178,6 +208,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     themeLabels,
     navigationItems,
     canManageRestaurants,
-    canManageOperationalData
+    canManageOperationalData,
+    canManageUserManagement
   };
 }

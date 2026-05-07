@@ -71,7 +71,7 @@ afterEach(() => {
 });
 
 type DashboardShellCallbacks = {
-  onChangeSection?: (section: "account" | "dashboard" | "dre" | "restaurants") => void;
+  onChangeSection?: (section: "account" | "dashboard" | "dre" | "restaurants" | "user-management") => void;
   onLogout?: () => void;
   onOpenAccount?: () => void;
   onCloseAccount?: () => void;
@@ -79,7 +79,8 @@ type DashboardShellCallbacks = {
 };
 
 function renderShell(callbacks?: DashboardShellCallbacks) {
-  const onChangeSection = callbacks?.onChangeSection ?? vi.fn<(section: "account" | "dashboard" | "dre" | "restaurants") => void>();
+  const onChangeSection =
+    callbacks?.onChangeSection ?? vi.fn<(section: "account" | "dashboard" | "dre" | "restaurants" | "user-management") => void>();
   const onLogout = callbacks?.onLogout ?? vi.fn<() => void>();
   const onOpenAccount = callbacks?.onOpenAccount ?? vi.fn<() => void>();
   const onCloseAccount = callbacks?.onCloseAccount ?? vi.fn<() => void>();
@@ -142,31 +143,29 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
         }}
         accountSettingsProps={{
           userForm: { fullName: "Marcos" },
-          restaurantForm: { restaurantName: "Vista Mar" },
-          newRestaurantName: "",
           busy: false,
-          canManageOwnerInvites: false,
+          onUserNameChange: () => undefined,
+          onUserPhotoSelect: () => undefined,
+          onSaveUser: () => undefined,
+          onDeleteAccount: () => undefined
+        }}
+        userManagementProps={{
+          members: [],
+          membersLoading: false,
           inviteForm: { email: "", restaurantIds: [] },
           inviteBusy: false,
           invitations: [],
           invitationsLoading: false,
-          onUserNameChange: () => undefined,
-          onRestaurantNameChange: () => undefined,
-          onUserPhotoSelect: () => undefined,
-          onRestaurantPhotoSelect: () => undefined,
-          onCreateRestaurantNameChange: () => undefined,
-          onSaveUser: () => undefined,
-          onSaveRestaurant: () => undefined,
-          onCreateRestaurant: () => undefined,
-          onDeleteRestaurant: () => undefined,
-          onDeleteAccount: () => undefined,
           onInviteEmailChange: () => undefined,
           onInviteRestaurantToggle: () => undefined,
           onCreateInvitation: () => undefined,
-          onRevokeInvitation: () => undefined
+          onRevokeInvitation: () => undefined,
+          onUpdateMember: async () => undefined,
+          onRemoveMember: async () => undefined
         }}
         canManageRestaurants={presentation.canManageRestaurants}
         canManageOperationalData={presentation.canManageOperationalData}
+        canManageUserManagement={presentation.canManageUserManagement}
         onChangeLocale={() => undefined}
         onChangeTheme={() => undefined}
         onChangeSection={onChangeSection}

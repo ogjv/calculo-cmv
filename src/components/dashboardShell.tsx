@@ -4,7 +4,7 @@ import { RestaurantNavigatorPanel } from "./dashboardPanels";
 import type { AppSection } from "../hooks/useSessionWorkspace";
 import type { AuthSession } from "../types";
 import type { AccountPanelCopy, HeaderCopy, NavigationItem, RestaurantNavigatorCopy, ThemeLabels } from "../presentation/contracts";
-import { AccountSettingsPanel, RestaurantManagementPanel } from "./accountPanels";
+import { AccountSettingsPanel, RestaurantManagementPanel, UserManagementPanel } from "./accountPanels";
 import { DreAnalysisPanel } from "./drePanels";
 import { DashboardPanels } from "./cmvPanels";
 
@@ -13,6 +13,9 @@ const LazyAccountSettingsPanel = lazy(() =>
 );
 const LazyRestaurantManagementPanel = lazy(() =>
   import("./accountPanels").then((module) => ({ default: module.RestaurantManagementPanel }))
+);
+const LazyUserManagementPanel = lazy(() =>
+  import("./accountPanels").then((module) => ({ default: module.UserManagementPanel }))
 );
 const LazyDreAnalysisPanel = lazy(() =>
   import("./drePanels").then((module) => ({ default: module.DreAnalysisPanel }))
@@ -37,12 +40,11 @@ type DashboardShellProps = {
   dreAnalysisProps: Omit<Parameters<typeof DreAnalysisPanel>[0], "canManageData" | "copy">;
   dashboardPanelProps: Parameters<typeof DashboardPanels>[0];
   restaurantManagementProps: Omit<Parameters<typeof RestaurantManagementPanel>[0], "session" | "copy" | "onActivateRestaurant">;
-  accountSettingsProps: Omit<
-    Parameters<typeof AccountSettingsPanel>[0],
-    "session" | "copy" | "onClose" | "onActivateRestaurant" | "canManageRestaurants"
-  >;
+  accountSettingsProps: Omit<Parameters<typeof AccountSettingsPanel>[0], "session" | "copy" | "onClose">;
+  userManagementProps: Omit<Parameters<typeof UserManagementPanel>[0], "session" | "copy">;
   canManageRestaurants: boolean;
   canManageOperationalData: boolean;
+  canManageUserManagement: boolean;
   onChangeLocale: (locale: "pt" | "es" | "en") => void;
   onChangeTheme: (theme: "light" | "dark") => void;
   onChangeSection: (section: AppSection) => void;
@@ -89,8 +91,10 @@ export function DashboardShell({
   dashboardPanelProps,
   restaurantManagementProps,
   accountSettingsProps,
+  userManagementProps,
   canManageRestaurants,
   canManageOperationalData,
+  canManageUserManagement,
   onChangeLocale,
   onChangeTheme,
   onChangeSection,
@@ -189,12 +193,16 @@ export function DashboardShell({
             <Suspense fallback={fallbackCard(processingLabel)}>
               <LazyAccountSettingsPanel
                 session={effectiveSession}
-                canManageRestaurants={false}
                 copy={accountPanelCopy}
                 onClose={onCloseAccount}
-                onActivateRestaurant={onActivateRestaurant}
                 {...accountSettingsProps}
               />
+            </Suspense>
+          ) : null}
+
+          {currentSection === "user-management" && canManageUserManagement ? (
+            <Suspense fallback={fallbackCard(processingLabel)}>
+              <LazyUserManagementPanel session={effectiveSession} copy={accountPanelCopy} {...userManagementProps} />
             </Suspense>
           ) : null}
 
