@@ -3321,13 +3321,12 @@ input {
 :root[data-theme="dark"] .period-chip,
 :root[data-theme="dark"] .filter-chip,
 :root[data-theme="dark"] .workspace-badge,
-:root[data-theme="dark"] .message,
 :root[data-theme="dark"] .alert-panel {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(232, 234, 238, 0.1);
 }
 
-:root[data-theme="dark"] .account-panel .message:not(.success):not(.error) {
+:root[data-theme="dark"] .message {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
