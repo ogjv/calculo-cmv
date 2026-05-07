@@ -159,7 +159,7 @@ function ManagedMemberCard({
   };
 
   return (
-    <article className="team-member-card">
+    <article className="team-member-card managed-member-card">
       <div className="team-member-head">
         <div className="team-member-identity">
           <UserAvatar
@@ -224,7 +224,7 @@ function ManagedMemberCard({
       {localError ? <p className="message error">{localError}</p> : null}
       {localMessage ? <p className="message success">{localMessage}</p> : null}
 
-      <div className="team-member-actions">
+      <div className="team-member-actions managed-member-actions">
         <button type="button" className="primary-button" onClick={() => void handleSave()} disabled={!canSave}>
           {copy.teamSaveMember}
         </button>
@@ -393,8 +393,8 @@ export function UserManagementPanel({
       </div>
 
       <div className="account-panel-stack">
-        <section className="account-restaurant-section">
-          <div className="team-management-grid">
+        <section className="account-restaurant-section user-management-overview-section">
+          <div className="team-management-grid user-management-summary-grid">
             <article className="mini-stat-card">
               <span>{copy.teamMembersTotal}</span>
               <strong>{String(members.length)}</strong>
@@ -413,7 +413,7 @@ export function UserManagementPanel({
             </article>
           </div>
 
-          <section className="account-form-card">
+          <section className="account-form-card user-management-model-card">
             <div className="section-head compact">
               <div>
                 <span className="eyebrow">{copy.teamAccessModel}</span>
@@ -522,7 +522,7 @@ export function UserManagementPanel({
           </div>
         </section>
 
-        <section className="account-restaurant-section">
+        <section className="account-restaurant-section user-management-members-section">
           <div className="section-head compact">
             <div>
               <span className="eyebrow">{copy.teamManageMember}</span>
@@ -535,7 +535,7 @@ export function UserManagementPanel({
           {!membersLoading && members.length === 0 ? <section className="account-form-card"><p className="message">{copy.teamEmpty}</p></section> : null}
 
           {!membersLoading && members.length > 0 ? (
-            <div className="team-members-grid compact">
+            <div className="team-members-grid compact user-management-members-grid">
               {members.map((member) => (
                 <ManagedMemberCard
                   key={member.membershipId}

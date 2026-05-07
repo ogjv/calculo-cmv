@@ -4178,6 +4178,15 @@ input {
   gap: 12px;
 }
 
+.user-management-summary-grid {
+  margin-top: 0;
+}
+
+.user-management-model-card .section-head.compact p,
+.managed-member-card .team-restaurant-selector > span {
+  max-width: 56ch;
+}
+
 .team-restaurant-chips {
   display: flex;
   flex-wrap: wrap;
@@ -5393,6 +5402,112 @@ th {
     justify-content: center;
   }
 
+  .user-management-overview-section,
+  .user-management-members-section {
+    gap: 12px;
+  }
+
+  .user-management-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .user-management-model-card {
+    padding: 14px;
+  }
+
+  .user-management-model-card .section-head.compact {
+    gap: 6px;
+  }
+
+  .user-management-model-card .section-head.compact h3 {
+    font-size: 1rem;
+  }
+
+  .user-management-model-card .section-head.compact p {
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .user-management-members-grid {
+    gap: 12px;
+  }
+
+  .managed-member-card {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .managed-member-card .team-member-head,
+  .managed-member-card .team-member-identity {
+    gap: 10px;
+  }
+
+  .managed-member-card .team-member-identity .profile-avatar.md {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+  }
+
+  .managed-member-card .team-member-identity strong {
+    font-size: 0.94rem;
+    line-height: 1.25;
+  }
+
+  .managed-member-card .team-member-identity p {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .managed-member-card .team-member-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .managed-member-card .team-management-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 0;
+  }
+
+  .managed-member-card .team-restaurant-selector {
+    gap: 8px;
+  }
+
+  .managed-member-card .team-restaurant-selector > span,
+  .managed-member-card .message,
+  .managed-member-card .team-restaurant-chip small {
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .managed-member-card .team-restaurant-chips {
+    gap: 8px;
+  }
+
+  .managed-member-card .team-restaurant-chip {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 12px;
+  }
+
+  .managed-member-card .team-restaurant-chip strong {
+    font-size: 0.9rem;
+    line-height: 1.25;
+  }
+
+  .managed-member-actions {
+    gap: 8px;
+    padding-top: 12px;
+  }
+
+  .managed-member-actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+
   .dashboard-shell-topbar {
     padding: 6px 2px 2px;
   }
@@ -5514,6 +5629,11 @@ th {
   .hero,
   .card {
     padding: 14px;
+  }
+
+  .user-management-summary-grid,
+  .managed-member-card .team-management-grid {
+    grid-template-columns: 1fr;
   }
 
   .workspace-header h2 {
