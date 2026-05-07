@@ -366,7 +366,7 @@ export function AccountSettingsPanel({
                   <div>
                     <span className="eyebrow">{copy.ownerInvitePending}</span>
                     <h3>{copy.ownerInvitePending}</h3>
-                    <p>{copy.ownerInviteHint}</p>
+                    <p>{copy.ownerInvitePendingText}</p>
                   </div>
                 </div>
 

@@ -84,6 +84,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     ownerInviteHint: String(t("ownerInviteHint")),
     ownerInviteAction: String(t("ownerInviteAction")),
     ownerInvitePending: String(t("ownerInvitePending")),
+    ownerInvitePendingText: String(t("ownerInvitePendingText")),
     ownerInviteEmpty: String(t("ownerInviteEmpty")),
     ownerInviteRevoke: String(t("ownerInviteRevoke")),
     ownerInviteRestaurants: String(t("ownerInviteRestaurants")),

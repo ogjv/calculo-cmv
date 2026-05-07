@@ -55,6 +55,7 @@ export type AccountPanelCopy = {
   ownerInviteHint: string;
   ownerInviteAction: string;
   ownerInvitePending: string;
+  ownerInvitePendingText: string;
   ownerInviteEmpty: string;
   ownerInviteRevoke: string;
   ownerInviteRestaurants: string;
