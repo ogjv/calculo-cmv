@@ -1346,6 +1346,13 @@ input {
   min-height: 180px;
 }
 
+.account-panel .section-head p,
+.account-panel .account-avatar-panel p,
+.account-panel .restaurant-create-box p,
+.account-panel .danger-panel-copy p {
+  max-width: 54ch;
+}
+
 .danger-panel {
   background: linear-gradient(180deg, rgba(255, 244, 241, 0.94), rgba(255, 237, 233, 0.92));
   align-content: start;
@@ -5149,6 +5156,168 @@ th {
   .dashboard-content,
   .content {
     min-width: 0;
+  }
+
+  .account-panel {
+    gap: 14px;
+  }
+
+  .account-panel > .section-head {
+    margin-bottom: 0;
+    gap: 10px;
+  }
+
+  .account-panel > .section-head p,
+  .account-panel .section-head.compact p,
+  .account-panel .account-avatar-panel p,
+  .account-panel .restaurant-create-box p,
+  .account-panel .danger-panel-copy p,
+  .account-panel .message,
+  .account-panel .upload-box small {
+    font-size: 0.84rem;
+    line-height: 1.42;
+  }
+
+  .account-panel-stack,
+  .account-user-section,
+  .account-restaurant-section {
+    gap: 14px;
+  }
+
+  .account-user-grid,
+  .account-panel-grid {
+    gap: 12px;
+  }
+
+  .account-avatar-panel {
+    gap: 12px;
+    align-items: start;
+  }
+
+  .account-avatar-panel .profile-avatar.lg {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+  }
+
+  .account-avatar-panel strong {
+    font-size: 0.96rem;
+  }
+
+  .account-panel .eyebrow {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+  }
+
+  .account-panel .auth-field {
+    gap: 6px;
+  }
+
+  .account-panel .auth-field span,
+  .restaurant-create-box .auth-field span {
+    font-size: 0.84rem;
+  }
+
+  .account-panel .auth-field input {
+    min-height: 44px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+
+  .compact-upload {
+    min-height: 0;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .compact-upload .upload-box-top,
+  .compact-upload .upload-box-footer {
+    gap: 8px;
+  }
+
+  .compact-upload .upload-title {
+    font-size: 0.96rem;
+    line-height: 1.32;
+  }
+
+  .compact-upload .upload-order,
+  .compact-upload .upload-status,
+  .compact-upload .upload-meta,
+  .compact-upload .upload-action {
+    font-size: 0.8rem;
+  }
+
+  .user-status-grid {
+    gap: 10px;
+  }
+
+  .mini-stat-card {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .mini-stat-card span {
+    font-size: 0.82rem;
+    margin-bottom: 4px;
+  }
+
+  .mini-stat-card strong {
+    font-size: 0.98rem;
+  }
+
+  .restaurant-management-card .restaurant-member-list,
+  .owner-invite-list-card .restaurant-member-list {
+    gap: 10px;
+  }
+
+  .restaurant-management-card .restaurant-member-card > div:first-child,
+  .owner-invite-list-card .restaurant-member-card > div:first-child {
+    width: 100%;
+  }
+
+  .restaurant-management-card .restaurant-member-card strong,
+  .owner-invite-list-card .restaurant-member-card strong {
+    font-size: 0.92rem;
+  }
+
+  .restaurant-management-card .restaurant-member-card p {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .restaurant-management-card .restaurant-member-actions,
+  .owner-invite-list-card .restaurant-member-actions {
+    gap: 8px;
+  }
+
+  .restaurant-management-card .restaurant-member-actions .ghost-button,
+  .owner-invite-list-card .restaurant-member-actions .ghost-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .restaurant-create-box {
+    gap: 12px;
+  }
+
+  .restaurant-create-box > div:first-child {
+    display: grid;
+    gap: 4px;
+  }
+
+  .restaurant-create-box strong,
+  .danger-panel-copy strong {
+    font-size: 0.98rem;
+  }
+
+  .danger-panel {
+    gap: 12px;
+  }
+
+  .danger-panel .ghost-button,
+  .account-panel .panel-actions > * {
+    width: 100%;
+    justify-content: center;
   }
 
   .owner-invite-section {
