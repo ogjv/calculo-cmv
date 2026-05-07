@@ -43,11 +43,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
 
     setInviteForm((current) => ({
       ...current,
-      featureIds: current.featureIds.length > 0 ? current.featureIds : [DEFAULT_INVITE_FEATURE],
-      restaurantIds:
-        current.restaurantIds.length > 0
-          ? current.restaurantIds
-          : (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
+      featureIds: current.featureIds.length > 0 ? current.featureIds : [DEFAULT_INVITE_FEATURE]
     }));
   }, [effectiveSession]);
 
@@ -179,7 +175,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
       setInviteForm({
         email: "",
         featureIds: [DEFAULT_INVITE_FEATURE],
-        restaurantIds: (effectiveSession.memberships ?? []).map((membership) => membership.restaurantId)
+        restaurantIds: []
       });
     } catch (error) {
       setInviteError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel criar o convite.");
