@@ -311,16 +311,16 @@ export function AccountSettingsPanel({
           <section className="account-restaurant-section">
             <div className="section-head compact">
               <div>
-                <span className="eyebrow">{copy.inviteTitle}</span>
-                <h3>{copy.inviteTitle}</h3>
-                <p>{copy.inviteText}</p>
+                <span className="eyebrow">{copy.ownerInviteTitle}</span>
+                <h3>{copy.ownerInviteTitle}</h3>
+                <p>{copy.ownerInviteText}</p>
               </div>
             </div>
 
             <div className="account-panel-grid">
               <section className="account-form-card">
                 <label className="auth-field">
-                  <span>{copy.inviteEmail}</span>
+                  <span>{copy.ownerInviteEmail}</span>
                   <input
                     value={inviteForm.email}
                     onChange={(event) => onInviteEmailChange(event.target.value)}
@@ -329,7 +329,7 @@ export function AccountSettingsPanel({
                 </label>
 
                 <div className="team-restaurant-selector">
-                  <span>{copy.inviteRestaurants}</span>
+                  <span>{copy.ownerInviteRestaurants}</span>
                   <div className="team-restaurant-chips">
                     {(session.memberships ?? []).map((membership) => {
                       const isSelected = inviteForm.restaurantIds.includes(membership.restaurantId);
@@ -343,20 +343,20 @@ export function AccountSettingsPanel({
                           aria-pressed={isSelected}
                         >
                           <strong>{membership.restaurantName}</strong>
-                          <small>{copy.inviteAccessLabel}</small>
+                          <small>{copy.ownerInviteAccessLabel}</small>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <p className="message">{copy.inviteHint}</p>
+                <p className="message">{copy.ownerInviteHint}</p>
                 {inviteError ? <p className="message error">{inviteError}</p> : null}
                 {inviteMessage ? <p className="message success">{inviteMessage}</p> : null}
 
                 <div className="panel-actions">
                   <button type="button" className="primary-button" onClick={onCreateInvitation} disabled={inviteBusy}>
-                    {inviteBusy ? copy.processing : copy.inviteAction}
+                    {inviteBusy ? copy.processing : copy.ownerInviteAction}
                   </button>
                 </div>
               </section>
@@ -364,14 +364,14 @@ export function AccountSettingsPanel({
               <section className="account-form-card">
                 <div className="section-head compact">
                   <div>
-                    <span className="eyebrow">{copy.invitePending}</span>
-                    <h3>{copy.invitePending}</h3>
-                    <p>{copy.inviteHint}</p>
+                    <span className="eyebrow">{copy.ownerInvitePending}</span>
+                    <h3>{copy.ownerInvitePending}</h3>
+                    <p>{copy.ownerInviteHint}</p>
                   </div>
                 </div>
 
                 {invitationsLoading ? <p className="message">{copy.processing}</p> : null}
-                {!invitationsLoading && invitations.length === 0 ? <p className="message">{copy.inviteEmpty}</p> : null}
+                {!invitationsLoading && invitations.length === 0 ? <p className="message">{copy.ownerInviteEmpty}</p> : null}
 
                 {!invitationsLoading && invitations.length > 0 ? (
                   <div className="restaurant-member-list">
@@ -379,7 +379,7 @@ export function AccountSettingsPanel({
                       <article key={invitation.invitationId} className="restaurant-member-card">
                         <div>
                           <strong>{invitation.email}</strong>
-                          <p>{copy.inviteAccessLabel}</p>
+                          <p>{copy.ownerInviteAccessLabel}</p>
                         </div>
                         <div className="restaurant-member-actions">
                           <button
@@ -388,7 +388,7 @@ export function AccountSettingsPanel({
                             onClick={() => onRevokeInvitation(invitation.invitationId)}
                             disabled={inviteBusy}
                           >
-                            {copy.inviteRevoke}
+                            {copy.ownerInviteRevoke}
                           </button>
                         </div>
                         <div className="team-restaurant-chips">
