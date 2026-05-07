@@ -3327,6 +3327,12 @@ input {
   border-color: rgba(232, 234, 238, 0.1);
 }
 
+:root[data-theme="dark"] .account-panel .message:not(.success):not(.error) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
 :root[data-theme="dark"] .primary-button {
   color: #111216;
   box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
