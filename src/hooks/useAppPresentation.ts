@@ -145,7 +145,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     total: String(t("total"))
   };
 
-  const copyBySection: Record<Exclude<AppSection, "account" | "team">, HeaderCopy> = {
+  const copyBySection: Record<Exclude<AppSection, "account">, HeaderCopy> = {
     dashboard: {
       eyebrow: String(t("navDashboard")),
       title: effectiveSession?.activeRestaurantName ?? effectiveSession?.restaurantName ?? String(t("navDashboard")),
@@ -166,7 +166,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     }
   };
 
-  const activeHeaderSection = currentSection === "account" || currentSection === "team" ? "dashboard" : currentSection;
+  const activeHeaderSection = currentSection === "account" ? "dashboard" : currentSection;
   const dashboardHeaderCopy = copyBySection[activeHeaderSection];
 
   return {

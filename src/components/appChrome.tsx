@@ -4,7 +4,7 @@ import type { AuthScreenCopy, ThemeLabels, NavigationItem } from "../presentatio
 
 type Locale = "pt" | "es" | "en";
 type ThemeMode = "light" | "dark";
-type AppSection = "account" | "dashboard" | "dre" | "restaurants" | "team";
+type AppSection = "account" | "dashboard" | "dre" | "restaurants";
 
 type AuthScreenProps = {
   locale: Locale;
@@ -346,8 +346,6 @@ function getNavigationIcon(section: AppSection) {
       return <IconDreNav />;
     case "restaurants":
       return <IconBuildingNav />;
-    case "team":
-      return <IconUsersNav />;
     default:
       return <IconDashboardNav />;
   }
@@ -449,17 +447,6 @@ function IconBuildingNav() {
       <path d="M8 15h2" />
       <path d="M15.5 12.5h1.5" />
       <path d="M15.5 15.5h1.5" />
-    </svg>
-  );
-}
-
-function IconUsersNav() {
-  return (
-    <svg viewBox="0 0 24 24" className="ui-icon" aria-hidden="true">
-      <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-      <path d="M16.5 10a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-      <path d="M4.5 19.5c0-2.7 2.4-4.5 5.5-4.5s5.5 1.8 5.5 4.5" />
-      <path d="M14.5 19.5c.2-1.9 1.9-3.2 4.2-3.2 1 0 1.9.2 2.8.7" />
     </svg>
   );
 }

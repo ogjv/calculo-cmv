@@ -141,7 +141,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (currentSection === "team" || (currentSection === "restaurants" && !canManageRestaurants)) {
+    if (currentSection === "restaurants" && !canManageRestaurants) {
       setCurrentSection("dashboard");
     }
   }, [canManageRestaurants, currentSection]);

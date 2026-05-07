@@ -71,7 +71,7 @@ afterEach(() => {
 });
 
 type DashboardShellCallbacks = {
-  onChangeSection?: (section: "account" | "dashboard" | "dre" | "restaurants" | "team") => void;
+  onChangeSection?: (section: "account" | "dashboard" | "dre" | "restaurants") => void;
   onLogout?: () => void;
   onOpenAccount?: () => void;
   onCloseAccount?: () => void;
@@ -79,7 +79,7 @@ type DashboardShellCallbacks = {
 };
 
 function renderShell(callbacks?: DashboardShellCallbacks) {
-  const onChangeSection = callbacks?.onChangeSection ?? vi.fn<(section: "account" | "dashboard" | "dre" | "restaurants" | "team") => void>();
+  const onChangeSection = callbacks?.onChangeSection ?? vi.fn<(section: "account" | "dashboard" | "dre" | "restaurants") => void>();
   const onLogout = callbacks?.onLogout ?? vi.fn<() => void>();
   const onOpenAccount = callbacks?.onOpenAccount ?? vi.fn<() => void>();
   const onCloseAccount = callbacks?.onCloseAccount ?? vi.fn<() => void>();
