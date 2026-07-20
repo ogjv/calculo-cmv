@@ -4,6 +4,8 @@ import type {
   DreImportData,
   DreLine,
   DreSection,
+  GoodsEntryImportData,
+  GoodsEntryRow,
   RawRow,
   SalesImportData,
   SalesImportRow,
@@ -15,7 +17,12 @@ const readAsArrayBuffer = (file: File) =>
   new Promise<ArrayBuffer>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(new Error(`Falha ao ler o arquivo ${file.name}.`));
+    reader.onerror = () =>
+      reject(
+        new Error(
+          `Falha ao ler o arquivo ${file.name}. Verifique se é um arquivo .csv/.xlsx válido e tente novamente. Consulte a seção Ajuda na aplicação para detalhes e templates.`
+        )
+      );
     reader.readAsArrayBuffer(file);
   });
 
@@ -162,6 +169,39 @@ const parseReportPeriod = (value: string): SalesReportPeriod | undefined => {
 
   return {
     rawLabel: text,
+    startDate: match[1],
+    endDate: match[2],
+    displayLabel: `${match[1]} a ${match[2]}`,
+    periodKey: periodMeta.periodKey,
+    periodLabel: periodMeta.periodLabel,
+    month: periodMeta.month,
+    year: periodMeta.year
+  };
+};
+
+const parseGoodsEntryReportPeriod = (value: unknown): SalesReportPeriod | undefined => {
+  const text = cellToText(value);
+  if (!text) {
+    return undefined;
+  }
+
+  const rawLabel = stripLabelPrefix(text, "Per[ií]odo");
+  const match = rawLabel.match(/(\d{2}\/\d{2}\/\d{2,4})\s*(?:a|à)\s*(\d{2}\/\d{2}\/\d{2,4})/i);
+
+  if (!match) {
+    const periodMeta = buildPeriodMetadata();
+    return {
+      rawLabel,
+      displayLabel: rawLabel,
+      periodKey: periodMeta.periodKey,
+      periodLabel: rawLabel
+    };
+  }
+
+  const periodMeta = buildPeriodMetadata(match[1], match[2]);
+
+  return {
+    rawLabel,
     startDate: match[1],
     endDate: match[2],
     displayLabel: `${match[1]} a ${match[2]}`,
@@ -574,5 +614,154 @@ export const parseSalesSpreadsheetFile = async (file: File): Promise<SalesImport
     totals,
     reportPeriod,
     headerValues
+  };
+};
+
+const isGoodsEntryHeaderRow = (row: (string | number)[]) => {
+  const normalizedRow = row.map((cell) => normalizeText(cell));
+  return (
+    normalizedRow.includes("DESCRICAO DA MERCADORIA") &&
+    normalizedRow.includes("QTD REC") &&
+    normalizedRow.includes("VALOR") &&
+    normalizedRow.includes("FORNECEDOR")
+  );
+};
+
+const isGoodsEntryGroupRow = (value: string) => normalizeText(value).startsWith("GRUPO:");
+const isGoodsEntrySubgroupRow = (value: string) => {
+  const normalized = normalizeText(value);
+  return normalized.startsWith("SUB_GRUPO:") || normalized.startsWith("SUBGRUPO:");
+};
+
+const isGoodsEntryTotalRow = (value: string) => normalizeText(value).startsWith("TOTAL ");
+
+const parseGoodsEntryDate = (value: unknown) => {
+  const text = cellToText(value);
+  const parsed = parseDateParts(text);
+  if (!parsed) {
+    return undefined;
+  }
+
+  return `${parsed.year}-${String(parsed.month).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
+};
+
+const sanitizeGoodsEntryLabel = (value: string, prefix: string) =>
+  value.replace(new RegExp(`^${prefix}\\s*`, "i"), "").replace(/^:\s*/, "").trim();
+
+const isGoodsEntryProductRow = (row: (string | number)[]) => {
+  const productName = cellToText(row[1]);
+  const quantity = parseNumericCell(row[3]);
+  const totalValue = parseNumericCell(row[5]);
+
+  if (!productName) {
+    return false;
+  }
+
+  if (isGoodsEntryHeaderRow(row)) {
+    return false;
+  }
+
+  if (normalizeText(productName).startsWith("TOTAL ")) {
+    return false;
+  }
+
+  return quantity > 0 || totalValue > 0;
+};
+
+export const parseGoodsEntrySpreadsheetFile = async (file: File): Promise<GoodsEntryImportData> => {
+  const buffer = await readAsArrayBuffer(file);
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const firstSheet = workbook.SheetNames[0];
+
+  if (!firstSheet) {
+    return {
+      sheetName: "",
+      entries: []
+    };
+  }
+
+  const sheet = workbook.Sheets[firstSheet];
+  const rawMatrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
+    header: 1,
+    defval: "",
+    raw: false
+  });
+  const matrix = fillMergedCells(rawMatrix, sheet["!merges"]);
+
+  const headerRowIndex = matrix.findIndex((row) => isGoodsEntryHeaderRow(row ?? []));
+  const restaurantName = matrix
+    .slice(0, 6)
+    .flatMap((row) => row.map((cell) => cellToText(cell)))
+    .find((cell) => cell && !/RELATORIO|PER[IÍ]ODO|DESCRICAO DA MERCADORIA/i.test(cell));
+  const reportTitle = matrix
+    .slice(0, 6)
+    .flatMap((row) => row.map((cell) => cellToText(cell)))
+    .find((cell) => /RELATORIO/i.test(cell));
+  const reportPeriod = matrix
+    .slice(0, 12)
+    .flatMap((row) => row.map((cell) => parseGoodsEntryReportPeriod(cell)).filter(Boolean))
+    .find(Boolean);
+
+  const entries: GoodsEntryRow[] = [];
+  let currentGroup = "";
+  let currentSubgroup = "";
+
+  for (let rowIndex = 0; rowIndex < matrix.length; rowIndex += 1) {
+    const row = matrix[rowIndex] ?? [];
+    const firstCell = cellToText(row[0]);
+
+    if (row.every((cell) => !hasCellValue(cell))) {
+      continue;
+    }
+
+    if (isGoodsEntryHeaderRow(row)) {
+      continue;
+    }
+
+    if (isGoodsEntryGroupRow(firstCell)) {
+      currentGroup = sanitizeGoodsEntryLabel(firstCell, "GRUPO:");
+      currentSubgroup = "";
+      continue;
+    }
+
+    if (isGoodsEntrySubgroupRow(firstCell)) {
+      currentSubgroup = sanitizeGoodsEntryLabel(firstCell, "SUB_?GRUPO:");
+      continue;
+    }
+
+    if (isGoodsEntryTotalRow(firstCell) || isGoodsEntryTotalRow(cellToText(row[1]))) {
+      continue;
+    }
+
+    if (!isGoodsEntryProductRow(row)) {
+      continue;
+    }
+
+    entries.push({
+      rowNumber: rowIndex + 1,
+      group: currentGroup,
+      subgroup: currentSubgroup,
+      productName: cellToText(row[1]),
+      purchaseUnit: cellToText(row[2]),
+      quantity: parseNumericCell(row[3]),
+      purchaseUnitPrice: parseNumericCell(row[4]),
+      totalValue: parseNumericCell(row[5]),
+      supplier: cellToText(row[6]),
+      receiptNumber: cellToText(row[7]),
+      invoiceDate: parseGoodsEntryDate(row[8]),
+      competencyDate: parseGoodsEntryDate(row[9]),
+      dueDate: parseGoodsEntryDate(row[11]),
+      stockUnit: cellToText(row[12]),
+      unitPrice: parseNumericCell(row[14])
+    });
+  }
+
+  return {
+    sheetName: firstSheet,
+    restaurantName: restaurantName || undefined,
+    reportTitle: reportTitle || undefined,
+    reportPeriod,
+    headerRowIndex: headerRowIndex >= 0 ? headerRowIndex + 1 : undefined,
+    entries
   };
 };

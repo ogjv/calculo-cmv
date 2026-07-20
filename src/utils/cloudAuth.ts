@@ -179,6 +179,9 @@ const asError = (error: unknown, fallback: string) => {
   return new Error(fallback);
 };
 
+const SUPABASE_NOT_CONFIGURED =
+  "Supabase não configurado. Para usar autenticação em nuvem defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente ou ative o modo local (VITE_FORCE_LOCAL_AUTH=true).";
+
 const mapMembership = (row: MembershipRow): RestaurantMembership | null => {
   const restaurant = Array.isArray(row.restaurants) ? row.restaurants[0] : row.restaurants;
   if (!restaurant) {
@@ -247,7 +250,7 @@ const loadAllRestaurantsForGlobalOwner = async () => {
   const { data, error } = await supabase.rpc("list_restaurants_for_global_owner");
 
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel carregar os restaurantes do sistema.");
+    throw asError(error, "Não foi possível carregar os restaurantes do sistema.");
   }
 
   return ((data ?? []) as Array<{ id: string; account_id?: string | null; name: string; photo_url?: string | null }>).map(
@@ -274,7 +277,7 @@ const loadAccountMemberships = async (userId: string) => {
     .order("created_at", { ascending: true });
 
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel carregar as permissÃµes da conta.");
+    throw asError(error, "Não foi possível carregar as permissões da conta.");
   }
 
   return (data ?? []) as AccountMembershipRow[];
@@ -282,7 +285,7 @@ const loadAccountMemberships = async (userId: string) => {
 
 const ensureUserProfile = async (user: User) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const existingProfile = await loadUserProfile(user.id);
@@ -317,7 +320,7 @@ const ensureUserProfile = async (user: User) => {
 
 export const createInitialRestaurantForUser = async (user: User, restaurantName?: string) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const nextRestaurantName =
@@ -363,7 +366,7 @@ const acceptPendingAccountInvitations = async () => {
 
   const { error } = await supabase.rpc("accept_pending_account_invitations_for_current_user");
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel validar os convites pendentes da conta.");
+    throw asError(error, "Não foi possível validar os convites pendentes da conta.");
   }
 };
 
@@ -455,7 +458,7 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
 
   const filteredProfilesError = profilesError;
   if (profilesError) {
-    throw asError(filteredProfilesError, "NÃ£o foi possÃ­vel carregar os perfis da equipe.");
+    throw asError(filteredProfilesError, "Não foi possível carregar os perfis da equipe.");
   }
 
   const visibleProfiles = (profiles ?? []) as Array<{
@@ -489,7 +492,7 @@ export const loadAccountMembers = async (accountId: string): Promise<AccountMemb
     .in("user_id", userIds);
 
   if (restaurantMembershipsError) {
-    throw asError(restaurantMembershipsError, "NÃ£o foi possÃ­vel carregar os acessos aos restaurantes.");
+    throw asError(restaurantMembershipsError, "Não foi possível carregar os acessos aos restaurantes.");
   }
 
   const restaurantsByUser = new Map<
@@ -557,7 +560,7 @@ export const loadAccountInvitations = async (accountId: string): Promise<Account
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel carregar os convites da conta.");
+    throw asError(error, "Não foi possível carregar os convites da conta.");
   }
 
   const invitations = (data ?? []) as AccountInvitationRow[];
@@ -572,7 +575,7 @@ export const loadAccountInvitations = async (accountId: string): Promise<Account
     .in("invitation_id", invitationIds);
 
   if (invitationRestaurantsError) {
-    throw asError(invitationRestaurantsError, "NÃ£o foi possÃ­vel carregar os restaurantes dos convites.");
+    throw asError(invitationRestaurantsError, "Não foi possível carregar os restaurantes dos convites.");
   }
 
   const restaurantsByInvitation = new Map<string, Array<{ restaurantId: string; restaurantName: string }>>();
@@ -615,12 +618,12 @@ export const createAccountInvitation = async ({
   restaurantIds: string[];
 }) => {
   if (!supabase) {
-    throw new Error("Supabase nÃ£o configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const nextEmail = email.trim().toLowerCase();
   if (!nextEmail) {
-    throw new Error("Informe o e-mail do usuÃ¡rio.");
+    throw new Error("Informe o e-mail do usuário.");
   }
 
   if (restaurantIds.length === 0) {
@@ -635,7 +638,7 @@ export const createAccountInvitation = async ({
   });
 
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel criar o convite.");
+    throw asError(error, "Não foi possível criar o convite.");
   }
 
   return typeof data === "string" ? data : undefined;
@@ -643,7 +646,7 @@ export const createAccountInvitation = async ({
 
 export const revokeAccountInvitation = async (invitationId: string) => {
   if (!supabase) {
-    throw new Error("Supabase nÃ£o configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const { error } = await supabase.rpc("revoke_account_invitation_for_current_user", {
@@ -651,7 +654,7 @@ export const revokeAccountInvitation = async (invitationId: string) => {
   });
 
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel revogar o convite.");
+    throw asError(error, "Não foi possível revogar o convite.");
   }
 };
 
@@ -669,15 +672,15 @@ export const updateAccountMemberAccess = async ({
   restaurantIds: string[];
 }) => {
   if (!supabase) {
-    throw new Error("Supabase nÃƒÂ£o configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   if (!accountId) {
-    throw new Error("NÃ£o foi possÃ­vel identificar a conta deste membro.");
+    throw new Error("Não foi possível identificar a conta deste membro.");
   }
 
   if (!userId) {
-    throw new Error("NÃ£o foi possÃ­vel identificar o membro selecionado.");
+    throw new Error("Não foi possível identificar o membro selecionado.");
   }
 
   const { data, error } = await supabase.rpc("update_account_member_for_current_user", {
@@ -689,7 +692,7 @@ export const updateAccountMemberAccess = async ({
   });
 
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel atualizar o acesso do membro.");
+    throw asError(error, "Não foi possível atualizar o acesso do membro.");
   }
 
   return typeof data === "string" ? data : undefined;
@@ -703,15 +706,15 @@ export const removeAccountMemberAccess = async ({
   userId: string;
 }) => {
   if (!supabase) {
-    throw new Error("Supabase nÃ£o configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   if (!accountId) {
-    throw new Error("NÃ£o foi possÃ­vel identificar a conta deste membro.");
+    throw new Error("Não foi possível identificar a conta deste membro.");
   }
 
   if (!userId) {
-    throw new Error("NÃ£o foi possÃ­vel identificar o membro selecionado.");
+    throw new Error("Não foi possível identificar o membro selecionado.");
   }
 
   const { data, error } = await supabase.rpc("remove_account_member_for_current_user", {
@@ -720,7 +723,7 @@ export const removeAccountMemberAccess = async ({
   });
 
   if (error) {
-    throw asError(error, "NÃ£o foi possÃ­vel remover o acesso do membro.");
+    throw asError(error, "Não foi possível remover o acesso do membro.");
   }
 
   return typeof data === "string" ? data : undefined;
@@ -746,7 +749,8 @@ export const getSupabaseSession = async () => {
 
 export const hydrateSupabaseSession = async (
   session: AuthSession,
-  restaurantNameOverride?: string
+  restaurantNameOverride?: string,
+  preferredRestaurantId?: string
 ) => {
   if (!supabase) {
     return session;
@@ -768,7 +772,7 @@ export const hydrateSupabaseSession = async (
   const context = await loadAuthSessionContext(user, restaurantNameOverride);
   return toAuthSession(user, {
     ...context,
-    activeRestaurantId: session.activeRestaurantId ?? session.restaurantId
+    activeRestaurantId: preferredRestaurantId ?? session.activeRestaurantId ?? session.restaurantId
   });
 };
 
@@ -801,7 +805,7 @@ export const subscribeToSupabaseAuth = (callback: (session: AuthSession | null) 
 
 export const signInWithSupabase = async (email: string, password: string) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -823,7 +827,7 @@ export const registerRestaurantWithSupabase = async ({
   password
 }: RegisterRestaurantInput) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -931,7 +935,7 @@ export const updateSupabaseRestaurantProfile = async (
   updates: { restaurantName: string; profilePhotoUrl?: string }
 ) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   if (!session.activeRestaurantId) {
@@ -981,7 +985,7 @@ export const updateSupabaseUserProfile = async (
   updates: { fullName: string; userPhotoUrl?: string }
 ) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const fullName = updates.fullName.trim();
@@ -1013,7 +1017,7 @@ export const createSupabaseRestaurantForCurrentUser = async (
   restaurantName: string
 ) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const nextRestaurantName = restaurantName.trim();
@@ -1052,7 +1056,7 @@ export const deleteSupabaseRestaurantFromAccount = async (
   restaurantId: string
 ) => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const { error } = await supabase.rpc("delete_restaurant_for_current_user", {
@@ -1083,7 +1087,7 @@ export const deleteSupabaseRestaurantFromAccount = async (
 
 export const deleteSupabaseRestaurantAccount = async () => {
   if (!supabase) {
-    throw new Error("Supabase não configurado.");
+    throw new Error(SUPABASE_NOT_CONFIGURED);
   }
 
   const { error } = await supabase.rpc("delete_my_account");

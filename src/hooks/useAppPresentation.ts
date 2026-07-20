@@ -33,6 +33,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
   const navigationItems = [
     { key: "dashboard" as AppSection, label: String(t("navDashboard")) },
     { key: "dre" as AppSection, label: String(t("navDre")) },
+    { key: "goods-entry" as AppSection, label: String(t("navGoodsEntry")) },
     ...(canManageRestaurants ? [{ key: "restaurants" as AppSection, label: String(t("navRestaurants")) }] : []),
     ...(canManageUserManagement ? [{ key: "user-management" as AppSection, label: String(t("navTeam")) }] : [])
   ];
@@ -190,10 +191,21 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
       title: String(t("authManageRestaurants")),
       text: String(t("authManageRestaurantsText"))
     },
+    "goods-entry": {
+      eyebrow: String(t("navGoodsEntry")),
+      title: String(t("goodsEntryTitle")),
+      text: String(t("goodsEntryText"))
+    },
     "user-management": {
       eyebrow: String(t("navTeam")),
       title: String(t("teamTitle")),
       text: String(t("teamText"))
+    }
+    ,
+    help: {
+      eyebrow: "Ajuda",
+      title: "Ajuda e templates",
+      text: "Central de ajuda para importação de planilhas, templates e solução de problemas."
     }
   };
 

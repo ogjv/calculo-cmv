@@ -6,6 +6,7 @@ import { DashboardShell } from "./dashboardShell";
 import { translations } from "../i18n";
 import { useAppPresentation } from "../hooks/useAppPresentation";
 import type { AppPresentationModel } from "../presentation/contracts";
+import type { AppSection } from "../hooks/useSessionWorkspace";
 import type { AuthSession } from "../types";
 
 const t = (key: keyof typeof translations.pt) => translations.pt[key];
@@ -71,7 +72,7 @@ afterEach(() => {
 });
 
 type DashboardShellCallbacks = {
-  onChangeSection?: (section: "account" | "dashboard" | "dre" | "restaurants" | "user-management") => void;
+  onChangeSection?: (section: AppSection) => void;
   onLogout?: () => void;
   onOpenAccount?: () => void;
   onCloseAccount?: () => void;
@@ -80,7 +81,8 @@ type DashboardShellCallbacks = {
 
 function renderShell(callbacks?: DashboardShellCallbacks) {
   const onChangeSection =
-    callbacks?.onChangeSection ?? vi.fn<(section: "account" | "dashboard" | "dre" | "restaurants" | "user-management") => void>();
+    callbacks?.onChangeSection ??
+    vi.fn<() => void>();
   const onLogout = callbacks?.onLogout ?? vi.fn<() => void>();
   const onOpenAccount = callbacks?.onOpenAccount ?? vi.fn<() => void>();
   const onCloseAccount = callbacks?.onCloseAccount ?? vi.fn<() => void>();
@@ -129,6 +131,10 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
           onResetFlow: () => undefined,
           onSelectPeriod: () => undefined,
           onSelectView: () => undefined
+        }}
+        goodsEntryPanelProps={{
+          onImport: () => undefined,
+          onClear: () => undefined
         }}
         restaurantManagementProps={{
           restaurantForm: { restaurantName: "Vista Mar" },

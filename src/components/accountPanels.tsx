@@ -13,7 +13,7 @@ type UserProfileFormState = {
   userPhotoUrl?: string;
 };
 
-type AccountSettingsPanelProps = {
+export type AccountSettingsPanelProps = {
   session: AuthSession;
   userForm: UserProfileFormState;
   busy: boolean;
@@ -27,7 +27,7 @@ type AccountSettingsPanelProps = {
   copy: AccountPanelCopy;
 };
 
-type RestaurantManagementPanelProps = {
+export type RestaurantManagementPanelProps = {
   session: AuthSession;
   restaurantForm: ProfileFormState;
   newRestaurantName: string;
@@ -44,7 +44,7 @@ type RestaurantManagementPanelProps = {
   copy: AccountPanelCopy;
 };
 
-type UserManagementPanelProps = {
+export type UserManagementPanelProps = {
   session: AuthSession;
   members: AccountMember[];
   membersLoading: boolean;

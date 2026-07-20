@@ -1,12 +1,18 @@
 import { Suspense, lazy } from "react";
 import { BrandMark, DashboardShellHeader, InternalNavigation, UserAvatar } from "./appChrome";
+import { HelpPage } from "./helpPage";
 import { RestaurantNavigatorPanel } from "./dashboardPanels";
 import type { AppSection } from "../hooks/useSessionWorkspace";
 import type { AuthSession } from "../types";
 import type { AccountPanelCopy, HeaderCopy, NavigationItem, RestaurantNavigatorCopy, ThemeLabels } from "../presentation/contracts";
-import { AccountSettingsPanel, RestaurantManagementPanel, UserManagementPanel } from "./accountPanels";
-import { DreAnalysisPanel } from "./drePanels";
-import { DashboardPanels } from "./cmvPanels";
+import type {
+  AccountSettingsPanelProps,
+  RestaurantManagementPanelProps,
+  UserManagementPanelProps
+} from "./accountPanels";
+import type { DreAnalysisPanelProps, DrePanelCopy } from "./drePanels";
+import type { DashboardPanelsProps } from "./cmvPanels";
+import type { GoodsEntryPanelsProps } from "./goodsEntryPanels";
 
 const LazyAccountSettingsPanel = lazy(() =>
   import("./accountPanels").then((module) => ({ default: module.AccountSettingsPanel }))
@@ -23,6 +29,9 @@ const LazyDreAnalysisPanel = lazy(() =>
 const LazyDashboardPanels = lazy(() =>
   import("./cmvPanels").then((module) => ({ default: module.DashboardPanels }))
 );
+const LazyGoodsEntryPanels = lazy(() =>
+  import("./goodsEntryPanels").then((module) => ({ default: module.GoodsEntryPanels }))
+);
 
 type DashboardShellProps = {
   locale: "pt" | "es" | "en";
@@ -35,13 +44,14 @@ type DashboardShellProps = {
   languageLabel: string;
   themeLabels: ThemeLabels;
   accountPanelCopy: AccountPanelCopy;
-  drePanelCopy: Parameters<typeof DreAnalysisPanel>[0]["copy"];
+  drePanelCopy: DrePanelCopy;
   restaurantNavigatorCopy: RestaurantNavigatorCopy;
-  dreAnalysisProps: Omit<Parameters<typeof DreAnalysisPanel>[0], "canManageData" | "copy">;
-  dashboardPanelProps: Parameters<typeof DashboardPanels>[0];
-  restaurantManagementProps: Omit<Parameters<typeof RestaurantManagementPanel>[0], "session" | "copy" | "onActivateRestaurant">;
-  accountSettingsProps: Omit<Parameters<typeof AccountSettingsPanel>[0], "session" | "copy" | "onClose">;
-  userManagementProps: Omit<Parameters<typeof UserManagementPanel>[0], "session" | "copy">;
+  dreAnalysisProps: Omit<DreAnalysisPanelProps, "canManageData" | "copy">;
+  dashboardPanelProps: DashboardPanelsProps;
+  goodsEntryPanelProps: Omit<GoodsEntryPanelsProps, "canManageData">;
+  restaurantManagementProps: Omit<RestaurantManagementPanelProps, "session" | "copy" | "onActivateRestaurant">;
+  accountSettingsProps: Omit<AccountSettingsPanelProps, "session" | "copy" | "onClose">;
+  userManagementProps: Omit<UserManagementPanelProps, "session" | "copy">;
   canManageRestaurants: boolean;
   canManageOperationalData: boolean;
   canManageUserManagement: boolean;
@@ -68,6 +78,27 @@ function IconLogout() {
   );
 }
 
+function IconHelp() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="ui-icon"
+      aria-hidden="true"
+    >
+      <path
+        d="M12 18V18.01M8 10C8 7.79086 9.79086 6 12 6C14.2091 6 16 7.79086 16 10C16 11.8675 14.7202 13.4361 12.9899 13.8766C12.4547 14.0128 12 14.4477 12 15M23 12C23 18.0751 18.0751 23 12 23C5.92487 23 1 18.0751 1 12C1 5.92487 5.92487 1 12 1C18.0751 1 23 5.92487 23 12Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 const fallbackCard = (processingLabel: string) => (
   <section className="card">
     <p className="message">{processingLabel}</p>
@@ -89,6 +120,7 @@ export function DashboardShell({
   restaurantNavigatorCopy,
   dreAnalysisProps,
   dashboardPanelProps,
+  goodsEntryPanelProps,
   restaurantManagementProps,
   accountSettingsProps,
   userManagementProps,
@@ -114,7 +146,7 @@ export function DashboardShell({
           <BrandMark tagline={brandTagline} />
         </div>
         <InternalNavigation section={currentSection} onChange={onChangeSection} items={navigationItems} />
-        <div className="dashboard-sidebar-footer">
+          <div className="dashboard-sidebar-footer">
           <button
             type="button"
             className="sidebar-footer-action icon-only"
@@ -124,6 +156,17 @@ export function DashboardShell({
           >
             <IconLogout />
           </button>
+          {effectiveSession?.globalRole === "owner" ? (
+            <button
+              type="button"
+              className="sidebar-footer-action icon-only"
+              onClick={() => onChangeSection("help")}
+              title="Ajuda"
+              aria-label="Ajuda"
+            >
+              <IconHelp />
+            </button>
+          ) : null}
           <button
             type="button"
             className="sidebar-avatar-button"
@@ -151,7 +194,7 @@ export function DashboardShell({
             themeLabels={themeLabels}
           />
 
-          {currentSection === "dashboard" || currentSection === "dre" ? (
+          {currentSection === "dashboard" || currentSection === "dre" || currentSection === "goods-entry" ? (
             <RestaurantNavigatorPanel
               eyebrow={restaurantNavigatorCopy.eyebrow}
               title={restaurantNavigatorCopy.title}
@@ -178,6 +221,12 @@ export function DashboardShell({
             </Suspense>
           ) : null}
 
+          {currentSection === "goods-entry" ? (
+            <Suspense fallback={fallbackCard(processingLabel)}>
+              <LazyGoodsEntryPanels canManageData={canManageOperationalData} {...goodsEntryPanelProps} />
+            </Suspense>
+          ) : null}
+
           {currentSection === "restaurants" && canManageRestaurants ? (
             <Suspense fallback={fallbackCard(processingLabel)}>
               <LazyRestaurantManagementPanel
@@ -199,6 +248,8 @@ export function DashboardShell({
               />
             </Suspense>
           ) : null}
+
+          {currentSection === "help" && effectiveSession?.globalRole === "owner" ? <HelpPage /> : null}
 
           {currentSection === "user-management" && canManageUserManagement ? (
             <Suspense fallback={fallbackCard(processingLabel)}>

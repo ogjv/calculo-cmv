@@ -57,10 +57,10 @@ export const applyActiveRestaurant = (session: AuthSession, restaurantId?: strin
     return session;
   }
 
-  const scopedMemberships =
-    session.globalRole === "owner" || !activeMembership.accountId
-      ? memberships
-      : memberships.filter((membership) => membership.accountId === activeMembership.accountId);
+  // Show all memberships for the session user. Previously we filtered memberships
+  // by accountId which could hide restaurants when memberships belong to different
+  // accounts. Keep all memberships visible so the user can switch between them.
+  const scopedMemberships = memberships;
 
   return {
     ...session,
@@ -95,9 +95,11 @@ const hasPersistedWorkspaceContent = (workspace?: PersistedWorkspace | null) =>
         ((workspace.state?.periodDashboards?.length ?? 0) > 0) ||
         ((workspace.state?.recipeBase?.length ?? 0) > 0) ||
         ((workspace.state?.salesFileNames?.length ?? 0) > 0) ||
+        ((workspace.state?.goodsEntryData?.entries.length ?? 0) > 0) ||
         ((workspace.drePeriods?.length ?? 0) > 0) ||
         ((workspace.uploadFeedback?.length ?? 0) > 0) ||
-        workspace.state?.processing
+        workspace.state?.processing ||
+        workspace.state?.goodsEntryProcessing
       )
   );
 
@@ -196,7 +198,13 @@ export function useSessionWorkspace({
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      setSession(restoreSession());
+      const restored = restoreSession();
+      if (restored) {
+        const preferred = getPreferredRestaurant(restored.userId);
+        setSession(preferred ? applyActiveRestaurant(restored, preferred) : restored);
+      } else {
+        setSession(null);
+      }
       setAuthLoading(false);
       return;
     }
@@ -248,9 +256,10 @@ export function useSessionWorkspace({
 
     let mounted = true;
     setAuthHydrating(true);
+    const preferredRestaurantId = getPreferredRestaurant(session.userId);
 
     void withTimeout(
-      hydrateSupabaseSession(session),
+      hydrateSupabaseSession(session, undefined, preferredRestaurantId),
       AUTH_HYDRATE_TIMEOUT_MS,
       "Tempo limite ao carregar restaurantes e permissões da conta."
     )
@@ -304,8 +313,10 @@ export function useSessionWorkspace({
         return;
       }
 
+      const preferredRestaurantId = getPreferredRestaurant(session.userId);
+
       void withTimeout(
-        hydrateSupabaseSession(session),
+        hydrateSupabaseSession(session, undefined, preferredRestaurantId),
         AUTH_HYDRATE_TIMEOUT_MS,
         "Tempo limite ao atualizar restaurantes e permissões da conta."
       )

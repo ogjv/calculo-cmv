@@ -478,6 +478,7 @@ function DonutChartCard({
   hideCenterLabel?: boolean;
   centerEmphasis?: "default" | "large";
 }) {
+  const [clickedSlice, setClickedSlice] = useState<string>();
   const size = 248;
   const cx = size / 2;
   const cy = size / 2;
@@ -514,9 +515,15 @@ function DonutChartCard({
               <path
                 key={slice.name}
                 d={buildArcPath(cx, cy, outerRadius, innerRadius, start, end)}
-                className={`donut-slice ${isActive ? "active" : ""}`}
+                className={`donut-slice ${isActive ? "active" : ""} ${clickedSlice === slice.name ? "clicked" : ""}`}
                 style={style}
-                onClick={() => onSelect(slice.name)}
+                onClick={() => {
+                  setClickedSlice(slice.name);
+                  window.setTimeout(() => {
+                    setClickedSlice((current) => (current === slice.name ? undefined : current));
+                  }, 340);
+                  onSelect(slice.name);
+                }}
               />
             );
           })}

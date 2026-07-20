@@ -151,7 +151,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
     }
 
     if (!effectiveSession.activeAccountId) {
-      setInviteError("NÃ£o foi possÃ­vel identificar a conta ativa deste usuÃ¡rio. Atualize o vÃ­nculo da conta no banco antes de enviar convites.");
+      setInviteError("Não foi possível identificar a conta ativa deste usuário. Atualize o vínculo da conta no banco antes de enviar convites.");
       return;
     }
 
@@ -178,7 +178,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
         restaurantIds: []
       });
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel criar o convite.");
+      setInviteError(error instanceof Error ? error.message : "Não foi possível criar o convite.");
     } finally {
       setInviteBusy(false);
     }
@@ -197,7 +197,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
       await refreshOwnerInvitationData(effectiveSession);
       setInviteMessage("Convite revogado com sucesso.");
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel revogar o convite.");
+      setInviteError(error instanceof Error ? error.message : "Não foi possível revogar o convite.");
     } finally {
       setInviteBusy(false);
     }
@@ -220,7 +220,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
       effectiveSession.authMode !== "supabase" ||
       !effectiveSession.activeAccountId
     ) {
-      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
+      throw new Error("Não foi possível identificar a conta ativa.");
     }
 
     const targetAccountId = member.accountId || effectiveSession.activeAccountId;
@@ -241,7 +241,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
       effectiveSession.authMode !== "supabase" ||
       !effectiveSession.activeAccountId
     ) {
-      throw new Error("NÃ£o foi possÃ­vel identificar a conta ativa.");
+      throw new Error("Não foi possível identificar a conta ativa.");
     }
 
     const targetAccountId = member.accountId || effectiveSession.activeAccountId;

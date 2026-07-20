@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { DreImportData, DrePeriodData } from "../types";
 import { formatCurrency, formatPercent } from "../utils/cmv";
@@ -57,7 +58,7 @@ export type DrePanelCopy = {
   total: string;
 };
 
-type DreAnalysisPanelProps = {
+export type DreAnalysisPanelProps = {
   data?: DreImportData;
   periods: DrePeriodData[];
   selectedPeriod: string;
@@ -448,6 +449,7 @@ function DreMiniDonut({
   index: number;
   copy: DrePanelCopy;
 }) {
+  const [clickedSlice, setClickedSlice] = useState<string>();
   const isDense = items.length > 6;
   const isVeryDense = items.length > 10;
   const size = isVeryDense ? 300 : isDense ? 244 : 176;
@@ -468,7 +470,18 @@ function DreMiniDonut({
             cursor += share;
 
             return (
-              <path key={item.label} d={buildArcPath(cx, cy, outerRadius, innerRadius, start, end)} fill={item.color}>
+              <path
+                key={item.label}
+                d={buildArcPath(cx, cy, outerRadius, innerRadius, start, end)}
+                fill={item.color}
+                className={clickedSlice === item.label ? "clicked" : ""}
+                onClick={() => {
+                  setClickedSlice(item.label);
+                  window.setTimeout(() => {
+                    setClickedSlice((current) => (current === item.label ? undefined : current));
+                  }, 340);
+                }}
+              >
                 <title>{`${item.label}: ${formatCurrency(item.value)}`}</title>
               </path>
             );

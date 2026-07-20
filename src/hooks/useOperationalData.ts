@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DrePeriodData, ImportValidation, PeriodDashboard, PersistedWorkspace, ProductSummary, RecipeRow, UploadFeedbackItem } from "../types";
+import type {
+  DrePeriodData,
+  ImportValidation,
+  PeriodDashboard,
+  PersistedWorkspace,
+  ProductSummary,
+  RecipeRow,
+  UploadFeedbackItem
+} from "../types";
 import { buildDashboardData, buildDashboardSlice, mapRecipeRows, mapSalesRows } from "../utils/cmv";
 import { getDrePeriodKey, getDrePeriodLabel, getDreRevenueGroups, getDreRevenueValue } from "../components/drePanels";
-import { parseDreSpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "../utils/file";
+import { parseDreSpreadsheetFile, parseGoodsEntrySpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "../utils/file";
 
 export type UploadState = PersistedWorkspace["state"];
 
@@ -97,6 +105,11 @@ const normalizeLabel = (value: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
 
+export const buildImportErrorMessage = (fileName: string, detail: string, hint = "Verifique o formato, as colunas e os dados e tente novamente.") => {
+  const normalizedFileName = fileName?.trim() || "arquivo";
+  return `O arquivo "${normalizedFileName}" não está no padrão esperado pelo sistema. ${detail} ${hint}`;
+};
+
 const validateColumns = (
   kind: "sales" | "recipes",
   fileName: string,
@@ -172,8 +185,12 @@ export function useOperationalData() {
     drePeriods.find((period) => period.key === selectedDrePeriod) ??
     drePeriods[drePeriods.length - 1];
   const dreData = activeDrePeriod?.data;
+  const goodsEntryData = state.goodsEntryData;
+  const goodsEntryError = state.goodsEntryError;
+  const goodsEntryProcessing = state.goodsEntryProcessing ?? false;
   const hasDashboardData = Boolean(dashboard);
   const hasSalesFile = salesFiles.length > 0 || (state.periodDashboards?.length ?? 0) > 0;
+  const hasGoodsEntryData = Boolean(goodsEntryData?.entries.length);
 
   useEffect(() => {
     if (!state.recipeBase?.length) {
@@ -300,12 +317,22 @@ export function useOperationalData() {
 
       const invalidValidation = validations.find((validation) => validation.missingColumns.length > 0);
       if (invalidValidation) {
-        throw new Error(`Faltam colunas obrigatórias no arquivo ${invalidValidation.fileName}: ${invalidValidation.missingColumns.join(", ")}.`);
+        throw new Error(
+          buildImportErrorMessage(
+            invalidValidation.fileName,
+            `Faltam colunas obrigatórias: ${invalidValidation.missingColumns.join(", ")}.`
+          )
+        );
       }
 
       const incomingPeriods = createPeriodDashboardsFromImports(nextSalesFiles.map((file) => file.name), recipes, duplicateRecipeCodes, salesImports);
       if (incomingPeriods.length === 0) {
-        throw new Error("Nenhuma linha válida foi encontrada nos arquivos de vendas.");
+        throw new Error(
+          buildImportErrorMessage(
+            nextSalesFiles[0]?.name ?? "vendas",
+            "Não foram encontradas linhas válidas para processar este arquivo de vendas."
+          )
+        );
       }
 
       const mergedPeriods = mergePeriodDashboards(periodDashboards, incomingPeriods, recipes, duplicateRecipeCodes);
@@ -368,11 +395,18 @@ export function useOperationalData() {
 
       const invalidRecipeValidation = validations.find((validation) => validation.missingColumns.length > 0);
       if (invalidRecipeValidation) {
-        throw new Error(`Faltam colunas obrigatórias no arquivo ${invalidRecipeValidation.fileName}: ${invalidRecipeValidation.missingColumns.join(", ")}.`);
+        throw new Error(
+          buildImportErrorMessage(
+            invalidRecipeValidation.fileName,
+            `Faltam colunas obrigatórias: ${invalidRecipeValidation.missingColumns.join(", ")}.`
+          )
+        );
       }
 
       if (recipes.length === 0) {
-        throw new Error("Nenhuma linha válida foi encontrada no arquivo de fichas técnicas.");
+        throw new Error(
+          buildImportErrorMessage(file.name, "Não foram encontradas linhas válidas para processar este arquivo de fichas técnicas.")
+        );
       }
 
       const duplicateRecipeCodes = getDuplicateCodes(recipes);
@@ -398,7 +432,12 @@ export function useOperationalData() {
 
         const invalidSalesValidation = validations.find((validation) => validation.missingColumns.length > 0);
         if (invalidSalesValidation) {
-          throw new Error(`Faltam colunas obrigatórias no arquivo ${invalidSalesValidation.fileName}: ${invalidSalesValidation.missingColumns.join(", ")}.`);
+          throw new Error(
+            buildImportErrorMessage(
+              invalidSalesValidation.fileName,
+              `Faltam colunas obrigatórias: ${invalidSalesValidation.missingColumns.join(", ")}.`
+            )
+          );
         }
 
         incomingPeriods = createPeriodDashboardsFromImports(salesFiles.map((salesFile) => salesFile.name), recipes, duplicateRecipeCodes, salesImports);
@@ -406,7 +445,9 @@ export function useOperationalData() {
 
       const mergedPeriods = mergePeriodDashboards(rebuiltPeriods, incomingPeriods, recipes, duplicateRecipeCodes);
       if (mergedPeriods.length === 0) {
-        throw new Error("Nenhuma linha válida foi encontrada para montar o dashboard.");
+        throw new Error(
+          buildImportErrorMessage(file.name, "Não foi possível montar o dashboard com os dados carregados. Verifique se o arquivo de vendas está compatível com as fichas técnicas.")
+        );
       }
 
       setUploadFeedback([
@@ -471,11 +512,18 @@ export function useOperationalData() {
       const nextDreData = await parseDreSpreadsheetFile(file);
 
       if (nextDreData.sections.length === 0 && nextDreData.summary.length === 0) {
-        throw new Error("Nenhuma seção de DRE foi identificada neste arquivo.");
+        throw new Error(
+          buildImportErrorMessage(file.name, "Não foi possível identificar seções de DRE neste arquivo.")
+        );
       }
 
       if (getDreRevenueValue(nextDreData) > 0 && getDreRevenueGroups(nextDreData).length === 0) {
-        throw new Error("A seção de Receitas Operacionais foi encontrada, mas nenhuma subdivisão de receita foi identificada. Verifique se os subgrupos estão na coluna B do arquivo.");
+        throw new Error(
+          buildImportErrorMessage(
+            file.name,
+            "A seção de Receitas Operacionais foi encontrada, mas nenhuma subdivisão de receita foi identificada. Verifique se os subgrupos estão na coluna B do arquivo."
+          )
+        );
       }
 
       const fallbackKey = `${file.name}-${Date.now()}`;
@@ -497,6 +545,50 @@ export function useOperationalData() {
     } finally {
       setDreProcessing(false);
     }
+  };
+
+  const handleGoodsEntryImport = async (file: File) => {
+    try {
+      setState((current) => ({
+        ...current,
+        goodsEntryFileName: file.name,
+        goodsEntryProcessing: true,
+        goodsEntryError: undefined
+      }));
+
+      const nextGoodsEntryData = await parseGoodsEntrySpreadsheetFile(file);
+
+      if (nextGoodsEntryData.entries.length === 0) {
+        throw new Error(
+          buildImportErrorMessage(file.name, "Não foram encontradas linhas válidas de entrada de mercadorias neste arquivo.")
+        );
+      }
+
+      setState((current) => ({
+        ...current,
+        goodsEntryData: nextGoodsEntryData,
+        goodsEntryFileName: file.name,
+        goodsEntryError: undefined,
+        goodsEntryProcessing: false
+      }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        goodsEntryError: error instanceof Error ? error.message : "Falha ao processar o arquivo de entrada de mercadorias.",
+        goodsEntryProcessing: false
+      }));
+    }
+  };
+
+  const handleClearGoodsEntry = () => {
+    setState((current) => {
+      const nextState = { ...current };
+      delete nextState.goodsEntryData;
+      delete nextState.goodsEntryFileName;
+      delete nextState.goodsEntryError;
+      delete nextState.goodsEntryProcessing;
+      return nextState;
+    });
   };
 
   const rebuildFromPeriods = (nextPeriods: PeriodDashboard[]) => {
@@ -527,7 +619,12 @@ export function useOperationalData() {
     setSalesFiles([]);
     setRecipeFile(null);
     setUploadFeedback([]);
-    setState({});
+    setState((current) => ({
+      goodsEntryData: current.goodsEntryData,
+      goodsEntryFileName: current.goodsEntryFileName,
+      goodsEntryError: current.goodsEntryError,
+      goodsEntryProcessing: current.goodsEntryProcessing
+    }));
     setSelectedPeriod(TOTAL_PERIOD);
     setSelectedView(TOTAL_VIEW);
   };
@@ -566,10 +663,16 @@ export function useOperationalData() {
     periodDashboards,
     dashboard,
     dreData,
+    goodsEntryData,
+    goodsEntryError,
+    goodsEntryProcessing,
     hasDashboardData,
     hasSalesFile,
+    hasGoodsEntryData,
     handleUpload,
     handleDreImport,
+    handleGoodsEntryImport,
+    handleClearGoodsEntry,
     handleRemovePeriod,
     handleClearAll,
     handleResetFlow

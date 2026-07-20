@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium webkit",
+    "test:e2e:single": "playwright test tests/e2e/login-restaurant.spec.ts --project=chromium",
     "quality": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {

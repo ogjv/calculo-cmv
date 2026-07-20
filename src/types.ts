@@ -86,6 +86,33 @@ export type DrePeriodData = {
   data: DreImportData;
 };
 
+export type GoodsEntryRow = {
+  rowNumber: number;
+  group: string;
+  subgroup: string;
+  productName: string;
+  purchaseUnit: string;
+  quantity: number;
+  purchaseUnitPrice: number;
+  totalValue: number;
+  supplier: string;
+  receiptNumber: string;
+  invoiceDate?: string;
+  competencyDate?: string;
+  dueDate?: string;
+  stockUnit: string;
+  unitPrice: number;
+};
+
+export type GoodsEntryImportData = {
+  sheetName: string;
+  restaurantName?: string;
+  reportTitle?: string;
+  reportPeriod?: SalesReportPeriod;
+  headerRowIndex?: number;
+  entries: GoodsEntryRow[];
+};
+
 export type ImportValidation = {
   kind: "sales" | "recipes";
   fileName: string;
@@ -264,11 +291,15 @@ export type PersistedWorkspace = {
     duplicateRecipeCodes?: string[];
     error?: string;
     processing?: boolean;
+    goodsEntryData?: GoodsEntryImportData;
+    goodsEntryFileName?: string;
+    goodsEntryError?: string;
+    goodsEntryProcessing?: boolean;
   };
   uploadFeedback: UploadFeedbackItem[];
   selectedPeriod: string;
   selectedView: string;
   drePeriods?: DrePeriodData[];
   selectedDrePeriod?: string;
-  currentSection?: "account" | "dashboard" | "dre" | "restaurants" | "user-management";
+  currentSection?: "account" | "dashboard" | "dre" | "restaurants" | "user-management" | "goods-entry" | "help";
 };

@@ -37,10 +37,15 @@ export default function App() {
     periodDashboards,
     dashboard,
     dreData,
+    goodsEntryData,
+    goodsEntryError,
+    goodsEntryProcessing,
     hasDashboardData,
     hasSalesFile,
     handleUpload,
     handleDreImport,
+    handleGoodsEntryImport,
+    handleClearGoodsEntry,
     handleRemovePeriod,
     handleClearAll,
     handleResetFlow
@@ -217,6 +222,13 @@ export default function App() {
           onSelectPeriod: setSelectedPeriod,
           onRemovePeriod: canManageOperationalData ? handleRemovePeriod : undefined,
           onSelectView: setSelectedView
+        }}
+        goodsEntryPanelProps={{
+          data: goodsEntryData,
+          error: goodsEntryError,
+          processing: goodsEntryProcessing,
+          onImport: (file) => void handleGoodsEntryImport(file),
+          onClear: handleClearGoodsEntry
         }}
         restaurantManagementProps={{
           restaurantForm: restaurantProfileForm,
