@@ -13,8 +13,11 @@ type AuthScreenProps = {
   onChangeTheme: (theme: ThemeMode) => void;
   onLogin: (email: string, password: string) => void | Promise<void>;
   onRegister: (fullName: string, email: string, password: string) => void | Promise<void>;
+  onForgotPassword: (email: string) => void | Promise<void>;
+  onUpdatePassword: (password: string) => void | Promise<void>;
   error?: string;
   isCloudEnabled: boolean;
+  passwordRecoveryActive: boolean;
   busy?: boolean;
   copy: AuthScreenCopy;
 };
@@ -130,8 +133,11 @@ export function AuthScreen({
   onChangeTheme,
   onLogin,
   onRegister,
+  onForgotPassword,
+  onUpdatePassword,
   error,
   isCloudEnabled,
+  passwordRecoveryActive,
   busy,
   copy
 }: AuthScreenProps) {
@@ -139,14 +145,43 @@ export function AuthScreen({
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [localError, setLocalError] = useState<string>();
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
 
   const handleSubmit = async () => {
+    setLocalError(undefined);
     if (mode === "login") {
       await onLogin(email, password);
       return;
     }
 
     await onRegister(fullName, email, password);
+  };
+
+  const handleForgotPassword = async () => {
+    setLocalError(undefined);
+    setPasswordResetSent(false);
+    try {
+      await onForgotPassword(email);
+      setPasswordResetSent(true);
+    } catch {
+      setPasswordResetSent(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    setLocalError(undefined);
+    setPasswordUpdated(false);
+    if (newPassword !== passwordConfirmation) {
+      setLocalError(copy.passwordMismatch);
+      return;
+    }
+
+    await onUpdatePassword(newPassword);
+    setPasswordUpdated(true);
   };
 
   return (
@@ -165,24 +200,79 @@ export function AuthScreen({
             <ThemeSwitcher theme={theme} onChange={onChangeTheme} labels={copy} />
           </div>
 
-          <div className="auth-tabs auth-mode-switch" aria-label="Tipo de acesso">
-            <button
-              type="button"
-              className={`auth-tab-button ${mode === "login" ? "active" : ""}`}
-              onClick={() => setMode("login")}
-            >
-              {copy.loginTab}
-            </button>
-            <button
-              type="button"
-              className={`auth-tab-button ${mode === "register" ? "active" : ""}`}
-              onClick={() => setMode("register")}
-            >
-              {copy.registerTab}
-            </button>
-          </div>
+          {!passwordRecoveryActive ? (
+            <div className="auth-tabs auth-mode-switch" aria-label="Tipo de acesso">
+              <button
+                type="button"
+                className={`auth-tab-button ${mode === "login" ? "active" : ""}`}
+                onClick={() => setMode("login")}
+              >
+                {copy.loginTab}
+              </button>
+              <button
+                type="button"
+                className={`auth-tab-button ${mode === "register" ? "active" : ""}`}
+                onClick={() => setMode("register")}
+              >
+                {copy.registerTab}
+              </button>
+            </div>
+          ) : null}
 
           <div key={mode} className={`auth-form auth-form-transition ${mode}`}>
+            {passwordRecoveryActive ? (
+              <>
+                <div className="auth-recovery-copy">
+                  <h2>{copy.resetPasswordTitle}</h2>
+                  <p>{copy.resetPasswordText}</p>
+                </div>
+
+                <label className="auth-field auth-field-premium">
+                  <span>{copy.newPassword}</span>
+                  <div className="auth-input-shell">
+                    <IconLock />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      placeholder="••••••"
+                      autoComplete="new-password"
+                      disabled={busy}
+                    />
+                  </div>
+                </label>
+
+                <label className="auth-field auth-field-premium">
+                  <span>{copy.confirmPassword}</span>
+                  <div className="auth-input-shell">
+                    <IconLock />
+                    <input
+                      type="password"
+                      value={passwordConfirmation}
+                      onChange={(event) => setPasswordConfirmation(event.target.value)}
+                      placeholder="••••••"
+                      autoComplete="new-password"
+                      disabled={busy}
+                    />
+                  </div>
+                </label>
+
+                {localError ? <p className="message error">{localError}</p> : null}
+                {error ? <p className="message error">{error}</p> : null}
+                {passwordUpdated ? <p className="message auth-status-message">{copy.passwordUpdated}</p> : null}
+
+                <button
+                  type="button"
+                  className="primary-button auth-submit-button"
+                  onClick={() => void handleUpdatePassword()}
+                  disabled={busy}
+                >
+                  <span>{busy ? copy.processing : copy.updatePassword}</span>
+                  <IconArrowRight />
+                </button>
+              </>
+            ) : (
+              <>
             {mode === "register" ? (
               <label className="auth-field auth-field-premium">
                 <span>{copy.fullName}</span>
@@ -230,14 +320,30 @@ export function AuthScreen({
               </div>
             </label>
 
+            {localError ? <p className="message error">{localError}</p> : null}
             {error ? <p className="message error">{error}</p> : null}
+            {passwordResetSent ? <p className="message auth-status-message">{copy.forgotPasswordSent}</p> : null}
 
             <button type="button" className="primary-button auth-submit-button" onClick={() => void handleSubmit()} disabled={busy}>
               <span>{busy ? copy.processing : mode === "login" ? copy.submitLogin : copy.submitRegister}</span>
               <IconArrowRight />
             </button>
 
+            {mode === "login" ? (
+              <button
+                type="button"
+                className="auth-forgot-button"
+                onClick={() => void handleForgotPassword()}
+                disabled={busy}
+                title={copy.forgotPasswordHint}
+              >
+                {copy.forgotPassword}
+              </button>
+            ) : null}
+
             {!isCloudEnabled ? <p className="message auth-status-message">{copy.demoHint}</p> : null}
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -248,8 +354,6 @@ export function AuthScreen({
 export function DashboardShellHeader({
   session,
   eyebrow,
-  title,
-  text,
   locale,
   onChangeLocale,
   theme,
@@ -262,8 +366,6 @@ export function DashboardShellHeader({
       <div className="dashboard-shell-heading">
         <span className="eyebrow">{eyebrow}</span>
         <h1>Olá, {session.userFullName ?? session.email}!</h1>
-        <strong className="dashboard-shell-subtitle">{title}</strong>
-        <p>{text}</p>
       </div>
 
       <div className="dashboard-shell-topbar-actions">

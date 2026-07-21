@@ -53,12 +53,13 @@ export function RestaurantNavigatorPanel({
   onActivateRestaurant
 }: RestaurantNavigatorPanelProps) {
   const hasMultipleRestaurants = memberships.length > 1;
+  const shouldShowEyebrow = eyebrow.trim().toLowerCase() !== title.trim().toLowerCase();
 
   return (
     <section className="card restaurant-overview-panel">
       <div className="section-head compact">
         <div>
-          <span className="eyebrow">{eyebrow}</span>
+          {shouldShowEyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
           <h3>{title}</h3>
           {hasMultipleRestaurants && description ? <p>{description}</p> : null}
         </div>

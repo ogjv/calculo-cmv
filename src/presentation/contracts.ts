@@ -16,6 +16,16 @@ export type AuthScreenCopy = {
   fullNameHint: string;
   email: string;
   password: string;
+  forgotPassword: string;
+  forgotPasswordHint: string;
+  forgotPasswordSent: string;
+  resetPasswordTitle: string;
+  resetPasswordText: string;
+  newPassword: string;
+  confirmPassword: string;
+  updatePassword: string;
+  passwordMismatch: string;
+  passwordUpdated: string;
   processing: string;
   submitLogin: string;
   submitRegister: string;

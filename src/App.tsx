@@ -59,8 +59,11 @@ export default function App() {
     authLoading,
     authHydrating,
     authSubmitting,
+    passwordRecoveryActive,
     login: handleLogin,
     register: handleRegister,
+    requestPasswordReset: handlePasswordReset,
+    completePasswordReset: handleCompletePasswordReset,
     logout: handleLogout,
     selectRestaurant: handleSelectRestaurant
   } = useSessionWorkspace({
@@ -158,7 +161,7 @@ export default function App() {
     }
   }, [canManageRestaurants, canManageUserManagement, currentSection]);
 
-  if (authLoading || authHydrating || !effectiveSession) {
+  if (passwordRecoveryActive || authLoading || authHydrating || !effectiveSession) {
     return (
       <LocaleContext.Provider value={locale}>
         <AppAccessGate
@@ -167,12 +170,15 @@ export default function App() {
           authLoading={authLoading}
           authHydrating={authHydrating}
           authSubmitting={authSubmitting}
+          passwordRecoveryActive={passwordRecoveryActive}
           authError={authError}
           authScreenCopy={authScreenCopy}
           onChangeLocale={setLocale}
           onChangeTheme={setTheme}
           onLogin={(email, password) => void handleLogin(email, password)}
           onRegister={(fullName, email, password) => void handleRegister(fullName, email, password)}
+          onForgotPassword={(email) => void handlePasswordReset(email)}
+          onUpdatePassword={(password) => void handleCompletePasswordReset(password)}
         />
       </LocaleContext.Provider>
     );

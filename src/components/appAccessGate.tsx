@@ -10,12 +10,15 @@ type AppAccessGateProps = {
   authLoading: boolean;
   authHydrating: boolean;
   authSubmitting: boolean;
+  passwordRecoveryActive: boolean;
   authError?: string;
   authScreenCopy: AuthScreenCopy;
   onChangeLocale: (locale: Locale) => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onLogin: (email: string, password: string) => void | Promise<void>;
   onRegister: (fullName: string, email: string, password: string) => void | Promise<void>;
+  onForgotPassword: (email: string) => void | Promise<void>;
+  onUpdatePassword: (password: string) => void | Promise<void>;
 };
 
 export function AppAccessGate({
@@ -24,14 +27,17 @@ export function AppAccessGate({
   authLoading,
   authHydrating,
   authSubmitting,
+  passwordRecoveryActive,
   authError,
   authScreenCopy,
   onChangeLocale,
   onChangeTheme,
   onLogin,
-  onRegister
+  onRegister,
+  onForgotPassword,
+  onUpdatePassword
 }: AppAccessGateProps) {
-  if (authLoading || authHydrating) {
+  if (!passwordRecoveryActive && (authLoading || authHydrating)) {
     return (
       <div className="app-shell refined auth-shell">
         <section className="card">
@@ -52,9 +58,12 @@ export function AppAccessGate({
       theme={theme}
       onChangeTheme={onChangeTheme}
       isCloudEnabled={isSupabaseConfigured}
+      passwordRecoveryActive={passwordRecoveryActive}
       onLogin={onLogin}
       onRegister={onRegister}
-      busy={authSubmitting}
+      onForgotPassword={onForgotPassword}
+      onUpdatePassword={onUpdatePassword}
+      busy={authSubmitting || (passwordRecoveryActive && authLoading)}
       error={authError}
       copy={authScreenCopy}
     />

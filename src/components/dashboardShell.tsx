@@ -146,36 +146,38 @@ export function DashboardShell({
           <BrandMark tagline={brandTagline} />
         </div>
         <InternalNavigation section={currentSection} onChange={onChangeSection} items={navigationItems} />
-          <div className="dashboard-sidebar-footer">
-          <button
-            type="button"
-            className="sidebar-footer-action icon-only"
-            onClick={onLogout}
-            title={logoutLabel}
-            aria-label={logoutLabel}
-          >
-            <IconLogout />
-          </button>
-          {effectiveSession?.globalRole === "owner" ? (
+        <div className="dashboard-sidebar-footer">
+          <div className="sidebar-account-menu" aria-label="OpÃ§Ãµes da conta">
             <button
               type="button"
-              className="sidebar-footer-action icon-only"
-              onClick={() => onChangeSection("help")}
-              title="Ajuda"
-              aria-label="Ajuda"
+              className="sidebar-account-menu-button"
+              onClick={onLogout}
+              title={logoutLabel}
+              aria-label={logoutLabel}
             >
-              <IconHelp />
+              <IconLogout />
             </button>
-          ) : null}
-          <button
-            type="button"
-            className="sidebar-avatar-button"
-            onClick={onOpenAccount}
-            title={myAccountLabel}
-            aria-label={myAccountLabel}
-          >
-            <UserAvatar session={effectiveSession} size="lg" />
-          </button>
+            {effectiveSession?.globalRole === "owner" ? (
+              <button
+                type="button"
+                className={`sidebar-account-menu-button ${currentSection === "help" ? "active" : ""}`}
+                onClick={() => onChangeSection("help")}
+                title="Ajuda"
+                aria-label="Ajuda"
+              >
+                <IconHelp />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={`sidebar-account-menu-button sidebar-avatar-button ${currentSection === "account" ? "active" : ""}`}
+              onClick={onOpenAccount}
+              title={myAccountLabel}
+              aria-label={myAccountLabel}
+            >
+              <UserAvatar session={effectiveSession} size="md" />
+            </button>
+          </div>
         </div>
       </aside>
 

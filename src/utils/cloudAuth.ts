@@ -149,15 +149,67 @@ const isNetworkFailureMessage = (message: string) => {
   );
 };
 
+const translateExternalErrorMessage = (message: string, fallback: string) => {
+  const normalized = message.toLowerCase();
+
+  if (isNetworkFailureMessage(message)) {
+    return "Não foi possível conectar ao servidor agora. Verifique sua internet e tente novamente.";
+  }
+
+  if (normalized.includes("invalid login credentials") || normalized.includes("invalid credentials")) {
+    return "E-mail ou senha inválidos.";
+  }
+
+  if (normalized.includes("email not confirmed")) {
+    return "Confirme seu e-mail antes de entrar.";
+  }
+
+  if (normalized.includes("email rate limit exceeded") || normalized.includes("rate limit")) {
+    return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
+  }
+
+  if (normalized.includes("user already registered") || normalized.includes("already registered")) {
+    return "Já existe uma conta cadastrada com este e-mail.";
+  }
+
+  if (normalized.includes("signup is disabled")) {
+    return "A criação de novas contas está temporariamente indisponível.";
+  }
+
+  if (normalized.includes("password should be at least") || normalized.includes("password must be at least")) {
+    return "A senha precisa ter pelo menos 6 caracteres.";
+  }
+
+  if (normalized.includes("weak password")) {
+    return "A senha informada está fraca. Use uma senha mais segura.";
+  }
+
+  if (normalized.includes("invalid email")) {
+    return "Informe um e-mail válido.";
+  }
+
+  if (normalized.includes("email link is invalid or has expired") || normalized.includes("otp_expired")) {
+    return "O link de acesso expirou ou já foi usado. Solicite um novo link.";
+  }
+
+  if (normalized.includes("jwt expired") || normalized.includes("invalid jwt")) {
+    return "Sua sessão expirou. Faça login novamente.";
+  }
+
+  if (normalized.includes("permission denied") || normalized.includes("row-level security")) {
+    return "Você não tem permissão para realizar esta ação.";
+  }
+
+  if (normalized.includes("duplicate key")) {
+    return "Este cadastro já existe.";
+  }
+
+  return fallback;
+};
+
 const asError = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) {
-    if (isNetworkFailureMessage(error.message)) {
-      return new Error(
-        "Não foi possível conectar ao servidor agora. Verifique a internet do celular e tente novamente."
-      );
-    }
-
-    return new Error(error.message);
+    return new Error(translateExternalErrorMessage(error.message, fallback));
   }
 
   if (
@@ -167,18 +219,11 @@ const asError = (error: unknown, fallback: string) => {
     typeof (error as { message?: unknown }).message === "string"
   ) {
     const message = (error as { message: string }).message;
-    if (isNetworkFailureMessage(message)) {
-      return new Error(
-        "Não foi possível conectar ao servidor agora. Verifique a internet do celular e tente novamente."
-      );
-    }
-
-    return new Error(message);
+    return new Error(translateExternalErrorMessage(message, fallback));
   }
 
   return new Error(fallback);
 };
-
 const SUPABASE_NOT_CONFIGURED =
   "Supabase não configurado. Para usar autenticação em nuvem defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente ou ative o modo local (VITE_FORCE_LOCAL_AUTH=true).";
 
@@ -776,7 +821,7 @@ export const hydrateSupabaseSession = async (
   });
 };
 
-export const subscribeToSupabaseAuth = (callback: (session: AuthSession | null) => void) => {
+export const subscribeToSupabaseAuth = (callback: (session: AuthSession | null, event?: string) => void) => {
   if (!supabase) {
     return () => undefined;
   }
@@ -786,7 +831,7 @@ export const subscribeToSupabaseAuth = (callback: (session: AuthSession | null) 
   } = supabase.auth.onAuthStateChange((event, session) => {
     const user = session?.user;
     if (!user) {
-      callback(null);
+      callback(null, event);
       return;
     }
 
@@ -796,8 +841,8 @@ export const subscribeToSupabaseAuth = (callback: (session: AuthSession | null) 
 
     void loadAuthSessionContext(user)
       .then((context) => toAuthSession(user, context))
-      .then((nextSession) => callback(nextSession))
-      .catch(() => callback(toBaseAuthSession(user)));
+      .then((nextSession) => callback(nextSession, event))
+      .catch(() => callback(toBaseAuthSession(user), event));
   });
 
   return () => subscription.unsubscribe();
@@ -856,6 +901,40 @@ export const registerRestaurantWithSupabase = async ({
 
   const context = await loadAuthSessionContext(user, fullName);
   return toAuthSession(user, context);
+};
+
+export const requestPasswordResetWithSupabase = async (email: string) => {
+  if (!supabase) {
+    throw new Error(SUPABASE_NOT_CONFIGURED);
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) {
+    throw new Error("Informe o e-mail da conta para recuperar a senha.");
+  }
+
+  const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined;
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
+
+  if (error) {
+    throw asError(error, "Não foi possível enviar o e-mail de recuperação.");
+  }
+};
+
+export const updateSupabasePassword = async (password: string) => {
+  if (!supabase) {
+    throw new Error(SUPABASE_NOT_CONFIGURED);
+  }
+
+  const nextPassword = password.trim();
+  if (nextPassword.length < 6) {
+    throw new Error("A nova senha precisa ter pelo menos 6 caracteres.");
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: nextPassword });
+  if (error) {
+    throw asError(error, "Não foi possível atualizar a senha.");
+  }
 };
 
 export const signOutFromSupabase = async () => {

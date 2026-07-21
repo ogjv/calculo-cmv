@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AuthSession, DrePeriodData, PersistedWorkspace, UploadFeedbackItem } from "../types";
 import { loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut } from "../utils/auth";
-import { getSupabaseSession, hydrateSupabaseSession, loadCloudWorkspace, registerRestaurantWithSupabase, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth } from "../utils/cloudAuth";
+import { getSupabaseSession, hydrateSupabaseSession, loadCloudWorkspace, registerRestaurantWithSupabase, requestPasswordResetWithSupabase, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateSupabasePassword } from "../utils/cloudAuth";
 import { isSupabaseConfigured } from "../utils/supabase";
 import type { Locale } from "../i18n";
 
@@ -15,6 +15,24 @@ const DEFAULT_DRE_PERIOD = "__LATEST_DRE__";
 const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
 const AUTH_BOOT_TIMEOUT_MS = 30000;
 const AUTH_HYDRATE_TIMEOUT_MS = 15000;
+
+const isPasswordRecoveryUrl = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  return hashParams.get("type") === "recovery" || searchParams.get("type") === "recovery";
+};
+
+const clearAuthUrlFragments = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.history.replaceState({}, document.title, window.location.pathname || "/dashboard");
+};
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, message: string) =>
   new Promise<T>((resolve, reject) => {
@@ -149,6 +167,7 @@ export function useSessionWorkspace({
   const [authLoading, setAuthLoading] = useState(true);
   const [authHydrating, setAuthHydrating] = useState(false);
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [passwordRecoveryActive, setPasswordRecoveryActive] = useState(() => isPasswordRecoveryUrl());
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [workspaceRestaurantId, setWorkspaceRestaurantId] = useState<string>();
 
@@ -228,9 +247,13 @@ export function useSessionWorkspace({
         }
       });
 
-    const unsubscribe = subscribeToSupabaseAuth((nextSession) => {
+    const unsubscribe = subscribeToSupabaseAuth((nextSession, event) => {
       if (!mounted) {
         return;
+      }
+
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecoveryActive(true);
       }
 
       setSession(nextSession);
@@ -519,6 +542,46 @@ export function useSessionWorkspace({
     }
   };
 
+  const requestPasswordReset = async (email: string) => {
+    try {
+      setAuthSubmitting(true);
+      setAuthError(undefined);
+      if (!isSupabaseConfigured) {
+        throw new Error("RecuperaÃ§Ã£o de senha disponÃ­vel apenas no modo online.");
+      }
+      await requestPasswordResetWithSupabase(email);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel enviar o e-mail de recuperaÃ§Ã£o.");
+      throw error;
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const completePasswordReset = async (password: string) => {
+    try {
+      setAuthSubmitting(true);
+      setAuthError(undefined);
+      if (!isSupabaseConfigured) {
+        throw new Error("RecuperaÃ§Ã£o de senha disponÃ­vel apenas no modo online.");
+      }
+
+      await updateSupabasePassword(password);
+      setPasswordRecoveryActive(false);
+      clearAuthUrlFragments();
+
+      const nextSession = await getSupabaseSession();
+      if (nextSession) {
+        setSession(nextSession);
+      }
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel atualizar a senha.");
+      throw error;
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
   const logout = async () => {
     try {
       if (session?.authMode === "supabase") {
@@ -557,10 +620,13 @@ export function useSessionWorkspace({
     authLoading,
     authHydrating,
     authSubmitting,
+    passwordRecoveryActive,
     workspaceReady,
     workspaceRestaurantId,
     login,
     register,
+    requestPasswordReset,
+    completePasswordReset,
     logout,
     selectRestaurant
   };

@@ -12,6 +12,16 @@ const authScreenCopy = {
   fullNameHint: translations.pt.authFullNameHint,
   email: translations.pt.authEmail,
   password: translations.pt.authPassword,
+  forgotPassword: translations.pt.authForgotPassword,
+  forgotPasswordHint: translations.pt.authForgotPasswordHint,
+  forgotPasswordSent: translations.pt.authForgotPasswordSent,
+  resetPasswordTitle: translations.pt.authResetPasswordTitle,
+  resetPasswordText: translations.pt.authResetPasswordText,
+  newPassword: translations.pt.authNewPassword,
+  confirmPassword: translations.pt.authConfirmPassword,
+  updatePassword: translations.pt.authUpdatePassword,
+  passwordMismatch: translations.pt.authPasswordMismatch,
+  passwordUpdated: translations.pt.authPasswordUpdated,
   processing: translations.pt.processing,
   submitLogin: translations.pt.authSubmitLogin,
   submitRegister: translations.pt.authSubmitRegister,
@@ -31,11 +41,14 @@ describe("AppAccessGate", () => {
         authLoading
         authHydrating={false}
         authSubmitting={false}
+        passwordRecoveryActive={false}
         authScreenCopy={authScreenCopy}
         onChangeLocale={() => undefined}
         onChangeTheme={() => undefined}
         onLogin={() => undefined}
         onRegister={() => undefined}
+        onForgotPassword={() => undefined}
+        onUpdatePassword={() => undefined}
       />
     );
 
@@ -51,18 +64,46 @@ describe("AppAccessGate", () => {
         authLoading={false}
         authHydrating={false}
         authSubmitting={false}
+        passwordRecoveryActive={false}
         authError="Falha de teste"
         authScreenCopy={authScreenCopy}
         onChangeLocale={() => undefined}
         onChangeTheme={() => undefined}
         onLogin={() => undefined}
         onRegister={() => undefined}
+        onForgotPassword={() => undefined}
+        onUpdatePassword={() => undefined}
       />
     );
 
     expect(html).toContain(translations.pt.authTitle);
     expect(html).toContain(translations.pt.authLoginTab);
     expect(html).toContain(translations.pt.authEmail);
+    expect(html).toContain(translations.pt.authForgotPassword);
     expect(html).toContain("Falha de teste");
+  });
+
+  it("renders the password recovery form when recovery is active", () => {
+    const html = renderToStaticMarkup(
+      <AppAccessGate
+        locale="pt"
+        theme="light"
+        authLoading={false}
+        authHydrating={false}
+        authSubmitting={false}
+        passwordRecoveryActive
+        authScreenCopy={authScreenCopy}
+        onChangeLocale={() => undefined}
+        onChangeTheme={() => undefined}
+        onLogin={() => undefined}
+        onRegister={() => undefined}
+        onForgotPassword={() => undefined}
+        onUpdatePassword={() => undefined}
+      />
+    );
+
+    expect(html).toContain(translations.pt.authResetPasswordTitle);
+    expect(html).toContain(translations.pt.authUpdatePassword);
+    expect(html).not.toContain(translations.pt.authLoginTab);
   });
 });
