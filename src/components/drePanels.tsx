@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { DreImportData, DrePeriodData } from "../types";
 import { formatCurrency, formatPercent } from "../utils/cmv";
 
 const drePalette = ["#2f6f5e", "#c9823a", "#b84e3f", "#496f9f", "#8b6f47", "#6f7785", "#a55c7a", "#5f7f4f"];
 const shortMonthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+export const DRE_TOTAL_PERIOD = "__ALL_DRE_PERIODS__";
 
 export type DrePanelCopy = {
   navDre: string;
@@ -68,6 +69,7 @@ export type DreAnalysisPanelProps = {
   copy: DrePanelCopy;
   onImport: (file: File) => void;
   onSelectPeriod: (period: string) => void;
+  onRemovePeriod?: (period: string) => void;
 };
 
 const polarToCartesian = (cx: number, cy: number, r: number, angle: number) => {
@@ -100,6 +102,18 @@ const buildArcPath = (
     "Z"
   ].join(" ");
 };
+
+function IconTrash() {
+  return (
+    <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 14h10l1-14" />
+      <path d="M9 7V4h6v3" />
+    </svg>
+  );
+}
 
 const normalizeDreLabel = (value: string) =>
   value
@@ -334,6 +348,131 @@ const getDreRatioTone = (value: number, goodMax: number, attentionMax: number) =
 
   return "bad";
 };
+
+const buildConsolidatedDreData = (periods: DrePeriodData[]): DreImportData | undefined => {
+  if (periods.length === 0) {
+    return undefined;
+  }
+
+  const summaryMap = new Map<string, DreImportData["summary"][number]>();
+  const sectionMap = new Map<
+    string,
+    {
+      label: string;
+      totalValue: number;
+      rowNumber: number;
+      groups: Map<
+        string,
+        {
+          label: string;
+          totalValue: number;
+          rowNumber: number;
+          lines: Map<string, DreImportData["sections"][number]["groups"][number]["lines"][number]>;
+        }
+      >;
+    }
+  >();
+
+  periods.forEach((period) => {
+    period.data.summary.forEach((line) => {
+      const current = summaryMap.get(line.label);
+      summaryMap.set(line.label, {
+        label: line.label,
+        value: (current?.value ?? 0) + line.value,
+        rowNumber: current?.rowNumber ?? line.rowNumber
+      });
+    });
+
+    period.data.sections.forEach((section) => {
+      const sectionEntry =
+        sectionMap.get(section.label) ??
+        {
+          label: section.label,
+          totalValue: 0,
+          rowNumber: section.total?.rowNumber ?? 0,
+          groups: new Map()
+        };
+
+      sectionEntry.totalValue += getDreSectionValue(section);
+
+      section.groups.forEach((group) => {
+        const groupEntry =
+          sectionEntry.groups.get(group.label) ??
+          {
+            label: group.label,
+            totalValue: 0,
+            rowNumber: group.total?.rowNumber ?? 0,
+            lines: new Map()
+          };
+
+        groupEntry.totalValue += getDreGroupValue(group);
+
+        group.lines.forEach((line) => {
+          const currentLine = groupEntry.lines.get(line.label);
+          groupEntry.lines.set(line.label, {
+            label: line.label,
+            value: (currentLine?.value ?? 0) + line.value,
+            rowNumber: currentLine?.rowNumber ?? line.rowNumber
+          });
+        });
+
+        sectionEntry.groups.set(group.label, groupEntry);
+      });
+
+      sectionMap.set(section.label, sectionEntry);
+    });
+  });
+
+  return {
+    sheetName: "Total",
+    restaurantName: periods[0].data.restaurantName,
+    reportTitle: periods[0].data.reportTitle,
+    analysisTitle: "Análise total",
+    period: {
+      rawLabel: "Total"
+    },
+    summary: [...summaryMap.values()],
+    sections: [...sectionMap.values()].map((section) => ({
+      label: section.label,
+      total: {
+        label: section.label,
+        value: section.totalValue,
+        rowNumber: section.rowNumber
+      },
+      groups: [...section.groups.values()].map((group) => ({
+        label: group.label,
+        total: {
+          label: group.label,
+          value: group.totalValue,
+          rowNumber: group.rowNumber
+        },
+        lines: [...group.lines.values()]
+      }))
+    }))
+  };
+};
+
+type DreTrendPoint = {
+  key: string;
+  label: string;
+  revenue: number;
+  expenses: number;
+  operationalResult: number;
+};
+
+const buildDreTrendPoints = (periods: DrePeriodData[]): DreTrendPoint[] =>
+  [...periods]
+    .sort((left, right) => left.key.localeCompare(right.key))
+    .map((period) => ({
+      key: period.key,
+      label: getDrePeriodShortLabel(period.data),
+      revenue: getDreRevenueValue(period.data),
+      expenses: getDreExpenseValue(period.data),
+      operationalResult:
+        findDreSummaryValue(period.data, "RESULTADO OPERACIONAL") ??
+        findDreSummaryValue(period.data, "SALDO FINAL") ??
+        0
+    }));
 
 const getDreMarginTone = (value: number) => {
   if (!Number.isFinite(value)) {
@@ -834,13 +973,66 @@ function DreOperationalBreakdowns({ data, copy }: { data: DreImportData; copy: D
   );
 }
 
-function DreRevenueExpenseTrend({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
+function buildLinePath(points: Array<{ x: number; y: number }>) {
+  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+}
+
+function DreRevenueExpenseTrend({ data, copy, trendPoints }: { data: DreImportData; copy: DrePanelCopy; trendPoints?: DreTrendPoint[] }) {
   const revenue = getDreRevenueValue(data);
   const expenses = getDreExpenseValue(data);
-  const maxValue = Math.max(revenue, expenses, 1);
   const height = 220;
   const width = 680;
   const padding = 28;
+  const activeTrend = trendPoints && trendPoints.length > 1 ? trendPoints : undefined;
+
+  if (activeTrend) {
+    const maxValue = Math.max(...activeTrend.flatMap((point) => [point.revenue, point.expenses]), 1);
+    const plotWidth = width - padding * 2;
+    const plotHeight = height - padding * 2;
+    const getX = (index: number) => padding + (activeTrend.length === 1 ? plotWidth / 2 : (index / (activeTrend.length - 1)) * plotWidth);
+    const getY = (value: number) => padding + (1 - value / maxValue) * plotHeight;
+    const revenuePoints = activeTrend.map((point, index) => ({ x: getX(index), y: getY(point.revenue) }));
+    const expensePoints = activeTrend.map((point, index) => ({ x: getX(index), y: getY(point.expenses) }));
+    const labelStep = Math.max(1, Math.ceil(activeTrend.length / 6));
+
+    return (
+      <section className="dre-chart-card dre-line-chart-card">
+        <div className="section-head">
+          <div>
+            <h3>{copy.dreRevenueVsExpenses}</h3>
+            <p>{copy.dreRevenueVsExpensesText}</p>
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} className="dre-line-chart" role="img" aria-label={copy.dreRevenueVsExpenses}>
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} />
+          <path d={buildLinePath(revenuePoints)} className="dre-line revenue" />
+          <path d={buildLinePath(expensePoints)} className="dre-line expense" />
+          {activeTrend.map((point, index) => (
+            <g key={`revenue-expense-${point.key}`}>
+              <circle cx={getX(index)} cy={getY(point.revenue)} r="5" className="dre-point revenue" />
+              <circle cx={getX(index)} cy={getY(point.expenses)} r="5" className="dre-point expense" />
+              {index % labelStep === 0 || index === activeTrend.length - 1 ? (
+                <text x={getX(index)} y={height - 6} textAnchor="middle">
+                  {point.label}
+                </text>
+              ) : null}
+            </g>
+          ))}
+        </svg>
+        <div className="dre-chart-legend-inline">
+          <span className="revenue">
+            {copy.dreRevenue}: {formatCurrency(revenue)}
+          </span>
+          <span className="expense">
+            {copy.dreOutflows}: {formatCurrency(expenses)}
+          </span>
+        </div>
+      </section>
+    );
+  }
+
+  const maxValue = Math.max(revenue, expenses, 1);
   const x = width / 2;
   const revenueY = padding + (1 - revenue / maxValue) * (height - padding * 2);
   const expensesY = padding + (1 - expenses / maxValue) * (height - padding * 2);
@@ -882,12 +1074,66 @@ function DreRevenueExpenseTrend({ data, copy }: { data: DreImportData; copy: Dre
   );
 }
 
-function DreOperationalResultBars({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
+function DreOperationalResultBars({ data, copy, trendPoints }: { data: DreImportData; copy: DrePanelCopy; trendPoints?: DreTrendPoint[] }) {
   const operationalResult = findDreSummaryValue(data, "RESULTADO OPERACIONAL") ?? findDreSummaryValue(data, "SALDO FINAL") ?? 0;
-  const maxValue = Math.max(Math.abs(operationalResult), 1);
   const height = 220;
   const width = 680;
   const padding = 28;
+  const activeTrend = trendPoints && trendPoints.length > 1 ? trendPoints : undefined;
+
+  if (activeTrend) {
+    const maxValue = Math.max(...activeTrend.map((point) => Math.abs(point.operationalResult)), 1);
+    const hasNegative = activeTrend.some((point) => point.operationalResult < 0);
+    const plotWidth = width - padding * 2;
+    const plotHeight = height - padding * 2;
+    const baseline = hasNegative ? padding + plotHeight / 2 : height - padding;
+    const scale = hasNegative ? (plotHeight / 2) / maxValue : plotHeight / maxValue;
+    const slotWidth = plotWidth / activeTrend.length;
+    const barWidth = Math.max(16, Math.min(46, slotWidth * 0.58));
+    const labelStep = Math.max(1, Math.ceil(activeTrend.length / 6));
+
+    return (
+      <section className="dre-chart-card dre-line-chart-card">
+        <div className="section-head">
+          <div>
+            <h3>{copy.dreOperationalResultChart}</h3>
+            <p>{copy.dreOperationalResultChartText}</p>
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} className="dre-bar-chart" role="img" aria-label={copy.dreOperationalResultChart}>
+          <line x1={padding} y1={baseline} x2={width - padding} y2={baseline} />
+          {activeTrend.map((point, index) => {
+            const x = padding + slotWidth * index + slotWidth / 2;
+            const barHeight = Math.max(4, Math.abs(point.operationalResult) * scale);
+            const barY = point.operationalResult >= 0 ? baseline - barHeight : baseline;
+
+            return (
+              <g key={`operational-result-${point.key}`}>
+                <rect
+                  x={x - barWidth / 2}
+                  y={barY}
+                  width={barWidth}
+                  height={barHeight}
+                  rx="7"
+                  className={point.operationalResult >= 0 ? "positive" : "negative"}
+                />
+                {index % labelStep === 0 || index === activeTrend.length - 1 ? (
+                  <text x={x} y={height - 6} textAnchor="middle">
+                    {point.label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+        <div className="dre-chart-legend-inline">
+          <span>{formatCurrency(operationalResult)}</span>
+        </div>
+      </section>
+    );
+  }
+
+  const maxValue = Math.max(Math.abs(operationalResult), 1);
   const barHeight = Math.max(16, (Math.abs(operationalResult) / maxValue) * (height - padding * 2));
   const baseline = height - padding;
   const barY = operationalResult >= 0 ? baseline - barHeight : baseline;
@@ -921,11 +1167,11 @@ function DreOperationalResultBars({ data, copy }: { data: DreImportData; copy: D
   );
 }
 
-function DreFinancialCharts({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
+function DreFinancialCharts({ data, copy, trendPoints }: { data: DreImportData; copy: DrePanelCopy; trendPoints?: DreTrendPoint[] }) {
   return (
     <section className="dre-financial-chart-grid">
-      <DreRevenueExpenseTrend data={data} copy={copy} />
-      <DreOperationalResultBars data={data} copy={copy} />
+      <DreRevenueExpenseTrend data={data} copy={copy} trendPoints={trendPoints} />
+      <DreOperationalResultBars data={data} copy={copy} trendPoints={trendPoints} />
     </section>
   );
 }
@@ -939,15 +1185,23 @@ export function DreAnalysisPanel({
   canManageData,
   copy,
   onImport,
-  onSelectPeriod
+  onSelectPeriod,
+  onRemovePeriod
 }: DreAnalysisPanelProps) {
+  const isTotalSelected = selectedPeriod === DRE_TOTAL_PERIOD;
+  const consolidatedData = useMemo(() => buildConsolidatedDreData(periods), [periods]);
+  const displayData = isTotalSelected ? consolidatedData : data;
+  const trendPoints = useMemo(
+    () => (isTotalSelected ? buildDreTrendPoints(periods) : undefined),
+    [isTotalSelected, periods]
+  );
+
   return (
     <section className="card dre-panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">{copy.navDre}</span>
-          <h3>{data ? copy.dreParsedTitle : copy.dreEmptyTitle}</h3>
-          {!data ? <p>{copy.dreEmptyText}</p> : null}
+          <h3>{displayData ? copy.dreParsedTitle : copy.dreEmptyTitle}</h3>
+          {!displayData ? <p>{copy.dreEmptyText}</p> : null}
         </div>
       </div>
 
@@ -977,23 +1231,40 @@ export function DreAnalysisPanel({
 
       {error ? <p className="message error">{error}</p> : null}
 
-      {data ? (
+      {displayData ? (
         <>
           <div className="dre-summary-grid">
             <article className="totals-box compact dre-period-summary-card">
               <span className="eyebrow">{copy.drePeriod}</span>
-              <strong>{getDrePeriodLabel(data, data.sheetName)}</strong>
-              {periods.length > 1 ? (
+              <strong>{isTotalSelected ? copy.total : getDrePeriodLabel(displayData, displayData.sheetName)}</strong>
+              {periods.length > 0 ? (
                 <div className="filter-bar dre-period-filter" aria-label={copy.dreSelectPeriod}>
-                  {periods.map((period) => (
+                  {periods.length > 1 ? (
                     <button
-                      key={period.key}
                       type="button"
-                      className={`filter-pill ${selectedPeriod === period.key ? "active" : ""}`}
-                      onClick={() => onSelectPeriod(period.key)}
+                      className={`filter-pill ${isTotalSelected ? "active" : ""}`}
+                      onClick={() => onSelectPeriod(DRE_TOTAL_PERIOD)}
                     >
-                      {period.label}
+                      {copy.total}
                     </button>
+                  ) : null}
+                  {periods.map((period) => (
+                    <span key={period.key} className={`filter-pill filter-pill-group ${selectedPeriod === period.key ? "active" : ""}`}>
+                      <button type="button" className="filter-pill-main" onClick={() => onSelectPeriod(period.key)}>
+                        {period.label}
+                      </button>
+                      {canManageData && onRemovePeriod ? (
+                        <button
+                          type="button"
+                          className="filter-pill-remove"
+                          onClick={() => onRemovePeriod(period.key)}
+                          aria-label={`Remover ${period.label}`}
+                          title={`Excluir ${period.label}`}
+                        >
+                          <IconTrash />
+                        </button>
+                      ) : null}
+                    </span>
                   ))}
                 </div>
               ) : null}
@@ -1001,15 +1272,15 @@ export function DreAnalysisPanel({
           </div>
 
           <div className="dre-visual-grid">
-            <DreResultMap data={data} copy={copy} />
-            <DreSectionChart data={data} copy={copy} />
+            <DreResultMap data={displayData} copy={copy} />
+            <DreSectionChart data={displayData} copy={copy} />
           </div>
 
-          <DreStrategicInsights data={data} copy={copy} />
-          <DreRestaurantDiagnostics data={data} copy={copy} />
-          <DreOperationalBreakdowns data={data} copy={copy} />
-          <DreFinancialCharts data={data} copy={copy} />
-          <DreParticipationGrid data={data} copy={copy} />
+          <DreStrategicInsights data={displayData} copy={copy} />
+          <DreRestaurantDiagnostics data={displayData} copy={copy} />
+          <DreOperationalBreakdowns data={displayData} copy={copy} />
+          <DreFinancialCharts data={displayData} copy={copy} trendPoints={trendPoints} />
+          <DreParticipationGrid data={displayData} copy={copy} />
         </>
       ) : null}
     </section>

@@ -1123,7 +1123,8 @@ export const createSupabaseRestaurantForCurrentUser = async (
     throw new Error("Sessão inválida ao cadastrar restaurante.");
   }
 
-  const memberships = await loadMemberships(session.userId);
+  const memberships =
+    session.globalRole === "owner" ? await loadAllRestaurantsForGlobalOwner() : await loadMemberships(session.userId);
   return toAuthSession(user, {
     memberships,
     activeRestaurantId: typeof data === "string" ? data : undefined
@@ -1154,7 +1155,8 @@ export const deleteSupabaseRestaurantFromAccount = async (
     throw new Error("Sessão inválida ao excluir restaurante.");
   }
 
-  const memberships = await loadMemberships(session.userId);
+  const memberships =
+    session.globalRole === "owner" ? await loadAllRestaurantsForGlobalOwner() : await loadMemberships(session.userId);
   const fallbackRestaurantId =
     memberships.find((membership) => membership.restaurantId !== restaurantId)?.restaurantId ?? memberships[0]?.restaurantId;
 

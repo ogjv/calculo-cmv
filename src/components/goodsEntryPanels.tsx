@@ -160,6 +160,18 @@ function CalendarIcon() {
   );
 }
 
+function IconTrash() {
+  return (
+    <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 14h10l1-14" />
+      <path d="M9 7V4h6v3" />
+    </svg>
+  );
+}
+
 function IconRevenueKpi() {
   return (
     <svg viewBox="0 0 32 32" className="kpi-art" aria-hidden="true">
@@ -277,7 +289,7 @@ function GoodsEntryDateField({
 const buildRankedData = (rows: GoodsEntryRow[], selector: (row: GoodsEntryRow) => string, top = 6): RankedDatum[] =>
   [...rows
     .reduce((map, row) => {
-      const label = selector(row) || "Nao informado";
+      const label = selector(row) || "Não informado";
       map.set(label, (map.get(label) ?? 0) + row.totalValue);
       return map;
     }, new Map<string, number>())
@@ -775,7 +787,7 @@ function GoodsEntrySubgroupDrilldown({
         <div className="section-head">
           <div>
             <h3>Subgrupos por grupo</h3>
-            <p>Clique em um grupo nos graficos acima para abrir o detalhamento de compras daquele bloco.</p>
+            <p>Clique em um grupo nos gráficos acima para abrir o detalhamento de compras daquele bloco.</p>
           </div>
         </div>
       </section>
@@ -832,8 +844,12 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
     [sourceEntries]
   );
   const importedRangeDates = useMemo(() => buildContinuousRange(data?.reportPeriod?.startDate, data?.reportPeriod?.endDate), [data?.reportPeriod?.endDate, data?.reportPeriod?.startDate]);
+  const actualEntryRangeDates = useMemo(
+    () => buildContinuousRange(actualEntryDates[0], actualEntryDates[actualEntryDates.length - 1]),
+    [actualEntryDates]
+  );
   const dataVersion = `${data?.sheetName ?? ""}|${data?.entries.length ?? 0}|${data?.reportPeriod?.startDate ?? ""}|${data?.reportPeriod?.endDate ?? ""}`;
-  const availableDates = importedRangeDates.length > 0 ? importedRangeDates : actualEntryDates;
+  const availableDates = importedRangeDates.length > 0 ? importedRangeDates : actualEntryRangeDates;
   const hasEntryLevelDates = actualEntryDates.length > 0;
   const availableMonths = useMemo(() => buildAvailableMonths(availableDates), [availableDates]);
   const groups = useMemo(
@@ -877,29 +893,7 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
     [dateFrom, dateTo, hasEntryLevelDates, selectedGroup, selectedSupplier, sourceEntries]
   );
 
-  const availableStartDates = useMemo(
-    () => availableDates.filter((date) => !dateTo || date <= dateTo),
-    [availableDates, dateTo]
-  );
-  const availableEndDates = useMemo(
-    () => availableDates.filter((date) => !dateFrom || date >= dateFrom),
-    [availableDates, dateFrom]
-  );
-
-  useEffect(() => {
-    if (dateFrom && !availableStartDates.includes(dateFrom)) {
-      setDateFrom("");
-    }
-  }, [availableStartDates, dateFrom]);
-
-  useEffect(() => {
-    if (dateTo && !availableEndDates.includes(dateTo)) {
-      setDateTo("");
-    }
-  }, [availableEndDates, dateTo]);
-
-  const availableStartDateSet = useMemo(() => new Set(availableStartDates), [availableStartDates]);
-  const availableEndDateSet = useMemo(() => new Set(availableEndDates), [availableEndDates]);
+  const availableDateSet = useMemo(() => new Set(availableDates), [availableDates]);
 
   const activeDrilldownGroup = selectedGroup !== "__ALL__" ? selectedGroup : focusedGroup;
   const distinctSuppliers = new Set(filteredEntries.map((row) => row.supplier).filter(Boolean)).size;
@@ -929,7 +923,19 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
     }
   ];
 
-  const periodLabel = data?.reportPeriod?.displayLabel ?? data?.reportPeriod?.periodLabel ?? data?.restaurantName ?? "Periodo nao identificado";
+  const periodLabel = data?.reportPeriod?.displayLabel ?? data?.reportPeriod?.periodLabel ?? data?.restaurantName ?? "Período não identificado";
+  const handleRemoveGoodsEntryPeriod = () => {
+    if (typeof window !== "undefined") {
+      const shouldRemove = window.confirm(
+        `Deseja excluir o relatório de entrada de mercadorias do período ${periodLabel}?\n\nEssa ação remove os dados importados dessa análise e não pode ser desfeita.`
+      );
+      if (!shouldRemove) {
+        return;
+      }
+    }
+
+    onClear();
+  };
 
   return (
     <>
@@ -941,18 +947,46 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
         <section className="card">
           <div className="section-head">
             <div>
-              <h3>Analise pronta para comecar</h3>
-              <p>Importe o relatorio de entradas para comparar grupos, subgrupos, fornecedores e ritmo de compras.</p>
+              <h3>Análise pronta para começar</h3>
+              <p>Importe o relatório de entradas para comparar grupos, subgrupos, fornecedores e ritmo de compras.</p>
             </div>
           </div>
         </section>
       ) : (
         <>
+          <section className="card compact-card period-filter-card goods-entry-period-card">
+            <div className="section-head">
+              <div>
+                <h3>Período analisado</h3>
+                <p>Remova o relatório importado quando precisar refazer a análise de entrada de mercadorias.</p>
+              </div>
+            </div>
+
+            <div className="filter-bar">
+              <span className="filter-pill filter-pill-group active">
+                <button type="button" className="filter-pill-main">
+                  {periodLabel}
+                </button>
+                {canManageData ? (
+                  <button
+                    type="button"
+                    className="filter-pill-remove"
+                    onClick={handleRemoveGoodsEntryPeriod}
+                    aria-label={`Remover ${periodLabel}`}
+                    title={`Excluir ${periodLabel}`}
+                  >
+                    <IconTrash />
+                  </button>
+                ) : null}
+              </span>
+            </div>
+          </section>
+
           <section className="card goods-entry-filter-card">
             <div className="section-head">
               <div>
-                <h3>Filtro avancado</h3>
-                <p>Refine a leitura por periodo, grupo e fornecedor com um recorte visual mais limpo e interativo.</p>
+                <h3>Filtro</h3>
+                <p>Refine a leitura por período, grupo e fornecedor com um recorte visual mais limpo e interativo.</p>
               </div>
               <div className="goods-entry-filter-summary">
                 <span className="cmv-pill good">{periodLabel}</span>
@@ -966,24 +1000,30 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
                 value={dateFrom}
                 onChange={(value) => {
                   setDateFrom(value);
+                  if (dateTo && value > dateTo) {
+                    setDateTo(value);
+                  }
                   setOpenCalendar(null);
                 }}
                 open={openCalendar === "from"}
                 onToggle={() => setOpenCalendar((current) => (current === "from" ? null : "from"))}
                 availableMonths={availableMonths}
-                availableDateSet={availableStartDateSet}
+                availableDateSet={availableDateSet}
               />
               <GoodsEntryDateField
                 label="Data final"
                 value={dateTo}
                 onChange={(value) => {
                   setDateTo(value);
+                  if (dateFrom && value < dateFrom) {
+                    setDateFrom(value);
+                  }
                   setOpenCalendar(null);
                 }}
                 open={openCalendar === "to"}
                 onToggle={() => setOpenCalendar((current) => (current === "to" ? null : "to"))}
                 availableMonths={availableMonths}
-                availableDateSet={availableEndDateSet}
+                availableDateSet={availableDateSet}
               />
               <label className="auth-field goods-entry-filter-field">
                 <span>Grupo</span>
@@ -1033,7 +1073,7 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
 
           {filteredEntries.length === 0 ? (
             <section className="card">
-              <p className="message">Nenhum lancamento foi encontrado com os filtros selecionados.</p>
+              <p className="message">Nenhum lançamento foi encontrado com os filtros selecionados.</p>
             </section>
           ) : (
             <>
@@ -1041,7 +1081,7 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
 
               <section className="analytics-grid wide goods-entry-analytics-grid">
                 <GoodsEntryDonut
-                  title="Participacao de compra por grupo"
+                  title="Participação de compras por grupo"
                   text="Clique em um grupo para abrir o detalhamento dos subgrupos desse bloco."
                   rows={topGroups}
                   activeLabel={activeDrilldownGroup}
@@ -1049,7 +1089,7 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
                 />
                 <GoodsEntryBars
                   title="Grupos com maior peso de compra"
-                  text="Uma leitura direta para enxergar onde a operacao concentra mais capital."
+                  text="Uma leitura direta para enxergar onde a operação concentra mais capital."
                   rows={topGroups}
                   activeLabel={activeDrilldownGroup}
                   onSelect={(label) => setFocusedGroup((current) => (current === label ? undefined : label))}
@@ -1058,7 +1098,7 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
 
               <GoodsEntryLineChart
                 title="Linha comparativa entre grupos"
-                text="A escala responde ao periodo filtrado: ate 10 dias por dia, acima disso a leitura abre espacos progressivos para manter o grafico limpo."
+                text="A escala responde ao período filtrado: até 10 dias por dia; acima disso, a leitura abre espaços progressivos para manter o gráfico limpo."
                 labels={lineLabels}
                 series={trend.series}
                 granularity={trend.granularity}
@@ -1071,8 +1111,8 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
                   onClose={() => setFocusedGroup(undefined)}
                 />
                 <GoodsEntryBars
-                  title="Fornecedores com maior participacao"
-                  text="Leia dependencia, concentracao e volume por parceiro de compra."
+                  title="Fornecedores com maior participação"
+                  text="Leia dependência, concentração e volume por parceiro de compra."
                   rows={topSuppliers}
                 />
               </section>

@@ -386,7 +386,6 @@ export function UserManagementPanel({
     <section className="card account-panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">{copy.teamTitle}</span>
           <h3>{copy.teamTitle}</h3>
           <p>{copy.teamText}</p>
         </div>
@@ -416,7 +415,6 @@ export function UserManagementPanel({
           <section className="account-form-card user-management-model-card">
             <div className="section-head compact">
               <div>
-                <span className="eyebrow">{copy.teamAccessModel}</span>
                 <h3>{copy.teamAccessModel}</h3>
                 <p>{copy.teamAccessModelText}</p>
               </div>
@@ -427,7 +425,6 @@ export function UserManagementPanel({
         <section className="account-restaurant-section owner-invite-section">
           <div className="section-head compact">
             <div>
-              <span className="eyebrow">{copy.ownerInviteTitle}</span>
               <h3>{copy.ownerInviteTitle}</h3>
               <p>{copy.ownerInviteText}</p>
             </div>
@@ -480,7 +477,6 @@ export function UserManagementPanel({
             <section className="account-form-card owner-invite-card owner-invite-list-card">
               <div className="section-head compact">
                 <div>
-                  <span className="eyebrow">{copy.ownerInvitePending}</span>
                   <h3>{copy.ownerInvitePending}</h3>
                   <p>{copy.ownerInvitePendingText}</p>
                 </div>
@@ -525,7 +521,6 @@ export function UserManagementPanel({
         <section className="account-restaurant-section user-management-members-section">
           <div className="section-head compact">
             <div>
-              <span className="eyebrow">{copy.teamManageMember}</span>
               <h3>{copy.teamManageMember}</h3>
               <p>{copy.teamManageMemberText}</p>
             </div>

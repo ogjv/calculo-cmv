@@ -9,7 +9,7 @@ import type {
   UploadFeedbackItem
 } from "../types";
 import { buildDashboardData, buildDashboardSlice, mapRecipeRows, mapSalesRows } from "../utils/cmv";
-import { getDrePeriodKey, getDrePeriodLabel, getDreRevenueGroups, getDreRevenueValue } from "../components/drePanels";
+import { DRE_TOTAL_PERIOD, getDrePeriodKey, getDrePeriodLabel, getDreRevenueGroups, getDreRevenueValue } from "../components/drePanels";
 import { parseDreSpreadsheetFile, parseGoodsEntrySpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "../utils/file";
 
 export type UploadState = PersistedWorkspace["state"];
@@ -615,6 +615,31 @@ export function useOperationalData() {
     rebuildFromPeriods(periodDashboards.filter((period) => period.key !== periodKey));
   };
 
+  const handleRemoveDrePeriod = (periodKey: string) => {
+    const targetPeriod = drePeriods.find((period) => period.key === periodKey);
+    const targetLabel = targetPeriod?.label ?? periodKey;
+    if (typeof window !== "undefined") {
+      const shouldRemove = window.confirm(
+        `Deseja excluir apenas o período ${targetLabel}?\n\nEssa ação remove somente esse DRE da análise atual e não pode ser desfeita.`
+      );
+      if (!shouldRemove) {
+        return;
+      }
+    }
+
+    setDrePeriods((current) => {
+      const nextPeriods = current.filter((period) => period.key !== periodKey);
+
+      if (selectedDrePeriod === periodKey || (selectedDrePeriod === DRE_TOTAL_PERIOD && nextPeriods.length <= 1)) {
+        setSelectedDrePeriod(
+          nextPeriods.length > 1 ? DRE_TOTAL_PERIOD : nextPeriods[nextPeriods.length - 1]?.key ?? DEFAULT_DRE_PERIOD
+        );
+      }
+
+      return nextPeriods;
+    });
+  };
+
   const handleClearAll = () => {
     setSalesFiles([]);
     setRecipeFile(null);
@@ -674,6 +699,7 @@ export function useOperationalData() {
     handleGoodsEntryImport,
     handleClearGoodsEntry,
     handleRemovePeriod,
+    handleRemoveDrePeriod,
     handleClearAll,
     handleResetFlow
   };

@@ -47,6 +47,7 @@ export default function App() {
     handleGoodsEntryImport,
     handleClearGoodsEntry,
     handleRemovePeriod,
+    handleRemoveDrePeriod,
     handleClearAll,
     handleResetFlow
   } = useOperationalData();
@@ -210,7 +211,8 @@ export default function App() {
           error: dreError,
           processing: dreProcessing,
           onImport: (file) => void handleDreImport(file),
-          onSelectPeriod: setSelectedDrePeriod
+          onSelectPeriod: setSelectedDrePeriod,
+          onRemovePeriod: canManageOperationalData ? handleRemoveDrePeriod : undefined
         }}
         dashboardPanelProps={{
           state,
