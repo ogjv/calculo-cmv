@@ -286,9 +286,27 @@ const buildRankedData = (rows: GoodsEntryRow[], selector: (row: GoodsEntryRow) =
     .sort((left, right) => right.value - left.value)
     .slice(0, top);
 
-const buildTrendSeries = (rows: GoodsEntryRow[], labels: string[]) => {
+const buildTrendSeries = (rows: GoodsEntryRow[], labels: string[], fallbackDate?: string) => {
   const availableDates = [...new Set(rows.map((row) => getReferenceDate(row)).filter(Boolean) as string[])].sort((left, right) => left.localeCompare(right));
   if (availableDates.length === 0) {
+    if (rows.length > 0 && fallbackDate) {
+      return {
+        granularity: "day" as TrendGranularity,
+        series: [
+          {
+            key: fallbackDate,
+            label: formatShortDateLabel(fallbackDate),
+            totals: rows.reduce((totals, row) => {
+              const group = row.group || "Sem grupo";
+              if (labels.includes(group)) {
+                totals[group] = (totals[group] ?? 0) + row.totalValue;
+              }
+              return totals;
+            }, {} as Record<string, number>)
+          }
+        ]
+      };
+    }
     return { granularity: "day" as TrendGranularity, series: [] as TrendPoint[] };
   }
 
@@ -814,7 +832,9 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
     [sourceEntries]
   );
   const importedRangeDates = useMemo(() => buildContinuousRange(data?.reportPeriod?.startDate, data?.reportPeriod?.endDate), [data?.reportPeriod?.endDate, data?.reportPeriod?.startDate]);
+  const dataVersion = `${data?.sheetName ?? ""}|${data?.entries.length ?? 0}|${data?.reportPeriod?.startDate ?? ""}|${data?.reportPeriod?.endDate ?? ""}`;
   const availableDates = importedRangeDates.length > 0 ? importedRangeDates : actualEntryDates;
+  const hasEntryLevelDates = actualEntryDates.length > 0;
   const availableMonths = useMemo(() => buildAvailableMonths(availableDates), [availableDates]);
   const groups = useMemo(
     () => [...new Set(sourceEntries.map((row) => row.group).filter(Boolean))].sort((left, right) => left.localeCompare(right)),
@@ -825,15 +845,26 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
     [sourceEntries]
   );
 
+  useEffect(() => {
+    setDateFrom("");
+    setDateTo("");
+    setSelectedGroup("__ALL__");
+    setSelectedSupplier("__ALL__");
+    setFocusedGroup(undefined);
+    setOpenCalendar(null);
+  }, [dataVersion]);
+
   const filteredEntries = useMemo(
     () =>
       sourceEntries.filter((row) => {
         const referenceDate = getReferenceDate(row);
-        if (dateFrom && (!referenceDate || referenceDate < dateFrom)) {
-          return false;
-        }
-        if (dateTo && (!referenceDate || referenceDate > dateTo)) {
-          return false;
+        if (hasEntryLevelDates) {
+          if (dateFrom && (!referenceDate || referenceDate < dateFrom)) {
+            return false;
+          }
+          if (dateTo && (!referenceDate || referenceDate > dateTo)) {
+            return false;
+          }
         }
         if (selectedGroup !== "__ALL__" && row.group !== selectedGroup) {
           return false;
@@ -843,7 +874,7 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
         }
         return true;
       }),
-    [dateFrom, dateTo, selectedGroup, selectedSupplier, sourceEntries]
+    [dateFrom, dateTo, hasEntryLevelDates, selectedGroup, selectedSupplier, sourceEntries]
   );
 
   const availableStartDates = useMemo(
@@ -877,7 +908,7 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
   const topGroups = buildRankedData(filteredEntries, (row) => row.group || "Sem grupo");
   const topSuppliers = buildRankedData(filteredEntries, (row) => row.supplier || "Sem fornecedor");
   const lineLabels = topGroups.slice(0, 4).map((row) => row.label);
-  const trend = buildTrendSeries(filteredEntries, lineLabels);
+  const trend = buildTrendSeries(filteredEntries, lineLabels, data?.reportPeriod?.startDate);
 
   const metrics: MetricCard[] = [
     {
