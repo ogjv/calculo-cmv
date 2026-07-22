@@ -1225,6 +1225,15 @@ input {
   height: 42px;
   border-radius: 999px;
   box-shadow: none;
+  flex: 0 0 auto;
+}
+
+.sidebar-avatar-button .profile-avatar {
+  transform: translateX(-4px);
+}
+
+.sidebar-account-menu-button .profile-avatar.has-photo {
+  border-radius: 999px;
 }
 
 .sidebar-account-menu-button.active .profile-avatar.has-photo {
@@ -1244,7 +1253,10 @@ input {
 }
 
 .sidebar-avatar-button {
-  overflow: hidden;
+  overflow: visible;
+  display: grid;
+  place-items: center;
+  line-height: 0;
 }
 
 .dashboard-sidebar-footer .profile-avatar.has-photo {

@@ -26,6 +26,55 @@ const readAsArrayBuffer = (file: File) =>
     reader.readAsArrayBuffer(file);
   });
 
+const normalizeHeaderCandidate = (value: unknown) =>
+  cellToText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toLowerCase();
+
+const recipeHeaderAliases = new Set([
+  "codigo",
+  "cod",
+  "produtodocardapio",
+  "produto",
+  "preco",
+  "precovenda",
+  "custo",
+  "custoteorico",
+  "custounitario",
+  "cmv",
+  "grupo",
+  "subgrupo"
+]);
+
+const isRecipeHeaderRow = (row: unknown[]) => {
+  const normalizedHeaders = row.map(normalizeHeaderCandidate).filter(Boolean);
+  const matchedHeaders = normalizedHeaders.filter((header) => recipeHeaderAliases.has(header));
+
+  return (
+    matchedHeaders.includes("codigo") &&
+    (matchedHeaders.includes("produtodocardapio") || matchedHeaders.includes("produto")) &&
+    (matchedHeaders.includes("custo") || matchedHeaders.includes("custoteorico") || matchedHeaders.includes("custounitario"))
+  );
+};
+
+const matrixToRows = (matrix: unknown[][], headerRowIndex: number): RawRow[] => {
+  const headers = (matrix[headerRowIndex] ?? []).map((cell) => cellToText(cell));
+
+  return matrix
+    .slice(headerRowIndex + 1)
+    .map((row) =>
+      headers.reduce<RawRow>((record, header, index) => {
+        if (header) {
+          record[header] = cellToText(row[index]);
+        }
+        return record;
+      }, {})
+    )
+    .filter((row) => Object.values(row).some((value) => cellToText(value) !== ""));
+};
+
 export const parseSpreadsheetFile = async (file: File): Promise<RawRow[]> => {
   const buffer = await readAsArrayBuffer(file);
   const workbook = XLSX.read(buffer, { type: "array" });
@@ -36,6 +85,16 @@ export const parseSpreadsheetFile = async (file: File): Promise<RawRow[]> => {
   }
 
   const sheet = workbook.Sheets[firstSheet];
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: "",
+    raw: false
+  });
+  const headerRowIndex = matrix.findIndex((row, index) => index <= 10 && isRecipeHeaderRow(row ?? []));
+
+  if (headerRowIndex >= 0) {
+    return matrixToRows(matrix, headerRowIndex);
+  }
 
   return XLSX.utils.sheet_to_json<RawRow>(sheet, {
     defval: "",
