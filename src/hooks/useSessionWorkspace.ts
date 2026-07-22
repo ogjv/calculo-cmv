@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { AuthSession, DrePeriodData, PersistedWorkspace, UploadFeedbackItem } from "../types";
+import type {
+  AuthSession,
+  DashboardData,
+  DreImportData,
+  DrePeriodData,
+  GoodsEntryImportData,
+  PeriodDashboard,
+  PersistedWorkspace,
+  UploadFeedbackItem
+} from "../types";
 import { loadRestaurantWorkspace, registerRestaurant, restoreSession, saveRestaurantWorkspace, signIn, signOut } from "../utils/auth";
 import { getSupabaseSession, hydrateSupabaseSession, loadCloudWorkspace, registerRestaurantWithSupabase, requestPasswordResetWithSupabase, saveCloudWorkspace, signInWithSupabase, signOutFromSupabase, subscribeToSupabaseAuth, updateSupabasePassword } from "../utils/cloudAuth";
 import { isSupabaseConfigured } from "../utils/supabase";
@@ -113,13 +122,128 @@ const hasPersistedWorkspaceContent = (workspace?: PersistedWorkspace | null) =>
         ((workspace.state?.periodDashboards?.length ?? 0) > 0) ||
         ((workspace.state?.recipeBase?.length ?? 0) > 0) ||
         ((workspace.state?.salesFileNames?.length ?? 0) > 0) ||
-        ((workspace.state?.goodsEntryData?.entries.length ?? 0) > 0) ||
+        ((workspace.state?.goodsEntryData?.entries?.length ?? 0) > 0) ||
         ((workspace.drePeriods?.length ?? 0) > 0) ||
         ((workspace.uploadFeedback?.length ?? 0) > 0) ||
         workspace.state?.processing ||
         workspace.state?.goodsEntryProcessing
       )
   );
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
+
+const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+const asNumber = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+
+const normalizeDashboardData = (value: unknown): DashboardData | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    totalRevenue: asNumber(value.totalRevenue),
+    totalCost: asNumber(value.totalCost),
+    grossProfit: asNumber(value.grossProfit),
+    totalQuantity: asNumber(value.totalQuantity),
+    averageCMV: asNumber(value.averageCMV),
+    coveragePercent: asNumber(value.coveragePercent),
+    unmatchedItems: asArray<string>(value.unmatchedItems),
+    products: asArray(value.products),
+    groups: asArray(value.groups),
+    subgroups: asArray(value.subgroups),
+    importedSalesTotals: asArray(value.importedSalesTotals),
+    promotionalProducts: asArray(value.promotionalProducts),
+    reportPeriod: isRecord(value.reportPeriod) ? (value.reportPeriod as DashboardData["reportPeriod"]) : undefined,
+    totalComparison: isRecord(value.totalComparison) ? (value.totalComparison as DashboardData["totalComparison"]) : undefined,
+    issues: asArray(value.issues),
+    productsWithoutGroup: asArray(value.productsWithoutGroup),
+    productsWithoutSubgroup: asArray(value.productsWithoutSubgroup),
+    duplicateRecipeCodes: asArray<string>(value.duplicateRecipeCodes)
+  };
+};
+
+const normalizeDreData = (value: unknown): DreImportData | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    sheetName: typeof value.sheetName === "string" ? value.sheetName : "DRE",
+    analysisType: typeof value.analysisType === "string" ? value.analysisType : undefined,
+    restaurantName: typeof value.restaurantName === "string" ? value.restaurantName : undefined,
+    reportTitle: typeof value.reportTitle === "string" ? value.reportTitle : undefined,
+    analysisTitle: typeof value.analysisTitle === "string" ? value.analysisTitle : undefined,
+    period: isRecord(value.period) ? (value.period as DreImportData["period"]) : undefined,
+    sections: asArray(value.sections),
+    summary: asArray(value.summary)
+  };
+};
+
+const normalizeUploadState = (value: unknown): UploadState => {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const data = normalizeDashboardData(value.data);
+  const periodDashboards = asArray<Record<string, unknown>>(value.periodDashboards).reduce<PeriodDashboard[]>((items, period) => {
+    const periodData = normalizeDashboardData(period.data);
+    if (!periodData || typeof period.key !== "string") {
+      return items;
+    }
+
+    items.push({
+      key: period.key,
+      label: typeof period.label === "string" ? period.label : periodData.reportPeriod?.periodLabel ?? period.key,
+      salesFileName: typeof period.salesFileName === "string" ? period.salesFileName : undefined,
+      recipeFileName: typeof period.recipeFileName === "string" ? period.recipeFileName : undefined,
+      data: periodData
+    });
+
+    return items;
+  }, []);
+
+  const goodsEntryData: GoodsEntryImportData | undefined = isRecord(value.goodsEntryData)
+    ? {
+        sheetName: typeof value.goodsEntryData.sheetName === "string" ? value.goodsEntryData.sheetName : "Entrada de mercadorias",
+        ...value.goodsEntryData,
+        entries: asArray(value.goodsEntryData.entries)
+      }
+    : undefined;
+
+  return {
+    salesFileNames: asArray<string>(value.salesFileNames),
+    recipeFileName: typeof value.recipeFileName === "string" ? value.recipeFileName : undefined,
+    data,
+    periodDashboards,
+    validations: asArray(value.validations),
+    recipeBase: asArray(value.recipeBase),
+    duplicateRecipeCodes: asArray<string>(value.duplicateRecipeCodes),
+    error: typeof value.error === "string" ? value.error : undefined,
+    processing: Boolean(value.processing),
+    goodsEntryData,
+    goodsEntryFileName: typeof value.goodsEntryFileName === "string" ? value.goodsEntryFileName : undefined,
+    goodsEntryError: typeof value.goodsEntryError === "string" ? value.goodsEntryError : undefined,
+    goodsEntryProcessing: Boolean(value.goodsEntryProcessing)
+  };
+};
+
+const normalizeDrePeriods = (value: unknown): DrePeriodData[] =>
+  asArray<Record<string, unknown>>(value).reduce<DrePeriodData[]>((items, period) => {
+    const data = normalizeDreData(period.data);
+    if (!data || typeof period.key !== "string") {
+      return items;
+    }
+
+    items.push({
+      key: period.key,
+      label: typeof period.label === "string" ? period.label : period.key,
+      fileName: typeof period.fileName === "string" ? period.fileName : undefined,
+      data
+    });
+
+    return items;
+  }, []);
 
 type UseSessionWorkspaceOptions = {
   locale: Locale;
@@ -401,9 +525,9 @@ export function useSessionWorkspace({
 
     if (localWorkspace) {
       setLocale(localWorkspace.locale ?? "pt");
-      setState((localWorkspace.state as UploadState | undefined) ?? {});
+      setState(normalizeUploadState(localWorkspace.state));
       setUploadFeedback(localWorkspace.uploadFeedback ?? []);
-      setDrePeriods(localWorkspace.drePeriods ?? []);
+      setDrePeriods(normalizeDrePeriods(localWorkspace.drePeriods));
       setSelectedDrePeriod(
         localWorkspace.selectedDrePeriod ??
           localWorkspace.drePeriods?.[localWorkspace.drePeriods.length - 1]?.key ??
@@ -451,9 +575,9 @@ export function useSessionWorkspace({
         setRecipeFile(null);
         setAuthError(undefined);
         setLocale(workspace?.locale ?? "pt");
-        setState((workspace?.state as UploadState | undefined) ?? {});
+        setState(normalizeUploadState(workspace?.state));
         setUploadFeedback(workspace?.uploadFeedback ?? []);
-        setDrePeriods(workspace?.drePeriods ?? []);
+        setDrePeriods(normalizeDrePeriods(workspace?.drePeriods));
         setSelectedDrePeriod(
           workspace?.selectedDrePeriod ??
             workspace?.drePeriods?.[(workspace.drePeriods?.length ?? 0) - 1]?.key ??
@@ -502,10 +626,10 @@ export function useSessionWorkspace({
       currentSection
     };
 
-    saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
-
     if (effectiveSession.authMode === "supabase") {
       void saveCloudWorkspace(restaurantId, workspace).catch(() => undefined);
+    } else {
+      saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
     }
   }, [currentSection, drePeriods, effectiveSession, locale, selectedDrePeriod, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
 
