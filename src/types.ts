@@ -207,6 +207,8 @@ export type DashboardData = {
 export type PeriodDashboard = {
   key: string;
   label: string;
+  salesFileName?: string;
+  recipeFileName?: string;
   data: DashboardData;
 };
 

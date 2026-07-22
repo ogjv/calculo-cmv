@@ -1106,10 +1106,12 @@ function DreOperationalResultBars({ data, copy, trendPoints }: { data: DreImport
             const x = padding + slotWidth * index + slotWidth / 2;
             const barHeight = Math.max(4, Math.abs(point.operationalResult) * scale);
             const barY = point.operationalResult >= 0 ? baseline - barHeight : baseline;
+            const belowBarLabelY = barY + barHeight + 16;
+            const negativeLabelFitsBelow = belowBarLabelY <= height - 34;
             const valueLabelY =
-              point.operationalResult >= 0
+              point.operationalResult >= 0 || !negativeLabelFitsBelow
                 ? Math.max(16, barY - 8)
-                : Math.min(height - 24, barY + barHeight + 16);
+                : belowBarLabelY;
 
             return (
               <g key={`operational-result-${point.key}`}>
@@ -1125,7 +1127,9 @@ function DreOperationalResultBars({ data, copy, trendPoints }: { data: DreImport
                   x={x}
                   y={valueLabelY}
                   textAnchor="middle"
-                  className={`dre-bar-value-label ${point.operationalResult >= 0 ? "positive" : "negative"}`}
+                  className={`dre-bar-value-label ${point.operationalResult >= 0 ? "positive" : "negative"} ${
+                    point.operationalResult < 0 && !negativeLabelFitsBelow ? "above-negative" : ""
+                  }`}
                 >
                   {formatCompactCurrency(point.operationalResult)}
                 </text>

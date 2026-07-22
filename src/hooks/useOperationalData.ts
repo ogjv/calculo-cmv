@@ -60,43 +60,24 @@ const buildConsolidatedDashboard = (periods: PeriodDashboard[]) => {
   return buildDashboardSlice(periods[0].data, consolidatedProducts, consolidatedTotals, consolidatedPeriodLabel);
 };
 
-const mergePeriodDashboards = (
-  currentPeriods: PeriodDashboard[],
-  incomingPeriods: PeriodDashboard[],
-  recipes: RecipeRow[],
-  duplicateRecipeCodes: string[]
-) =>
-  [...incomingPeriods
-    .reduce((map, periodDashboard) => {
-      const current = map.get(periodDashboard.key);
-      if (!current) {
-        map.set(periodDashboard.key, periodDashboard);
-        return map;
-      }
-
-      const mergedSales = productsToSalesRows([...current.data.products, ...periodDashboard.data.products]);
-
-      map.set(periodDashboard.key, {
-        key: periodDashboard.key,
-        label: periodDashboard.label,
-        data: buildDashboardData(
-          mergedSales,
-          recipes,
-          [...current.data.importedSalesTotals, ...periodDashboard.data.importedSalesTotals],
-          current.data.reportPeriod ?? periodDashboard.data.reportPeriod,
-          duplicateRecipeCodes
-        )
-      });
-
-      return map;
-    }, new Map<string, PeriodDashboard>(currentPeriods.map((period) => [period.key, period])))
-    .values()].sort((a, b) => {
+const sortPeriodDashboards = (periods: PeriodDashboard[]) =>
+  [...periods].sort((a, b) => {
     const yearA = a.data.reportPeriod?.year ?? 0;
     const yearB = b.data.reportPeriod?.year ?? 0;
     const monthA = a.data.reportPeriod?.month ?? 0;
     const monthB = b.data.reportPeriod?.month ?? 0;
     return yearA !== yearB ? yearA - yearB : monthA - monthB;
   });
+
+const upsertPeriodDashboards = (currentPeriods: PeriodDashboard[], incomingPeriods: PeriodDashboard[]) =>
+  sortPeriodDashboards(
+    [...incomingPeriods
+      .reduce((map, periodDashboard) => {
+        map.set(periodDashboard.key, periodDashboard);
+        return map;
+      }, new Map<string, PeriodDashboard>(currentPeriods.map((period) => [period.key, period])))
+    .values()]
+  );
 
 const normalizeLabel = (value: string) =>
   value
@@ -335,7 +316,7 @@ export function useOperationalData() {
         );
       }
 
-      const mergedPeriods = mergePeriodDashboards(periodDashboards, incomingPeriods, recipes, duplicateRecipeCodes);
+      const mergedPeriods = upsertPeriodDashboards(periodDashboards, incomingPeriods);
       setUploadFeedback(nextSalesFiles.map((file) => ({ id: `sales-${file.name}`, kind: "sales", fileName: file.name, status: "success" })));
       applyPeriodDashboards(mergedPeriods, {
         recipeBase: recipes,
@@ -443,7 +424,7 @@ export function useOperationalData() {
         incomingPeriods = createPeriodDashboardsFromImports(salesFiles.map((salesFile) => salesFile.name), recipes, duplicateRecipeCodes, salesImports);
       }
 
-      const mergedPeriods = mergePeriodDashboards(rebuiltPeriods, incomingPeriods, recipes, duplicateRecipeCodes);
+      const mergedPeriods = upsertPeriodDashboards(rebuiltPeriods, incomingPeriods);
       if (mergedPeriods.length === 0) {
         throw new Error(
           buildImportErrorMessage(file.name, "Não foi possível montar o dashboard com os dados carregados. Verifique se o arquivo de vendas está compatível com as fichas técnicas.")
@@ -503,6 +484,93 @@ export function useOperationalData() {
     }
 
     void handleRecipeUpload(files[0]);
+  };
+
+  const handlePairedUpload = async ({ salesFile, recipeFile }: { salesFile: File; recipeFile: File }) => {
+    let validations: ImportValidation[] = [];
+
+    try {
+      setUploadFeedback([
+        { id: `sales-${salesFile.name}`, kind: "sales", fileName: salesFile.name, status: "pending" },
+        { id: `recipes-${recipeFile.name}`, kind: "recipes", fileName: recipeFile.name, status: "pending" }
+      ]);
+      setState((current) => ({
+        ...current,
+        error: undefined,
+        processing: true
+      }));
+
+      const [salesImport, recipesRaw] = await Promise.all([
+        parseSalesSpreadsheetFile(salesFile),
+        parseSpreadsheetFile(recipeFile)
+      ]);
+      const recipes = mapRecipeRows(recipesRaw);
+      const recipeHeaders = recipesRaw[0] ? Object.keys(recipesRaw[0]) : [];
+      validations = [
+        validateColumns("sales", salesFile.name, salesImport.headerValues, ["CÓDIGO", "PRODUTO", "QTE", "TOTAL"]),
+        validateColumns("recipes", recipeFile.name, recipeHeaders, ["CÓDIGO", "PRODUTO DO CARDÁPIO", "PREÇO", "CUSTO", "CMV"])
+      ];
+
+      const invalidValidation = validations.find((validation) => validation.missingColumns.length > 0);
+      if (invalidValidation) {
+        throw new Error(
+          buildImportErrorMessage(
+            invalidValidation.fileName,
+            `Faltam colunas obrigatórias: ${invalidValidation.missingColumns.join(", ")}.`
+          )
+        );
+      }
+
+      const sales = mapSalesRows(salesImport.items);
+      if (sales.length === 0) {
+        throw new Error(
+          buildImportErrorMessage(salesFile.name, "Não foram encontradas linhas válidas para processar este arquivo de vendas.")
+        );
+      }
+
+      if (recipes.length === 0) {
+        throw new Error(
+          buildImportErrorMessage(recipeFile.name, "Não foram encontradas linhas válidas para processar este arquivo de fichas técnicas.")
+        );
+      }
+
+      const duplicateRecipeCodes = getDuplicateCodes(recipes);
+      const fallbackKey = `${salesFile.name}-${Date.now()}`;
+      const periodKey = salesImport.reportPeriod?.periodKey ?? fallbackKey;
+      const periodLabel = salesImport.reportPeriod?.periodLabel ?? salesImport.reportPeriod?.displayLabel ?? salesFile.name;
+      const nextPeriod: PeriodDashboard = {
+        key: periodKey,
+        label: periodLabel,
+        salesFileName: salesFile.name,
+        recipeFileName: recipeFile.name,
+        data: buildDashboardData(sales, recipes, salesImport.totals, salesImport.reportPeriod, duplicateRecipeCodes)
+      };
+      const nextPeriods = upsertPeriodDashboards(periodDashboards, [nextPeriod]);
+
+      setUploadFeedback([
+        { id: `sales-${salesFile.name}`, kind: "sales", fileName: salesFile.name, status: "success" },
+        { id: `recipes-${recipeFile.name}`, kind: "recipes", fileName: recipeFile.name, status: "success" }
+      ]);
+      applyPeriodDashboards(nextPeriods, {
+        recipeBase: undefined,
+        duplicateRecipeCodes: undefined,
+        validations
+      });
+      setSalesFiles([]);
+      setRecipeFile(null);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Falha ao processar arquivo.";
+      setUploadFeedback([
+        { id: `sales-${salesFile.name}`, kind: "sales", fileName: salesFile.name, status: "error", detail },
+        { id: `recipes-${recipeFile.name}`, kind: "recipes", fileName: recipeFile.name, status: "error", detail }
+      ]);
+      setState((current) => ({
+        ...current,
+        validations,
+        error: detail,
+        processing: false
+      }));
+    }
   };
 
   const handleDreImport = async (file: File) => {
@@ -695,6 +763,7 @@ export function useOperationalData() {
     hasSalesFile,
     hasGoodsEntryData,
     handleUpload,
+    handlePairedUpload,
     handleDreImport,
     handleGoodsEntryImport,
     handleClearGoodsEntry,

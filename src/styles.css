@@ -1032,6 +1032,19 @@ input {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.upload-pair-actions {
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 16px;
+}
+
+.upload-pair-actions p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .workspace-header,
 .workspace-topbar,
 .internal-nav-card,
@@ -2432,6 +2445,10 @@ input {
 
 .dre-bar-chart .dre-bar-value-label.negative {
   fill: #e63946;
+}
+
+.dre-bar-chart .dre-bar-value-label.above-negative {
+  fill: #ff5a6a;
 }
 
 .dre-bar-chart .dre-bar-value-label.positive {

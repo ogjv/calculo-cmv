@@ -124,11 +124,8 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
           selectedView: "__TOTAL__",
           totalView: "__TOTAL__",
           hasDashboardData: false,
-          hasSalesFile: false,
           canManageOperationalData: true,
-          onUpload: () => undefined,
-          onClearAll: () => undefined,
-          onResetFlow: () => undefined,
+          onUploadPair: () => undefined,
           onSelectPeriod: () => undefined,
           onSelectView: () => undefined
         }}
