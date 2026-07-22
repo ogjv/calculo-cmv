@@ -2424,6 +2424,20 @@ input {
   font-weight: 700;
 }
 
+.dre-bar-chart .dre-bar-value-label {
+  fill: var(--text);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.dre-bar-chart .dre-bar-value-label.negative {
+  fill: #e63946;
+}
+
+.dre-bar-chart .dre-bar-value-label.positive {
+  fill: #7c3aed;
+}
+
 .dre-line {
   fill: none;
   stroke-width: 3;

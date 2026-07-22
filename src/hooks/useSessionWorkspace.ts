@@ -394,7 +394,8 @@ export function useSessionWorkspace({
 
     let mounted = true;
     const targetRestaurantId = activeWorkspaceSession.restaurantId;
-    const localWorkspace = loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
+    const isCloudWorkspace = activeWorkspaceSession.authMode === "supabase";
+    const localWorkspace = isCloudWorkspace ? null : loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
     setWorkspaceReady(false);
     setWorkspaceRestaurantId(undefined);
 
@@ -427,6 +428,7 @@ export function useSessionWorkspace({
         }
 
         const currentWorkspaceHasContent =
+          !isCloudWorkspace &&
           latestWorkspaceRestaurantIdRef.current === targetRestaurantId &&
           hasPersistedWorkspaceContent({
             locale: latestWorkspaceMetaRef.current.locale,
