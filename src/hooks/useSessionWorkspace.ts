@@ -207,6 +207,7 @@ const normalizeUploadState = (value: unknown): UploadState => {
     ? {
         sheetName: typeof value.goodsEntryData.sheetName === "string" ? value.goodsEntryData.sheetName : "Entrada de mercadorias",
         ...value.goodsEntryData,
+        importedPeriods: asArray(value.goodsEntryData.importedPeriods),
         entries: asArray(value.goodsEntryData.entries)
       }
     : undefined;
@@ -220,11 +221,12 @@ const normalizeUploadState = (value: unknown): UploadState => {
     recipeBase: asArray(value.recipeBase),
     duplicateRecipeCodes: asArray<string>(value.duplicateRecipeCodes),
     error: typeof value.error === "string" ? value.error : undefined,
-    processing: Boolean(value.processing),
+    processing: false,
     goodsEntryData,
     goodsEntryFileName: typeof value.goodsEntryFileName === "string" ? value.goodsEntryFileName : undefined,
     goodsEntryError: typeof value.goodsEntryError === "string" ? value.goodsEntryError : undefined,
-    goodsEntryProcessing: Boolean(value.goodsEntryProcessing)
+    goodsEntryMessage: typeof value.goodsEntryMessage === "string" ? value.goodsEntryMessage : undefined,
+    goodsEntryProcessing: false
   };
 };
 
@@ -299,6 +301,7 @@ export function useSessionWorkspace({
   const latestStateRef = useRef<UploadState>({});
   const latestUploadFeedbackRef = useRef<UploadFeedbackItem[]>([]);
   const latestDrePeriodsRef = useRef<DrePeriodData[]>([]);
+  const saveQueueRef = useRef(Promise.resolve());
   const latestWorkspaceMetaRef = useRef({
     locale: "pt" as Locale,
     selectedPeriod: TOTAL_PERIOD,
@@ -312,15 +315,17 @@ export function useSessionWorkspace({
     [session]
   );
 
+  const effectiveRestaurantId = effectiveSession?.activeRestaurantId ?? effectiveSession?.restaurantId ?? "";
+
   const activeWorkspaceSession = useMemo(
     () =>
       effectiveSession
         ? {
             authMode: effectiveSession.authMode,
-            restaurantId: effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId ?? ""
+            restaurantId: effectiveRestaurantId
           }
         : null,
-    [effectiveSession]
+    [effectiveSession?.authMode, effectiveRestaurantId]
   );
 
   const activeWorkspaceKey = getWorkspaceSessionKey(effectiveSession);
@@ -520,6 +525,11 @@ export function useSessionWorkspace({
     const targetRestaurantId = activeWorkspaceSession.restaurantId;
     const isCloudWorkspace = activeWorkspaceSession.authMode === "supabase";
     const localWorkspace = isCloudWorkspace ? null : loadRestaurantWorkspace<PersistedWorkspace>(targetRestaurantId);
+
+    if (workspaceReady && workspaceRestaurantId === targetRestaurantId) {
+      return;
+    }
+
     setWorkspaceReady(false);
     setWorkspaceRestaurantId(undefined);
 
@@ -610,6 +620,10 @@ export function useSessionWorkspace({
       return;
     }
 
+    if (state.processing || state.goodsEntryProcessing) {
+      return;
+    }
+
     const restaurantId = effectiveSession.activeRestaurantId ?? effectiveSession.restaurantId;
     if (!restaurantId || workspaceRestaurantId !== restaurantId) {
       return;
@@ -617,7 +631,11 @@ export function useSessionWorkspace({
 
     const workspace: PersistedWorkspace = {
       locale,
-      state,
+      state: {
+        ...state,
+        processing: false,
+        goodsEntryProcessing: false
+      },
       uploadFeedback,
       selectedPeriod,
       selectedView,
@@ -627,7 +645,16 @@ export function useSessionWorkspace({
     };
 
     if (effectiveSession.authMode === "supabase") {
-      void saveCloudWorkspace(restaurantId, workspace).catch(() => undefined);
+      const timer = window.setTimeout(() => {
+        saveQueueRef.current = saveQueueRef.current
+          .catch(() => undefined)
+          .then(() => saveCloudWorkspace(restaurantId, workspace))
+          .catch(() => undefined);
+      }, 650);
+
+      return () => {
+        window.clearTimeout(timer);
+      };
     } else {
       saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
     }

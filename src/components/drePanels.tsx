@@ -1249,43 +1249,46 @@ export function DreAnalysisPanel({
 
       {displayData ? (
         <>
-          <div className="dre-summary-grid">
-            <article className="totals-box compact dre-period-summary-card">
-              <span className="eyebrow">{copy.drePeriod}</span>
-              <strong>{isTotalSelected ? copy.total : getDrePeriodLabel(displayData, displayData.sheetName)}</strong>
-              {periods.length > 0 ? (
-                <div className="filter-bar dre-period-filter" aria-label={copy.dreSelectPeriod}>
-                  {periods.length > 1 ? (
-                    <button
-                      type="button"
-                      className={`filter-pill ${isTotalSelected ? "active" : ""}`}
-                      onClick={() => onSelectPeriod(DRE_TOTAL_PERIOD)}
-                    >
-                      {copy.total}
-                    </button>
-                  ) : null}
-                  {periods.map((period) => (
-                    <span key={period.key} className={`filter-pill filter-pill-group ${selectedPeriod === period.key ? "active" : ""}`}>
-                      <button type="button" className="filter-pill-main" onClick={() => onSelectPeriod(period.key)}>
-                        {period.label}
-                      </button>
-                      {canManageData && onRemovePeriod ? (
-                        <button
-                          type="button"
-                          className="filter-pill-remove"
-                          onClick={() => onRemovePeriod(period.key)}
-                          aria-label={`Remover ${period.label}`}
-                          title={`Excluir ${period.label}`}
-                        >
-                          <IconTrash />
-                        </button>
-                      ) : null}
-                    </span>
-                  ))}
+          {periods.length > 0 ? (
+            <section className="card compact-card period-filter-card">
+              <div className="section-head">
+                <div>
+                  <h3>Período analisado</h3>
+                  <p>Use TOTAL para ver o consolidado ou escolha um mês importado para analisar aquele DRE isoladamente.</p>
                 </div>
-              ) : null}
-            </article>
-          </div>
+              </div>
+
+              <div className="filter-bar dre-period-filter" aria-label={copy.dreSelectPeriod}>
+                {periods.length > 1 ? (
+                  <button
+                    type="button"
+                    className={`filter-pill ${isTotalSelected ? "active" : ""}`}
+                    onClick={() => onSelectPeriod(DRE_TOTAL_PERIOD)}
+                  >
+                    {copy.total}
+                  </button>
+                ) : null}
+                {periods.map((period) => (
+                  <span key={period.key} className={`filter-pill filter-pill-group ${selectedPeriod === period.key ? "active" : ""}`}>
+                    <button type="button" className="filter-pill-main" onClick={() => onSelectPeriod(period.key)}>
+                      {period.label}
+                    </button>
+                    {canManageData && onRemovePeriod ? (
+                      <button
+                        type="button"
+                        className="filter-pill-remove"
+                        onClick={() => onRemovePeriod(period.key)}
+                        aria-label={`Remover ${period.label}`}
+                        title={`Excluir ${period.label}`}
+                      >
+                        <IconTrash />
+                      </button>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <div className="dre-visual-grid">
             <DreResultMap data={displayData} copy={copy} />

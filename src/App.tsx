@@ -39,12 +39,14 @@ export default function App() {
     dreData,
     goodsEntryData,
     goodsEntryError,
+    goodsEntryMessage,
     goodsEntryProcessing,
     hasDashboardData,
     handlePairedUpload,
     handleDreImport,
     handleGoodsEntryImport,
     handleClearGoodsEntry,
+    handleRemoveGoodsEntryImportedPeriod,
     handleRemovePeriod,
     handleRemoveDrePeriod,
     handleClearAll,
@@ -230,9 +232,11 @@ export default function App() {
         goodsEntryPanelProps={{
           data: goodsEntryData,
           error: goodsEntryError,
+          message: goodsEntryMessage,
           processing: goodsEntryProcessing,
-          onImport: (file) => void handleGoodsEntryImport(file),
-          onClear: handleClearGoodsEntry
+          onImport: (files) => void handleGoodsEntryImport(files),
+          onClear: handleClearGoodsEntry,
+          onRemoveImportedPeriod: handleRemoveGoodsEntryImportedPeriod
         }}
         restaurantManagementProps={{
           restaurantForm: restaurantProfileForm,

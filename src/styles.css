@@ -1032,16 +1032,48 @@ input {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-.upload-pair-actions {
+.upload-pair-footer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
   align-items: center;
-  justify-content: flex-start;
-  margin-top: 16px;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(200, 165, 106, 0.22);
+  background: rgba(255, 250, 240, 0.68);
 }
 
-.upload-pair-actions p {
-  margin: 0;
+.upload-pair-footer-action {
+  display: flex;
+  align-items: center;
+}
+
+.upload-pair-footer-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.upload-pair-footer-copy strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.upload-pair-footer-copy span,
+.upload-pair-footer-copy small {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.upload-pair-footer-copy small.success {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.upload-pair-footer-copy small.error {
+  color: var(--danger);
   font-weight: 700;
 }
 
@@ -3028,6 +3060,48 @@ input {
 
 .period-filter-card p {
   color: rgba(65, 47, 26, 0.78);
+}
+
+.goods-entry-period-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.goods-entry-period-total {
+  display: inline-grid;
+  gap: 4px;
+  align-items: center;
+  justify-self: start;
+  padding: 14px 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(200, 165, 106, 0.34);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(200, 165, 106, 0.2), transparent 46%),
+    linear-gradient(135deg, rgba(255, 249, 237, 0.96), rgba(244, 232, 211, 0.9));
+  color: #2f2418;
+}
+
+.goods-entry-period-total strong {
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  color: #2b2118;
+}
+
+.goods-entry-period-total small {
+  color: rgba(62, 46, 28, 0.72);
+  font-weight: 600;
+}
+
+.goods-entry-period-total .eyebrow {
+  color: rgba(62, 46, 28, 0.78);
+}
+
+.goods-entry-imported-periods {
+  display: grid;
+  gap: 10px;
+}
+
+.goods-entry-imported-periods .filter-bar {
+  gap: 10px;
 }
 
 .period-banner {
@@ -5120,6 +5194,28 @@ th {
     linear-gradient(135deg, rgba(24, 25, 29, 0.98), rgba(12, 13, 16, 0.96));
 }
 
+:root[data-theme="dark"] .goods-entry-period-total {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(200, 165, 106, 0.22), transparent 48%),
+    linear-gradient(135deg, rgba(38, 36, 31, 0.98), rgba(25, 25, 27, 0.96));
+  border-color: rgba(200, 165, 106, 0.34);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .goods-entry-period-total strong {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .goods-entry-period-total small,
+:root[data-theme="dark"] .goods-entry-period-total .eyebrow {
+  color: rgba(232, 234, 238, 0.72);
+}
+
+:root[data-theme="dark"] .upload-pair-footer {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(232, 234, 238, 0.1);
+}
+
 :root[data-theme="dark"] .period-filter-card p,
 :root[data-theme="dark"] .filter-pill-remove,
 :root[data-theme="dark"] .filter-pill-remove .ui-icon,
@@ -6029,6 +6125,15 @@ th {
   .user-status-grid,
   .team-management-grid {
     grid-template-columns: 1fr;
+  }
+
+  .upload-pair-footer {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .upload-pair-footer-action .primary-button {
+    width: 100%;
   }
 
   .auth-card-premium {

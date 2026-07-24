@@ -6,10 +6,12 @@ import { formatCurrency, formatNumber } from "../utils/cmv";
 export type GoodsEntryPanelsProps = {
   data?: GoodsEntryImportData;
   error?: string;
+  message?: string;
   processing?: boolean;
   canManageData: boolean;
-  onImport: (file: File) => void;
+  onImport: (files: File[]) => void;
   onClear: () => void;
+  onRemoveImportedPeriod: (periodLabel: string) => void;
 };
 
 type MetricCard = {
@@ -393,16 +395,17 @@ function GoodsEntryUploadPanel({
   canManageData,
   processing,
   error,
+  message,
   onImport,
   onClear
-}: Pick<GoodsEntryPanelsProps, "canManageData" | "processing" | "error" | "onImport" | "onClear">) {
+}: Pick<GoodsEntryPanelsProps, "canManageData" | "processing" | "error" | "message" | "onImport" | "onClear">) {
   const { locale } = useLocale();
   const copy =
     locale === "en"
       ? {
           title: "Import goods intake report",
-          text: "Upload the purchasing spreadsheet to unlock group, supplier and timing analysis.",
-          action: "Select spreadsheet",
+          text: "Upload one or more purchasing spreadsheets. The base is accumulated and duplicate entries are ignored.",
+          action: "Select spreadsheets",
           clear: "Clear file",
           hint: "Accepted: .xls .xlsx",
           processing: "Reading goods intake and organizing the purchase base...",
@@ -411,8 +414,8 @@ function GoodsEntryUploadPanel({
       : locale === "es"
         ? {
             title: "Importar entrada de mercaderias",
-            text: "Sube la planilla de compras para liberar analisis por grupo, proveedor y ritmo de abastecimiento.",
-            action: "Seleccionar planilla",
+            text: "Sube una o mas planillas de compras. La base se acumula y las entradas duplicadas se ignoran.",
+            action: "Seleccionar planillas",
             clear: "Limpiar archivo",
             hint: "Aceptado: .xls .xlsx",
             processing: "Leyendo entradas de mercaderias y organizando la base de compras...",
@@ -420,8 +423,8 @@ function GoodsEntryUploadPanel({
           }
         : {
             title: "Importar entrada de mercadorias",
-            text: "Suba a planilha de compras para liberar analise por grupo, fornecedor e ritmo de abastecimento.",
-            action: "Selecionar planilha",
+            text: "Suba uma ou mais planilhas de compras. A base fica acumulativa e entradas duplicadas são ignoradas.",
+            action: "Selecionar planilhas",
             clear: "Limpar arquivo",
             hint: "Aceito: .xls .xlsx",
             processing: "Lendo entradas de mercadorias e organizando a base de compras...",
@@ -429,9 +432,9 @@ function GoodsEntryUploadPanel({
           };
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onImport(file);
+    const files = Array.from(event.target.files ?? []);
+    if (files.length > 0) {
+      onImport(files);
     }
     event.target.value = "";
   };
@@ -458,11 +461,12 @@ function GoodsEntryUploadPanel({
           <span className="upload-action">{copy.action}</span>
           <span className="upload-meta">.xls .xlsx</span>
         </div>
-        <input className="upload-input-hidden" type="file" accept=".xls,.xlsx" onChange={handleChange} disabled={!canManageData} />
+        <input className="upload-input-hidden" type="file" accept=".xls,.xlsx" multiple onChange={handleChange} disabled={!canManageData} />
       </label>
 
       {processing ? <p className="message">{copy.processing}</p> : null}
       {error ? <p className="message error">{error}</p> : null}
+      {message ? <p className="message success">{message}</p> : null}
     </section>
   );
 }
@@ -830,7 +834,7 @@ function GoodsEntrySubgroupDrilldown({
   );
 }
 
-export function GoodsEntryPanels({ data, error, processing, canManageData, onImport, onClear }: GoodsEntryPanelsProps) {
+export function GoodsEntryPanels({ data, error, message, processing, canManageData, onImport, onClear, onRemoveImportedPeriod }: GoodsEntryPanelsProps) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("__ALL__");
@@ -924,23 +928,26 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
   ];
 
   const periodLabel = data?.reportPeriod?.displayLabel ?? data?.reportPeriod?.periodLabel ?? data?.restaurantName ?? "Período não identificado";
-  const handleRemoveGoodsEntryPeriod = () => {
+  const importedPeriodLabels = [
+    ...new Set((data?.importedPeriods ?? []).map((period) => period.displayLabel || period.periodLabel || period.rawLabel).filter(Boolean))
+  ];
+  const handleRemoveImportedPeriod = (label: string) => {
     if (typeof window !== "undefined") {
       const shouldRemove = window.confirm(
-        `Deseja excluir o relatório de entrada de mercadorias do período ${periodLabel}?\n\nEssa ação remove os dados importados dessa análise e não pode ser desfeita.`
+        `Deseja excluir as entradas do período ${label}?\n\nEssa ação remove somente esse período importado da base de entrada de mercadorias e não pode ser desfeita.`
       );
       if (!shouldRemove) {
         return;
       }
     }
 
-    onClear();
+    onRemoveImportedPeriod(label);
   };
 
   return (
     <>
       {canManageData ? (
-        <GoodsEntryUploadPanel canManageData={canManageData} processing={processing} error={error} onImport={onImport} onClear={onClear} />
+        <GoodsEntryUploadPanel canManageData={canManageData} processing={processing} error={error} message={message} onImport={onImport} onClear={onClear} />
       ) : null}
 
       {!data ? (
@@ -958,27 +965,42 @@ export function GoodsEntryPanels({ data, error, processing, canManageData, onImp
             <div className="section-head">
               <div>
                 <h3>Período analisado</h3>
-                <p>Remova o relatório importado quando precisar refazer a análise de entrada de mercadorias.</p>
+                <p>Período total consolidado a partir de todos os arquivos importados para esta base.</p>
               </div>
             </div>
 
-            <div className="filter-bar">
-              <span className="filter-pill filter-pill-group active">
-                <button type="button" className="filter-pill-main">
-                  {periodLabel}
-                </button>
-                {canManageData ? (
-                  <button
-                    type="button"
-                    className="filter-pill-remove"
-                    onClick={handleRemoveGoodsEntryPeriod}
-                    aria-label={`Remover ${periodLabel}`}
-                    title={`Excluir ${periodLabel}`}
-                  >
-                    <IconTrash />
-                  </button>
-                ) : null}
-              </span>
+            <div className="goods-entry-period-layout">
+              <div className="goods-entry-period-total">
+                <span className="eyebrow">Total consolidado</span>
+                <strong>{periodLabel}</strong>
+                <small>{formatNumber(sourceEntries.length)} lançamentos na base</small>
+              </div>
+
+              {importedPeriodLabels.length > 0 ? (
+                <div className="goods-entry-imported-periods">
+                  <span className="eyebrow">Períodos importados</span>
+                  <div className="filter-bar">
+                    {importedPeriodLabels.map((label) => (
+                      <span key={label} className="filter-pill filter-pill-group">
+                        <button type="button" className="filter-pill-main">
+                          {label}
+                        </button>
+                        {canManageData ? (
+                          <button
+                            type="button"
+                            className="filter-pill-remove"
+                            onClick={() => handleRemoveImportedPeriod(label)}
+                            aria-label={`Remover ${label}`}
+                            title={`Excluir ${label}`}
+                          >
+                            <IconTrash />
+                          </button>
+                        ) : null}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </section>
 

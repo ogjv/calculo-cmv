@@ -365,17 +365,21 @@ function UploadPanel({
         </label>
       </div>
 
-      <div className="panel-actions upload-pair-actions">
-        <button type="button" className="primary-button" onClick={handleSubmitPair} disabled={!canSubmitPair}>
-          {state.processing ? String(t("processing")) : "Adicionar competência"}
-        </button>
-        <p>O mês será recalculado se você enviar novamente um par para o mesmo período.</p>
+      <div className="upload-pair-footer">
+        <div className="upload-pair-footer-action">
+          <button type="button" className="primary-button" onClick={handleSubmitPair} disabled={!canSubmitPair}>
+            {state.processing ? String(t("processing")) : "Adicionar competência"}
+          </button>
+        </div>
+        <div className="upload-pair-footer-copy">
+          <strong>Upload por competência</strong>
+          <span>Se você enviar novamente um par para o mesmo período, o mês será recalculado.</span>
+          {!canManageData ? <small>{String(t("authManageOnly"))}</small> : null}
+          {state.processing ? <small>{String(t("processing"))}</small> : null}
+          {state.error ? <small className="error">{state.error}</small> : null}
+          {!state.error && state.data ? <small className="success">{String(t("success"))}</small> : null}
+        </div>
       </div>
-
-      {!canManageData ? <p className="message">{String(t("authManageOnly"))}</p> : null}
-      {state.processing ? <p className="message">{String(t("processing"))}</p> : null}
-      {state.error ? <p className="message error">{state.error}</p> : null}
-      {!state.error && state.data ? <p className="message success">{String(t("success"))}</p> : null}
     </section>
   );
 }

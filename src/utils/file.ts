@@ -244,15 +244,18 @@ const parseGoodsEntryReportPeriod = (value: unknown): SalesReportPeriod | undefi
     return undefined;
   }
 
+  if (!/PER[IÍ]ODO/i.test(text) && !/\d{2}\/\d{2}\/\d{2,4}\s*(?:a|à)\s*\d{2}\/\d{2}\/\d{2,4}/i.test(text)) {
+    return undefined;
+  }
+
   const rawLabel = stripLabelPrefix(text, "Per[ií]odo");
   const match = rawLabel.match(/(\d{2}\/\d{2}\/\d{2,4})\s*(?:a|à)\s*(\d{2}\/\d{2}\/\d{2,4})/i);
 
   if (!match) {
-    const periodMeta = buildPeriodMetadata();
     return {
       rawLabel,
       displayLabel: rawLabel,
-      periodKey: periodMeta.periodKey,
+      periodKey: rawLabel,
       periodLabel: rawLabel
     };
   }

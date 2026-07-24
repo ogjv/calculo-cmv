@@ -219,6 +219,7 @@ export function DashboardShell({
                 copy={drePanelCopy}
                 onImport={dreAnalysisProps.onImport}
                 onSelectPeriod={dreAnalysisProps.onSelectPeriod}
+                onRemovePeriod={dreAnalysisProps.onRemovePeriod}
               />
             </Suspense>
           ) : null}

@@ -131,7 +131,8 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
         }}
         goodsEntryPanelProps={{
           onImport: () => undefined,
-          onClear: () => undefined
+          onClear: () => undefined,
+          onRemoveImportedPeriod: () => undefined
         }}
         restaurantManagementProps={{
           restaurantForm: { restaurantName: "Vista Mar" },
