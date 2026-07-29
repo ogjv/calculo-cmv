@@ -933,10 +933,16 @@ export function useOperationalData() {
 
     setDrePeriods((current) => {
       const nextPeriods = current.filter((period) => period.key !== periodKey);
+      const selectedDrePeriodKeys = selectedDrePeriod.split(",").map((key) => key.trim()).filter(Boolean);
+      const nextSelectedKeys = selectedDrePeriodKeys.filter(
+        (key) => key !== periodKey && nextPeriods.some((period) => period.key === key)
+      );
 
-      if (selectedDrePeriod === periodKey || (selectedDrePeriod === DRE_TOTAL_PERIOD && nextPeriods.length <= 1)) {
+      if (selectedDrePeriod === periodKey || selectedDrePeriodKeys.includes(periodKey)) {
+        setSelectedDrePeriod(nextSelectedKeys.join(",") || (nextPeriods[nextPeriods.length - 1]?.key ?? DEFAULT_DRE_PERIOD));
+      } else if (selectedDrePeriod === DRE_TOTAL_PERIOD && nextPeriods.length <= 1) {
         setSelectedDrePeriod(
-          nextPeriods.length > 1 ? DRE_TOTAL_PERIOD : nextPeriods[nextPeriods.length - 1]?.key ?? DEFAULT_DRE_PERIOD
+          nextPeriods[nextPeriods.length - 1]?.key ?? DEFAULT_DRE_PERIOD
         );
       }
 

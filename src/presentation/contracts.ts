@@ -25,6 +25,8 @@ export type AuthScreenCopy = {
   confirmPassword: string;
   updatePassword: string;
   passwordMismatch: string;
+  passwordStrengthError: string;
+  passwordStrengthHint: string;
   passwordUpdated: string;
   processing: string;
   submitLogin: string;

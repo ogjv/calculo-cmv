@@ -56,6 +56,8 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     confirmPassword: String(t("authConfirmPassword")),
     updatePassword: String(t("authUpdatePassword")),
     passwordMismatch: String(t("authPasswordMismatch")),
+    passwordStrengthError: String(t("authPasswordStrengthError")),
+    passwordStrengthHint: String(t("authPasswordStrengthHint")),
     passwordUpdated: String(t("authPasswordUpdated")),
     processing: String(t("processing")),
     submitLogin: String(t("authSubmitLogin")),

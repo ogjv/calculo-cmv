@@ -5232,6 +5232,13 @@ th {
   color: var(--text);
 }
 
+:root[data-theme="dark"] .sidebar-account-menu-button.active .profile-avatar:not(.has-photo),
+:root[data-theme="dark"] .sidebar-account-menu-button .profile-avatar:not(.has-photo) {
+  background: #202226;
+  border-color: rgba(232, 234, 238, 0.18);
+  color: #f4f5f7;
+}
+
 :root[data-theme="dark"] .chart-card,
 :root[data-theme="dark"] .kpi-card.clean {
   background: var(--paper);

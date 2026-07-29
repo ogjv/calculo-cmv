@@ -62,13 +62,28 @@ const mergeProductsForDisplay = (products: ProductSummary[]) =>
         return map;
       }
 
+      const previousQuantity = current.quantity;
       const previousRevenue = current.revenue;
+      const nextQuantity = current.quantity + item.quantity;
       const nextRevenue = current.revenue + item.revenue;
 
-      current.quantity += item.quantity;
+      current.quantity = nextQuantity;
       current.revenue = nextRevenue;
       current.cost += item.cost;
       current.grossProfit += item.grossProfit;
+      current.unitCost =
+        nextQuantity > 0
+          ? Number((current.cost / nextQuantity).toFixed(2))
+          : current.unitCost ?? item.unitCost;
+      current.salePrice =
+        current.salePrice !== undefined && item.salePrice !== undefined && nextQuantity > 0
+          ? Number(
+              (
+                ((current.salePrice * previousQuantity) + (item.salePrice * item.quantity)) /
+                nextQuantity
+              ).toFixed(2)
+            )
+          : current.salePrice ?? item.salePrice;
       current.matchedRecipe = current.matchedRecipe || item.matchedRecipe;
       current.isPromotional = current.isPromotional || item.isPromotional;
       current.cmvPercent =
@@ -981,6 +996,8 @@ function GroupExplorer({
                       <th>Codigo</th>
                       <th>Item</th>
                       <th>Qtd</th>
+                      <th>Custo unit.</th>
+                      <th>Preço</th>
                       <th>Receita</th>
                       <th>Custo</th>
                       <th>CMV</th>
@@ -995,6 +1012,8 @@ function GroupExplorer({
                           <td>{item.code}</td>
                           <td>{item.itemName}</td>
                           <td>{formatNumber(item.quantity)}</td>
+                          <td>{item.unitCost !== undefined ? formatCurrency(item.unitCost) : "—"}</td>
+                          <td>{item.salePrice !== undefined ? formatCurrency(item.salePrice) : "—"}</td>
                           <td>{formatCurrency(item.revenue)}</td>
                           <td>{formatCurrency(item.cost)}</td>
                           <td>

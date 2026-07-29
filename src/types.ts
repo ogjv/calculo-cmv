@@ -168,6 +168,8 @@ export type ProductSummary = {
   group: string;
   subgroup: string;
   quantity: number;
+  unitCost?: number;
+  salePrice?: number;
   revenue: number;
   cost: number;
   grossProfit: number;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { KeyboardEvent } from "react";
 import type { AuthSession } from "../types";
 import type { AuthScreenCopy, ThemeLabels, NavigationItem } from "../presentation/contracts";
 
@@ -151,10 +152,18 @@ export function AuthScreen({
   const [localError, setLocalError] = useState<string>();
   const [passwordUpdated, setPasswordUpdated] = useState(false);
 
+  const isStrongPassword = (value: string) =>
+    value.length >= 8 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /\d/.test(value) && /[^A-Za-z0-9]/.test(value);
+
   const handleSubmit = async () => {
     setLocalError(undefined);
     if (mode === "login") {
       await onLogin(email, password);
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      setLocalError(copy.passwordStrengthError);
       return;
     }
 
@@ -180,8 +189,27 @@ export function AuthScreen({
       return;
     }
 
+    if (!isStrongPassword(newPassword)) {
+      setLocalError(copy.passwordStrengthError);
+      return;
+    }
+
     await onUpdatePassword(newPassword);
     setPasswordUpdated(true);
+  };
+
+  const handleAuthKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" || busy) {
+      return;
+    }
+
+    event.preventDefault();
+    if (passwordRecoveryActive) {
+      void handleUpdatePassword();
+      return;
+    }
+
+    void handleSubmit();
   };
 
   return (
@@ -219,7 +247,7 @@ export function AuthScreen({
             </div>
           ) : null}
 
-          <div key={mode} className={`auth-form auth-form-transition ${mode}`}>
+          <div key={mode} className={`auth-form auth-form-transition ${mode}`} onKeyDown={handleAuthKeyDown}>
             {passwordRecoveryActive ? (
               <>
                 <div className="auth-recovery-copy">
@@ -240,6 +268,7 @@ export function AuthScreen({
                       disabled={busy}
                     />
                   </div>
+                  <small>{copy.passwordStrengthHint}</small>
                 </label>
 
                 <label className="auth-field auth-field-premium">
@@ -318,6 +347,7 @@ export function AuthScreen({
                   disabled={busy}
                 />
               </div>
+              {mode === "register" ? <small>{copy.passwordStrengthHint}</small> : null}
             </label>
 
             {localError ? <p className="message error">{localError}</p> : null}

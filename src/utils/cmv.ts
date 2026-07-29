@@ -306,6 +306,8 @@ export const buildDashboardData = (
         group: sale.group || recipe?.group || "Sem grupo",
         subgroup: sale.subgroup || recipe?.subgroup || "Sem subgrupo",
         quantity: sale.quantity,
+        unitCost: recipe?.cost,
+        salePrice: recipe?.salePrice,
         revenue: sale.revenue,
         cost: totalCost,
         grossProfit,

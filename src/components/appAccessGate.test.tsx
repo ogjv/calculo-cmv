@@ -21,6 +21,8 @@ const authScreenCopy = {
   confirmPassword: translations.pt.authConfirmPassword,
   updatePassword: translations.pt.authUpdatePassword,
   passwordMismatch: translations.pt.authPasswordMismatch,
+  passwordStrengthError: translations.pt.authPasswordStrengthError,
+  passwordStrengthHint: translations.pt.authPasswordStrengthHint,
   passwordUpdated: translations.pt.authPasswordUpdated,
   processing: translations.pt.processing,
   submitLogin: translations.pt.authSubmitLogin,
