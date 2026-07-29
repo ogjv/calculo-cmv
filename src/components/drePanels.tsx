@@ -127,6 +127,45 @@ const matchesAnyDreTerm = (label: string, terms: string[]) => {
   return terms.some((term) => normalized.includes(normalizeDreLabel(term)));
 };
 
+const matchesAnyDreExactTerm = (label: string, terms: string[]) => {
+  const normalized = normalizeDreLabel(label).trim();
+  return terms.some((term) => normalized === normalizeDreLabel(term).trim());
+};
+
+const DRE_INPUT_TERMS = [
+  "INSUMOS",
+  "CMV",
+  "CUSTO DA MERCADORIA",
+  "CUSTO DAS MERCADORIAS",
+  "CUSTO DOS PRODUTOS",
+  "CUSTOS DOS PRODUTOS",
+  "CUSTO DE VENDAS",
+  "CUSTOS VARIAVEIS"
+];
+
+const DRE_OPERATIONAL_EXPENSE_TERMS = [
+  "DESPESAS OPERACIONAIS",
+  "GASTOS OPERACIONAIS",
+  "DESPESAS FIXAS",
+  "GASTOS FIXOS",
+  "ESTRUTURA"
+];
+
+const DRE_PEOPLE_TERMS = [
+  "PESSOAL",
+  "PERSONAL",
+  "FOLHA",
+  "SALARIO",
+  "SALARIOS",
+  "MAO DE OBRA",
+  "ENCARGOS",
+  "RH",
+  "EQUIPE",
+  "COLABORADORES"
+];
+
+const DRE_PEOPLE_EXACT_TERMS = ["CMO"];
+
 const formatCompactCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -205,6 +244,42 @@ const findDreGroupsByIncludes = (data: DreImportData, terms: string[]) =>
       .filter((group) => matchesAnyDreTerm(group.label, terms))
       .map((group) => ({ section, group }))
   );
+
+const findDreGroupsByExact = (data: DreImportData, terms: string[]) =>
+  data.sections.flatMap((section) =>
+    section.groups
+      .filter((group) => matchesAnyDreExactTerm(group.label, terms))
+      .map((group) => ({ section, group }))
+  );
+
+const getDreInputsValue = (data: DreImportData) => {
+  const inputsSection = findDreSectionByIncludes(data, DRE_INPUT_TERMS);
+  if (inputsSection) {
+    return getDreSectionValue(inputsSection);
+  }
+
+  return findDreGroupsByIncludes(data, DRE_INPUT_TERMS).reduce((sum, item) => sum + getDreGroupValue(item.group), 0);
+};
+
+const getDrePeopleValue = (data: DreImportData) => {
+  const peopleGroups = [
+    ...findDreGroupsByIncludes(data, DRE_PEOPLE_TERMS),
+    ...findDreGroupsByExact(data, DRE_PEOPLE_EXACT_TERMS)
+  ];
+
+  if (peopleGroups.length > 0) {
+    const uniqueGroups = new Map(peopleGroups.map((item) => [`${item.section.label}::${item.group.label}`, item]));
+    return [...uniqueGroups.values()].reduce((sum, item) => sum + getDreGroupValue(item.group), 0);
+  }
+
+  const peopleSection = findDreSectionByIncludes(data, [...DRE_PEOPLE_TERMS, "GASTO COM PESSOAL"]);
+  return peopleSection ? getDreSectionValue(peopleSection) : 0;
+};
+
+const getDreOperationalExpenseValue = (data: DreImportData) => {
+  const operationalSection = findDreSectionByIncludes(data, DRE_OPERATIONAL_EXPENSE_TERMS);
+  return operationalSection ? getDreSectionValue(operationalSection) : 0;
+};
 
 const getDreRevenueSections = (data: DreImportData) => {
   const operationalRevenueSections = data.sections.filter((section) => isDreOperationalRevenueLabel(section.label));
@@ -843,55 +918,105 @@ function DreStrategicInsights({ data, copy }: { data: DreImportData; copy: DrePa
   );
 }
 
+function DreValidationPanel({ data }: { data: DreImportData }) {
+  const revenue = getDreRevenueValue(data);
+  const expenses = getDreExpenseValue(data);
+  const inputsValue = getDreInputsValue(data);
+  const peopleValue = getDrePeopleValue(data);
+  const operationalExpenseValue = getDreOperationalExpenseValue(data);
+  const finalBalance = getDreFinalBalanceValue(data);
+  const operationalResult = getDreOperationalResultValue(data);
+  const inputsRatio = revenue > 0 ? (inputsValue / revenue) * 100 : 0;
+  const peopleRatio = revenue > 0 ? (peopleValue / revenue) * 100 : 0;
+  const expenseRatio = revenue > 0 ? (expenses / revenue) * 100 : 0;
+  const checks = [
+    {
+      label: "Receita operacional",
+      value: revenue > 0 ? formatCurrency(revenue) : "Não identificada",
+      status: revenue > 0 ? "good" : "bad",
+      detail: revenue > 0 ? "Base de cálculo encontrada." : "Sem receita-base confiável para percentuais."
+    },
+    {
+      label: "Insumos / CMV",
+      value: inputsValue > 0 ? formatCurrency(inputsValue) : "Não identificado",
+      status: inputsValue <= 0 ? "bad" : inputsRatio > 45 ? "mid" : "good",
+      detail: inputsValue > 0 ? `${formatPercent(inputsRatio)} sobre receita` : "Revise se o DRE usa outro nome para CMV/insumos."
+    },
+    {
+      label: "Pessoal / CMO",
+      value: peopleValue > 0 ? formatCurrency(peopleValue) : "Não identificado",
+      status: peopleValue <= 0 ? "bad" : peopleRatio > 35 ? "mid" : "good",
+      detail: peopleValue > 0 ? `${formatPercent(peopleRatio)} sobre receita` : "Revise se o DRE usa outra sigla para pessoal."
+    },
+    {
+      label: "Despesas operacionais",
+      value: operationalExpenseValue > 0 ? formatCurrency(operationalExpenseValue) : "Não identificada",
+      status: operationalExpenseValue > 0 ? "good" : "mid",
+      detail: operationalExpenseValue > 0 ? "Bloco operacional localizado." : "Estrutura operacional não localizada por nome."
+    },
+    {
+      label: "Resultado operacional",
+      value: operationalResult !== undefined ? formatCurrency(operationalResult) : "Não identificado",
+      status: operationalResult !== undefined ? "good" : "mid",
+      detail: "Usado para margem operacional e gráficos de evolução."
+    },
+    {
+      label: "Saldo final",
+      value: finalBalance !== undefined ? formatCurrency(finalBalance) : "Não identificado",
+      status: finalBalance !== undefined ? "good" : "mid",
+      detail: "Usado para margem final."
+    }
+  ];
+  const alerts = [
+    revenue <= 0 ? "Receita operacional/base não identificada; percentuais podem ficar inválidos." : undefined,
+    inputsValue <= 0 ? "Insumos/CMV não identificados no DRE." : undefined,
+    peopleValue <= 0 ? "Pessoal/CMO não identificado no DRE." : undefined,
+    inputsRatio > 45 ? `Insumos altos: ${formatPercent(inputsRatio)} sobre receita.` : undefined,
+    peopleRatio > 35 ? `Pessoal alto: ${formatPercent(peopleRatio)} sobre receita.` : undefined,
+    expenseRatio > 100 ? `Saídas maiores que a receita: ${formatPercent(expenseRatio)}.` : undefined
+  ].filter((item): item is string => Boolean(item));
+
+  return (
+    <section className="dre-chart-card dre-validation-panel">
+      <div className="section-head">
+        <div>
+          <h3>Validação da DRE</h3>
+          <p>Conferência dos principais blocos antes da leitura dos indicadores.</p>
+        </div>
+      </div>
+
+      <div className="dre-validation-grid">
+        {checks.map((check) => (
+          <article key={check.label} className={`dre-validation-card ${check.status}`}>
+            <span className="eyebrow">{check.label}</span>
+            <strong>{check.value}</strong>
+            <p>{check.detail}</p>
+          </article>
+        ))}
+      </div>
+
+      {alerts.length > 0 ? (
+        <div className="dre-validation-alerts">
+          <span className="eyebrow">Alertas de inconsistência</span>
+          {alerts.map((alert) => (
+            <p key={alert}>{alert}</p>
+          ))}
+        </div>
+      ) : (
+        <p className="message auth-status-message">DRE validada sem inconsistências críticas nos blocos principais.</p>
+      )}
+    </section>
+  );
+}
+
 function DreRestaurantDiagnostics({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
   const revenue = getDreRevenueValue(data);
   const finalBalance = getDreFinalBalanceValue(data) ?? revenue - getDreExpenseValue(data);
   const operationalResult = getDreOperationalResultValue(data) ?? finalBalance;
-  const inputsTerms = [
-    "INSUMOS",
-    "CMV",
-    "CUSTO DA MERCADORIA",
-    "CUSTO DAS MERCADORIAS",
-    "CUSTO DOS PRODUTOS",
-    "CUSTOS DOS PRODUTOS",
-    "CUSTO DE VENDAS",
-    "CUSTOS VARIAVEIS"
-  ];
-  const operationalExpenseTerms = [
-    "DESPESAS OPERACIONAIS",
-    "GASTOS OPERACIONAIS",
-    "DESPESAS FIXAS",
-    "GASTOS FIXOS",
-    "ESTRUTURA"
-  ];
-  const peopleTerms = [
-    "PESSOAL",
-    "PERSONAL",
-    "FOLHA",
-    "SALARIO",
-    "SALARIOS",
-    "MAO DE OBRA",
-    "ENCARGOS",
-    "RH",
-    "EQUIPE",
-    "COLABORADORES"
-  ];
-  const inputsSection = findDreSectionByIncludes(data, inputsTerms);
-  const operationalSection = findDreSectionByIncludes(data, operationalExpenseTerms);
-  const peopleGroups = findDreGroupsByIncludes(data, peopleTerms);
-  const peopleGroup = peopleGroups[0];
-  const peopleSection = findDreSectionByIncludes(data, ["PESSOAL", "FOLHA", "MAO DE OBRA", "GASTO COM PESSOAL"]);
-  const inputsGroups = inputsSection ? [] : findDreGroupsByIncludes(data, inputsTerms);
-  const inputsValue = inputsSection
-    ? getDreSectionValue(inputsSection)
-    : inputsGroups.reduce((sum, item) => sum + getDreGroupValue(item.group), 0);
-  const peopleValue =
-    peopleGroups.length > 0
-      ? peopleGroups.reduce((sum, item) => sum + getDreGroupValue(item.group), 0)
-      : peopleSection
-        ? getDreSectionValue(peopleSection)
-        : 0;
-  const structureValue = operationalSection ? Math.max(0, getDreSectionValue(operationalSection) - peopleValue) : 0;
+  const inputsValue = getDreInputsValue(data);
+  const peopleValue = getDrePeopleValue(data);
+  const operationalExpenseValue = getDreOperationalExpenseValue(data);
+  const structureValue = operationalExpenseValue > 0 ? Math.max(0, operationalExpenseValue - peopleValue) : 0;
   const finalMargin = revenue > 0 ? (finalBalance / revenue) * 100 : 0;
   const operationalMargin = revenue > 0 ? (operationalResult / revenue) * 100 : 0;
   const inputsRatio = revenue > 0 ? (inputsValue / revenue) * 100 : 0;
@@ -926,19 +1051,19 @@ function DreRestaurantDiagnostics({ data, copy }: { data: DreImportData; copy: D
     {
       label: copy.dreInputsOnRevenue,
       value: formatPercent(inputsRatio),
-      detail: inputsSection ? formatCurrency(inputsValue) : copy.dreNoData,
+      detail: inputsValue > 0 ? formatCurrency(inputsValue) : copy.dreNoData,
       tone: getDreRatioTone(inputsRatio, 28, 35)
     },
     {
       label: copy.drePeopleOnRevenue,
       value: formatPercent(peopleRatio),
-      detail: peopleGroup || peopleSection ? formatCurrency(peopleValue) : copy.dreNoData,
+      detail: peopleValue > 0 ? formatCurrency(peopleValue) : copy.dreNoData,
       tone: getDreRatioTone(peopleRatio, 22, 30)
     },
     {
       label: copy.dreStructureOnRevenue,
       value: formatPercent(structureRatio),
-      detail: operationalSection ? formatCurrency(structureValue) : copy.dreNoData,
+      detail: operationalExpenseValue > 0 ? formatCurrency(structureValue) : copy.dreNoData,
       tone: getDreRatioTone(structureRatio, 18, 25)
     }
   ];
@@ -1461,6 +1586,8 @@ export function DreAnalysisPanel({
               </div>
             </section>
           ) : null}
+
+          <DreValidationPanel data={displayData} />
 
           <div className="dre-visual-grid">
             <DreResultMap data={displayData} copy={copy} />

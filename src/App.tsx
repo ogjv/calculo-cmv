@@ -161,6 +161,9 @@ export default function App() {
     if (currentSection === "user-management" && !canManageUserManagement) {
       setCurrentSection("dashboard");
     }
+    if (currentSection === "operational-history" && !canManageRestaurants) {
+      setCurrentSection("dashboard");
+    }
   }, [canManageRestaurants, canManageUserManagement, currentSection]);
 
   if (passwordRecoveryActive || authLoading || authHydrating || !effectiveSession) {
@@ -211,9 +214,9 @@ export default function App() {
           selectedPeriod: selectedDrePeriod,
           error: dreError,
           processing: dreProcessing,
-          onImport: (file) => void handleDreImport(file),
+          onImport: (file) => void handleDreImport(file, effectiveSession.email),
           onSelectPeriod: setSelectedDrePeriod,
-          onRemovePeriod: canManageOperationalData ? handleRemoveDrePeriod : undefined
+          onRemovePeriod: canManageOperationalData ? (period) => handleRemoveDrePeriod(period, effectiveSession.email) : undefined
         }}
         dashboardPanelProps={{
           state,
@@ -224,9 +227,9 @@ export default function App() {
           totalView: TOTAL_VIEW,
           hasDashboardData,
           canManageOperationalData,
-          onUploadPair: handlePairedUpload,
+          onUploadPair: (files) => handlePairedUpload({ ...files, actorEmail: effectiveSession.email }),
           onSelectPeriod: setSelectedPeriod,
-          onRemovePeriod: canManageOperationalData ? handleRemovePeriod : undefined,
+          onRemovePeriod: canManageOperationalData ? (period) => handleRemovePeriod(period, effectiveSession.email) : undefined,
           onSelectView: setSelectedView
         }}
         goodsEntryPanelProps={{
@@ -234,10 +237,11 @@ export default function App() {
           error: goodsEntryError,
           message: goodsEntryMessage,
           processing: goodsEntryProcessing,
-          onImport: (files) => void handleGoodsEntryImport(files),
+          onImport: (files) => void handleGoodsEntryImport(files, effectiveSession.email),
           onClear: handleClearGoodsEntry,
-          onRemoveImportedPeriod: handleRemoveGoodsEntryImportedPeriod
+          onRemoveImportedPeriod: (period) => handleRemoveGoodsEntryImportedPeriod(period, effectiveSession.email)
         }}
+        operationalHistoryEntries={state.auditEntries}
         restaurantManagementProps={{
           restaurantForm: restaurantProfileForm,
           newRestaurantName,

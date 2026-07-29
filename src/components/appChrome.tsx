@@ -5,7 +5,7 @@ import type { AuthScreenCopy, ThemeLabels, NavigationItem } from "../presentatio
 
 type Locale = "pt" | "es" | "en";
 type ThemeMode = "light" | "dark";
-type AppSection = "account" | "dashboard" | "dre" | "restaurants" | "user-management" | "goods-entry" | "help";
+type AppSection = "account" | "dashboard" | "dre" | "restaurants" | "user-management" | "goods-entry" | "operational-history" | "help";
 
 type AuthScreenProps = {
   locale: Locale;
@@ -478,6 +478,8 @@ function getNavigationIcon(section: AppSection) {
       return <IconDreNav />;
     case "goods-entry":
       return <IconGoodsEntryNav />;
+    case "operational-history":
+      return <IconOperationalHistoryNav />;
     case "restaurants":
       return <IconBuildingNav />;
     case "user-management":
@@ -485,6 +487,16 @@ function getNavigationIcon(section: AppSection) {
     default:
       return <IconDashboardNav />;
   }
+}
+
+function IconOperationalHistoryNav() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="ui-icon" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+      <path d="M11 8C10.606 8 10.2159 8.0776 9.85195 8.22836C9.48797 8.37913 9.15726 8.6001 8.87868 8.87868C8.6001 9.15726 8.37913 9.48797 8.22836 9.85195C8.0776 10.2159 8 10.606 8 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M20 20L17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function IconSun() {

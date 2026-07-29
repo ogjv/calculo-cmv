@@ -181,7 +181,7 @@ const translateExternalErrorMessage = (message: string, fallback: string) => {
   }
 
   if (normalized.includes("weak password")) {
-    return "A senha informada está fraca. Use uma senha mais segura.";
+    return "A senha informada está fraca. Use letras maiúsculas, minúsculas, número e caractere especial.";
   }
 
   if (normalized.includes("invalid email")) {
@@ -202,6 +202,18 @@ const translateExternalErrorMessage = (message: string, fallback: string) => {
 
   if (normalized.includes("duplicate key")) {
     return "Este cadastro já existe.";
+  }
+
+  if (normalized.includes("error sending confirmation email") || normalized.includes("confirmation email")) {
+    return "Não foi possível enviar o e-mail de confirmação. Verifique a configuração de SMTP e tente novamente.";
+  }
+
+  if (normalized.includes("error sending recovery email") || normalized.includes("recovery email")) {
+    return "Não foi possível enviar o e-mail de recuperação. Verifique a configuração de SMTP e tente novamente.";
+  }
+
+  if (normalized.includes("smtp") || normalized.includes("email provider")) {
+    return "Não foi possível enviar o e-mail pelo provedor configurado. Verifique as credenciais de SMTP e tente novamente.";
   }
 
   return fallback;
@@ -887,16 +899,16 @@ export const registerRestaurantWithSupabase = async ({
   });
 
   if (error) {
-    throw asError(error, "Não foi possível criar a conta.");
+    throw asError(error, "Não foi possível criar a conta. Revise os dados e tente novamente.");
   }
 
   const user = data.user;
   if (!user) {
-    throw new Error("Não foi possível criar a conta.");
+    throw new Error("Não foi possível concluir a criação da conta. Tente novamente.");
   }
 
   if (!data.session) {
-    throw new Error("Conta criada com sucesso. Confirme o e-mail enviado pelo Supabase e depois faça login.");
+    throw new Error("Conta criada com sucesso. Confirme o e-mail enviado e depois faça login.");
   }
 
   const context = await loadAuthSessionContext(user, fullName);

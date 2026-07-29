@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import type { GoodsEntryImportData, GoodsEntryRow } from "../types";
-import { useLocale } from "../i18n";
 import { formatCurrency, formatNumber } from "../utils/cmv";
+import { FilterSelect } from "./filterSelect";
 
 export type GoodsEntryPanelsProps = {
   data?: GoodsEntryImportData;
@@ -399,37 +399,15 @@ function GoodsEntryUploadPanel({
   onImport,
   onClear
 }: Pick<GoodsEntryPanelsProps, "canManageData" | "processing" | "error" | "message" | "onImport" | "onClear">) {
-  const { locale } = useLocale();
-  const copy =
-    locale === "en"
-      ? {
-          title: "Import goods intake report",
-          text: "Upload one or more purchasing spreadsheets. The base is accumulated and duplicate entries are ignored.",
-          action: "Select spreadsheets",
-          clear: "Clear file",
-          hint: "Accepted: .xls .xlsx",
-          processing: "Reading goods intake and organizing the purchase base...",
-          locked: "Only owners can import operational files."
-        }
-      : locale === "es"
-        ? {
-            title: "Importar entrada de mercaderias",
-            text: "Sube una o mas planillas de compras. La base se acumula y las entradas duplicadas se ignoran.",
-            action: "Seleccionar planillas",
-            clear: "Limpiar archivo",
-            hint: "Aceptado: .xls .xlsx",
-            processing: "Leyendo entradas de mercaderias y organizando la base de compras...",
-            locked: "Solo owners pueden importar archivos operativos."
-          }
-        : {
-            title: "Importar entrada de mercadorias",
-            text: "Suba uma ou mais planilhas de compras. A base fica acumulativa e entradas duplicadas são ignoradas.",
-            action: "Selecionar planilhas",
-            clear: "Limpar arquivo",
-            hint: "Aceito: .xls .xlsx",
-            processing: "Lendo entradas de mercadorias e organizando a base de compras...",
-            locked: "Apenas owner pode importar arquivos operacionais."
-          };
+  const copy = {
+    title: "Importar entrada de mercadorias",
+    text: "Suba uma ou mais planilhas de compras. A base fica acumulativa e entradas duplicadas são ignoradas.",
+    action: "Selecionar planilhas",
+    clear: "Limpar arquivo",
+    hint: "Aceito: .xls .xlsx",
+    processing: "Lendo entradas de mercadorias e organizando a base de compras...",
+    locked: "Apenas contas owner podem importar arquivos operacionais."
+  };
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -662,7 +640,7 @@ function GoodsEntryLineChart({
             <p>{text}</p>
           </div>
         </div>
-        <p className="message">Importe mais dados para comparar a evolucao entre grupos.</p>
+        <p className="message">Importe mais dados para comparar a evolução entre grupos.</p>
       </section>
     );
   }
@@ -695,7 +673,7 @@ function GoodsEntryLineChart({
         </div>
         <div className="goods-entry-filter-summary">
           <span className="cmv-pill pending">
-            {granularity === "day" ? "Leitura diaria" : granularity === "two-day" ? "Leitura a cada 2 dias" : "Leitura semanal"}
+            {granularity === "day" ? "Leitura diária" : granularity === "two-day" ? "Leitura a cada 2 dias" : "Leitura semanal"}
           </span>
         </div>
       </div>
@@ -805,7 +783,7 @@ function GoodsEntrySubgroupDrilldown({
       <div className="section-head">
         <div>
           <h3>Subgrupos dentro de {activeGroup}</h3>
-          <p>Leitura direcionada para entender quais frentes desse grupo estao puxando mais compra.</p>
+          <p>Leitura direcionada para entender quais frentes desse grupo estão puxando mais compras.</p>
         </div>
         <div className="panel-actions">
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -863,6 +841,14 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
   const suppliers = useMemo(
     () => [...new Set(sourceEntries.map((row) => row.supplier).filter(Boolean))].sort((left, right) => left.localeCompare(right)),
     [sourceEntries]
+  );
+  const groupOptions = useMemo(
+    () => [{ value: "__ALL__", label: "Todos os grupos" }, ...groups.map((group) => ({ value: group, label: group }))],
+    [groups]
+  );
+  const supplierOptions = useMemo(
+    () => [{ value: "__ALL__", label: "Todos os fornecedores" }, ...suppliers.map((supplier) => ({ value: supplier, label: supplier }))],
+    [suppliers]
   );
 
   useEffect(() => {
@@ -1047,28 +1033,8 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
                 availableMonths={availableMonths}
                 availableDateSet={availableDateSet}
               />
-              <label className="auth-field goods-entry-filter-field">
-                <span>Grupo</span>
-                <select value={selectedGroup} onChange={(event) => setSelectedGroup(event.target.value)}>
-                  <option value="__ALL__">Todos os grupos</option>
-                  {groups.map((group) => (
-                    <option key={group} value={group}>
-                      {group}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="auth-field goods-entry-filter-field">
-                <span>Fornecedor</span>
-                <select value={selectedSupplier} onChange={(event) => setSelectedSupplier(event.target.value)}>
-                  <option value="__ALL__">Todos os fornecedores</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier} value={supplier}>
-                      {supplier}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FilterSelect label="Grupo" value={selectedGroup} options={groupOptions} onChange={setSelectedGroup} />
+              <FilterSelect label="Fornecedor" value={selectedSupplier} options={supplierOptions} onChange={setSelectedSupplier} />
             </div>
 
             <div className="goods-entry-filter-actions">

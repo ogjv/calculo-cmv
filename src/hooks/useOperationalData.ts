@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
+  AuditLogEntry,
   DrePeriodData,
   GoodsEntryImportData,
   GoodsEntryRow,
@@ -19,8 +20,29 @@ export type UploadState = PersistedWorkspace["state"];
 const TOTAL_VIEW = "__TOTAL__";
 const TOTAL_PERIOD = "__ALL_PERIODS__";
 const DEFAULT_DRE_PERIOD = "__LATEST_DRE__";
+const MAX_AUDIT_ENTRIES = 80;
 
 const getPeriodLabel = (dashboard: PeriodDashboard) => dashboard.label || dashboard.data.reportPeriod?.periodLabel || dashboard.data.reportPeriod?.displayLabel || "Período";
+
+const createAuditEntry = (input: Omit<AuditLogEntry, "id" | "createdAt">): AuditLogEntry => ({
+  id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  createdAt: new Date().toISOString(),
+  ...input
+});
+
+const appendAuditEntries = (current: UploadState, entries: AuditLogEntry[] = []) =>
+  entries.length > 0
+    ? {
+        ...current,
+        auditEntries: [...entries, ...(current.auditEntries ?? [])].slice(0, MAX_AUDIT_ENTRIES)
+      }
+    : current;
+
+const askImportConfirmation = (message: string) =>
+  typeof window === "undefined" ? true : window.confirm(message);
+
+const GENERIC_FILE_PROCESSING_ERROR = "Não foi possível processar o arquivo. Verifique o formato e tente novamente.";
+const GENERIC_FILES_PROCESSING_ERROR = "Não foi possível processar os arquivos. Verifique o formato das planilhas e tente novamente.";
 
 const dedupeFiles = (files: File[]) => {
   const map = new Map<string, File>();
@@ -262,9 +284,9 @@ const rebuildGoodsEntryDataFromEntries = (
   };
 };
 
-export const buildImportErrorMessage = (fileName: string, detail: string, hint = "Verifique o formato, as colunas e os dados e tente novamente.") => {
+export const buildImportErrorMessage = (fileName: string, detail: string, hint = "Revise o formato, as colunas e os dados da planilha e tente novamente.") => {
   const normalizedFileName = fileName?.trim() || "arquivo";
-  return `O arquivo "${normalizedFileName}" não está no padrão esperado pelo sistema. ${detail} ${hint}`;
+  return `Não foi possível importar "${normalizedFileName}". ${detail} ${hint}`;
 };
 
 const validateColumns = (
@@ -424,12 +446,13 @@ export function useOperationalData() {
       recipeFileName?: string;
       validations?: ImportValidation[];
       error?: string;
+      auditEntries?: AuditLogEntry[];
     }
   ) => {
     const nextData = buildConsolidatedDashboard(nextPeriods);
 
     setState((current) => ({
-      ...current,
+      ...appendAuditEntries(current, options?.auditEntries),
       data: nextData,
       periodDashboards: nextPeriods,
       salesFileNames: undefined,
@@ -508,13 +531,13 @@ export function useOperationalData() {
           kind: "sales",
           fileName: file.name,
           status: "error",
-          detail: error instanceof Error ? error.message : "Falha ao processar arquivo."
+          detail: error instanceof Error ? error.message : GENERIC_FILE_PROCESSING_ERROR
         }))
       );
       setState((current) => ({
         ...current,
         validations,
-        error: error instanceof Error ? error.message : "Falha ao processar os arquivos.",
+        error: error instanceof Error ? error.message : GENERIC_FILES_PROCESSING_ERROR,
         processing: false
       }));
     }
@@ -524,7 +547,7 @@ export function useOperationalData() {
     if (salesFiles.length === 0 && periodDashboards.length === 0) {
       setState((current) => ({
         ...current,
-        error: "Envie primeiro o arquivo de vendas."
+        error: "Envie primeiro o arquivo de vendas. Depois, selecione a ficha técnica correspondente."
       }));
       return;
     }
@@ -629,7 +652,7 @@ export function useOperationalData() {
               kind: "sales" as const,
               fileName: salesFile.name,
               status: "error" as const,
-              detail: error instanceof Error ? error.message : "Falha ao processar arquivo."
+              detail: error instanceof Error ? error.message : GENERIC_FILE_PROCESSING_ERROR
             }))
           : []),
         {
@@ -637,14 +660,14 @@ export function useOperationalData() {
           kind: "recipes",
           fileName: file.name,
           status: "error",
-          detail: error instanceof Error ? error.message : "Falha ao processar arquivo."
+          detail: error instanceof Error ? error.message : GENERIC_FILE_PROCESSING_ERROR
         }
       ]);
       setState((current) => ({
         ...current,
         recipeFileName: file.name,
         validations,
-        error: error instanceof Error ? error.message : "Falha ao processar os arquivos.",
+        error: error instanceof Error ? error.message : GENERIC_FILES_PROCESSING_ERROR,
         processing: false
       }));
     }
@@ -663,7 +686,7 @@ export function useOperationalData() {
     void handleRecipeUpload(files[0]);
   };
 
-  const handlePairedUpload = async ({ salesFile, recipeFile }: { salesFile: File; recipeFile: File }) => {
+  const handlePairedUpload = async ({ salesFile, recipeFile, actorEmail }: { salesFile: File; recipeFile: File; actorEmail?: string }) => {
     let validations: ImportValidation[] = [];
 
     try {
@@ -715,6 +738,29 @@ export function useOperationalData() {
       const fallbackKey = `${salesFile.name}-${Date.now()}`;
       const periodKey = salesImport.reportPeriod?.periodKey ?? fallbackKey;
       const periodLabel = salesImport.reportPeriod?.periodLabel ?? salesImport.reportPeriod?.displayLabel ?? salesFile.name;
+      const existingPeriod = periodDashboards.some((period) => period.key === periodKey);
+      const dashboardConfirmation = [
+        "Confirmar importação para o Dashboard?",
+        "",
+        `Tipo: vendas + fichas técnicas`,
+        `Período detectado: ${periodLabel}`,
+        `Arquivo de vendas: ${salesFile.name}`,
+        `Arquivo de fichas técnicas: ${recipeFile.name}`,
+        `Itens de venda identificados: ${sales.length}`,
+        `Receita identificada: ${sales.reduce((sum, item) => sum + item.revenue, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+        existingPeriod ? "Atenção: já existe uma competência com este período. Ao confirmar, os dados anteriores serão substituídos por este novo par de arquivos." : undefined
+      ].filter(Boolean).join("\n");
+
+      if (!askImportConfirmation(dashboardConfirmation)) {
+        setUploadFeedback([]);
+        setState((current) => ({
+          ...current,
+          error: undefined,
+          processing: false
+        }));
+        return;
+      }
+
       const nextPeriod: PeriodDashboard = {
         key: periodKey,
         label: periodLabel,
@@ -731,12 +777,24 @@ export function useOperationalData() {
       applyPeriodDashboards(nextPeriods, {
         recipeBase: undefined,
         duplicateRecipeCodes: undefined,
-        validations
+        validations,
+        auditEntries: [
+          createAuditEntry({
+            module: "dashboard",
+            action: "import",
+            status: "success",
+            title: "Importação de vendas e ficha técnica",
+            actorEmail,
+            periodLabel,
+            fileNames: [salesFile.name, recipeFile.name],
+            detail: `${sales.length} itens de venda identificados.`
+          })
+        ]
       });
       setSalesFiles([]);
       setRecipeFile(null);
     } catch (error) {
-      const detail = error instanceof Error ? error.message : "Falha ao processar arquivo.";
+      const detail = error instanceof Error ? error.message : GENERIC_FILE_PROCESSING_ERROR;
       setUploadFeedback([
         { id: `sales-${salesFile.name}`, kind: "sales", fileName: salesFile.name, status: "error", detail },
         { id: `recipes-${recipeFile.name}`, kind: "recipes", fileName: recipeFile.name, status: "error", detail }
@@ -750,7 +808,7 @@ export function useOperationalData() {
     }
   };
 
-  const handleDreImport = async (file: File) => {
+  const handleDreImport = async (file: File, actorEmail?: string) => {
     try {
       setDreProcessing(true);
       setDreError(undefined);
@@ -774,6 +832,23 @@ export function useOperationalData() {
       const fallbackKey = `${file.name}-${Date.now()}`;
       const periodKey = getDrePeriodKey(nextDreData, fallbackKey);
       const periodLabel = getDrePeriodLabel(nextDreData, file.name);
+      const existingPeriod = drePeriods.some((period) => period.key === periodKey);
+      const dreRevenue = getDreRevenueValue(nextDreData);
+      const dreConfirmation = [
+        "Confirmar importação de DRE?",
+        "",
+        `Período detectado: ${periodLabel}`,
+        nextDreData.restaurantName ? `Restaurante no arquivo: ${nextDreData.restaurantName}` : undefined,
+        `Arquivo: ${file.name}`,
+        `Seções identificadas: ${nextDreData.sections.length}`,
+        `Receita operacional identificada: ${dreRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+        existingPeriod ? "Atenção: já existe um DRE com este período. Ao confirmar, o DRE anterior será substituído." : undefined
+      ].filter(Boolean).join("\n");
+
+      if (!askImportConfirmation(dreConfirmation)) {
+        return;
+      }
+
       setDrePeriods((current) => {
         const nextPeriod = {
           key: periodKey,
@@ -784,15 +859,29 @@ export function useOperationalData() {
         const withoutCurrentPeriod = current.filter((period) => period.key !== periodKey);
         return [...withoutCurrentPeriod, nextPeriod].sort((left, right) => left.key.localeCompare(right.key));
       });
+      setState((current) =>
+        appendAuditEntries(current, [
+          createAuditEntry({
+            module: "dre",
+            action: "import",
+            status: "success",
+            title: "Importação de DRE",
+            actorEmail,
+            periodLabel,
+            fileNames: [file.name],
+            detail: `${nextDreData.sections.length} seções e ${nextDreData.summary.length} totais identificados.`
+          })
+        ])
+      );
       setSelectedDrePeriod(periodKey);
     } catch (error) {
-      setDreError(error instanceof Error ? error.message : "Falha ao processar o arquivo de DRE.");
+      setDreError(error instanceof Error ? error.message : "Não foi possível processar o arquivo de DRE. Verifique o modelo e tente novamente.");
     } finally {
       setDreProcessing(false);
     }
   };
 
-  const handleGoodsEntryImport = async (files: File | File[]) => {
+  const handleGoodsEntryImport = async (files: File | File[], actorEmail?: string) => {
     const incomingFiles = Array.isArray(files) ? files : [files];
     const firstFile = incomingFiles[0];
     if (!firstFile) {
@@ -822,29 +911,69 @@ export function useOperationalData() {
         );
       }
 
+      const importedEntriesCount = parsedFiles.reduce((sum, item) => sum + item.data.entries.length, 0);
+      const importedTotalValue = parsedFiles.reduce(
+        (sum, item) => sum + item.data.entries.reduce((entrySum, entry) => entrySum + entry.totalValue, 0),
+        0
+      );
+      const importedPeriodLabels = [
+        ...new Set(
+          parsedFiles
+            .map((item) => item.data.reportPeriod?.displayLabel ?? item.data.reportPeriod?.periodLabel ?? item.data.reportPeriod?.rawLabel)
+            .filter(Boolean)
+        )
+      ];
+      const goodsConfirmation = [
+        "Confirmar importação de entradas de mercadorias?",
+        "",
+        `Arquivo(s): ${parsedFiles.map((item) => item.fileName).join(", ")}`,
+        `Período(s) detectado(s): ${importedPeriodLabels.join(", ") || "Não identificado"}`,
+        `Lançamentos identificados: ${importedEntriesCount}`,
+        `Total identificado: ${importedTotalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+        "Entradas duplicadas serão ignoradas automaticamente."
+      ].join("\n");
+
+      if (!askImportConfirmation(goodsConfirmation)) {
+        setState((current) => ({
+          ...current,
+          goodsEntryProcessing: false
+        }));
+        return;
+      }
+
       setState((current) => {
         const previousEntriesCount = current.goodsEntryData?.entries.length ?? 0;
         const nextGoodsEntryData = buildMergedGoodsEntryData(current.goodsEntryData, parsedFiles);
         const nextEntriesCount = nextGoodsEntryData.entries.length;
-        const importedEntriesCount = parsedFiles.reduce((sum, item) => sum + item.data.entries.length, 0);
         const addedEntriesCount = Math.max(0, nextEntriesCount - previousEntriesCount);
 
         return {
-          ...current,
+          ...appendAuditEntries(current, [
+            createAuditEntry({
+              module: "goods-entry",
+              action: "import",
+              status: "success",
+              title: "Importação de entrada de mercadorias",
+              actorEmail,
+              periodLabel: importedPeriodLabels.join(", ") || undefined,
+              fileNames: parsedFiles.map((item) => item.fileName),
+              detail: `${addedEntriesCount} lançamentos novos adicionados à base.`
+            })
+          ]),
           goodsEntryData: nextGoodsEntryData,
           goodsEntryFileName: [current.goodsEntryFileName, ...parsedFiles.map((item) => item.fileName)].filter(Boolean).join(", "),
           goodsEntryError: undefined,
           goodsEntryMessage:
             addedEntriesCount > 0
-              ? `${addedEntriesCount} lançamentos novos adicionados à base. Base total: ${nextEntriesCount} lançamentos.`
-              : `Arquivo processado com ${importedEntriesCount} lançamentos, mas nenhum lançamento novo foi adicionado por já constar na base.`,
+              ? `${addedEntriesCount} lançamentos novos foram adicionados. Base total: ${nextEntriesCount} lançamentos.`
+              : `Arquivo processado com ${importedEntriesCount} lançamentos. Nenhum item novo foi adicionado porque todos já constavam na base.`,
           goodsEntryProcessing: false
         };
       });
     } catch (error) {
       setState((current) => ({
         ...current,
-        goodsEntryError: error instanceof Error ? error.message : "Falha ao processar o arquivo de entrada de mercadorias.",
+        goodsEntryError: error instanceof Error ? error.message : "Não foi possível processar a entrada de mercadorias. Verifique o arquivo e tente novamente.",
         goodsEntryMessage: undefined,
         goodsEntryProcessing: false
       }));
@@ -863,7 +992,7 @@ export function useOperationalData() {
     });
   };
 
-  const handleRemoveGoodsEntryImportedPeriod = (periodLabel: string) => {
+  const handleRemoveGoodsEntryImportedPeriod = (periodLabel: string, actorEmail?: string) => {
     setState((current) => {
       if (!current.goodsEntryData) {
         return current;
@@ -876,7 +1005,17 @@ export function useOperationalData() {
       const nextGoodsEntryData = rebuildGoodsEntryDataFromEntries(current.goodsEntryData, nextEntries, nextImportedPeriods);
 
       if (!nextGoodsEntryData) {
-        const nextState = { ...current };
+        const nextState = appendAuditEntries(current, [
+          createAuditEntry({
+            module: "goods-entry",
+            action: "remove",
+            status: "success",
+            title: "Exclusão de período de entradas",
+            actorEmail,
+            periodLabel,
+            detail: "Período removido da base de entrada de mercadorias."
+          })
+        ]);
         delete nextState.goodsEntryData;
         delete nextState.goodsEntryFileName;
         delete nextState.goodsEntryError;
@@ -886,7 +1025,17 @@ export function useOperationalData() {
       }
 
       return {
-        ...current,
+        ...appendAuditEntries(current, [
+          createAuditEntry({
+            module: "goods-entry",
+            action: "remove",
+            status: "success",
+            title: "Exclusão de período de entradas",
+            actorEmail,
+            periodLabel,
+            detail: "Período removido da base de entrada de mercadorias."
+          })
+        ]),
         goodsEntryData: nextGoodsEntryData,
         goodsEntryError: undefined,
         goodsEntryMessage: `Período ${periodLabel} removido da base. Base total: ${nextGoodsEntryData.entries.length} lançamentos.`,
@@ -895,36 +1044,47 @@ export function useOperationalData() {
     });
   };
 
-  const rebuildFromPeriods = (nextPeriods: PeriodDashboard[]) => {
+  const rebuildFromPeriods = (nextPeriods: PeriodDashboard[], auditEntries?: AuditLogEntry[]) => {
     if (nextPeriods.length === 0) {
-      applyPeriodDashboards([], { error: undefined });
+      applyPeriodDashboards([], { error: undefined, auditEntries });
       return;
     }
 
-    applyPeriodDashboards(nextPeriods, { error: undefined });
+    applyPeriodDashboards(nextPeriods, { error: undefined, auditEntries });
   };
 
-  const handleRemovePeriod = (periodKey: string) => {
+  const handleRemovePeriod = (periodKey: string, actorEmail?: string) => {
     const targetPeriod = periodDashboards.find((period) => period.key === periodKey);
     const targetLabel = targetPeriod ? getPeriodLabel(targetPeriod) : periodKey;
     if (typeof window !== "undefined") {
       const shouldRemove = window.confirm(
-        `Deseja excluir apenas o período ${targetLabel}?\n\nEssa ação remove somente os dados desse mês da análise atual e não pode ser desfeita.`
+        `Deseja excluir o período ${targetLabel}?\n\nEssa ação remove somente os dados dessa competência no Dashboard e não pode ser desfeita.`
       );
       if (!shouldRemove) {
         return;
       }
     }
 
-    rebuildFromPeriods(periodDashboards.filter((period) => period.key !== periodKey));
+    rebuildFromPeriods(periodDashboards.filter((period) => period.key !== periodKey), [
+      createAuditEntry({
+        module: "dashboard",
+        action: "remove",
+        status: "success",
+        title: "Exclusão de competência do Dashboard",
+        actorEmail,
+        periodLabel: targetLabel,
+        fileNames: [targetPeriod?.salesFileName, targetPeriod?.recipeFileName].filter((name): name is string => Boolean(name)),
+        detail: "Período removido da base de vendas e CMV."
+      })
+    ]);
   };
 
-  const handleRemoveDrePeriod = (periodKey: string) => {
+  const handleRemoveDrePeriod = (periodKey: string, actorEmail?: string) => {
     const targetPeriod = drePeriods.find((period) => period.key === periodKey);
     const targetLabel = targetPeriod?.label ?? periodKey;
     if (typeof window !== "undefined") {
       const shouldRemove = window.confirm(
-        `Deseja excluir apenas o período ${targetLabel}?\n\nEssa ação remove somente esse DRE da análise atual e não pode ser desfeita.`
+        `Deseja excluir o período ${targetLabel}?\n\nEssa ação remove somente esse DRE da análise atual e não pode ser desfeita.`
       );
       if (!shouldRemove) {
         return;
@@ -948,6 +1108,20 @@ export function useOperationalData() {
 
       return nextPeriods;
     });
+    setState((current) =>
+      appendAuditEntries(current, [
+        createAuditEntry({
+          module: "dre",
+          action: "remove",
+          status: "success",
+          title: "Exclusão de período de DRE",
+          actorEmail,
+          periodLabel: targetLabel,
+          fileNames: targetPeriod?.fileName ? [targetPeriod.fileName] : undefined,
+          detail: "Período removido da análise de DRE."
+        })
+      ])
+    );
   };
 
   const handleClearAll = () => {

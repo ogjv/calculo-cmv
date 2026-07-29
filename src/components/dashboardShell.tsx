@@ -13,6 +13,7 @@ import type {
 import type { DreAnalysisPanelProps, DrePanelCopy } from "./drePanels";
 import type { DashboardPanelsProps } from "./cmvPanels";
 import type { GoodsEntryPanelsProps } from "./goodsEntryPanels";
+import type { AuditLogEntry } from "../types";
 
 const LazyAccountSettingsPanel = lazy(() =>
   import("./accountPanels").then((module) => ({ default: module.AccountSettingsPanel }))
@@ -32,6 +33,9 @@ const LazyDashboardPanels = lazy(() =>
 const LazyGoodsEntryPanels = lazy(() =>
   import("./goodsEntryPanels").then((module) => ({ default: module.GoodsEntryPanels }))
 );
+const LazyOperationalHistoryPanel = lazy(() =>
+  import("./operationalHistoryPanel").then((module) => ({ default: module.OperationalHistoryPanel }))
+);
 
 type DashboardShellProps = {
   locale: "pt" | "es" | "en";
@@ -49,6 +53,7 @@ type DashboardShellProps = {
   dreAnalysisProps: Omit<DreAnalysisPanelProps, "canManageData" | "copy">;
   dashboardPanelProps: DashboardPanelsProps;
   goodsEntryPanelProps: Omit<GoodsEntryPanelsProps, "canManageData">;
+  operationalHistoryEntries?: AuditLogEntry[];
   restaurantManagementProps: Omit<RestaurantManagementPanelProps, "session" | "copy" | "onActivateRestaurant">;
   accountSettingsProps: Omit<AccountSettingsPanelProps, "session" | "copy" | "onClose">;
   userManagementProps: Omit<UserManagementPanelProps, "session" | "copy">;
@@ -121,6 +126,7 @@ export function DashboardShell({
   dreAnalysisProps,
   dashboardPanelProps,
   goodsEntryPanelProps,
+  operationalHistoryEntries,
   restaurantManagementProps,
   accountSettingsProps,
   userManagementProps,
@@ -147,7 +153,7 @@ export function DashboardShell({
         </div>
         <InternalNavigation section={currentSection} onChange={onChangeSection} items={navigationItems} />
         <div className="dashboard-sidebar-footer">
-          <div className="sidebar-account-menu" aria-label="OpÃ§Ãµes da conta">
+          <div className="sidebar-account-menu" aria-label="Opções da conta">
             <button
               type="button"
               className="sidebar-account-menu-button"
@@ -196,7 +202,7 @@ export function DashboardShell({
             themeLabels={themeLabels}
           />
 
-          {currentSection === "dashboard" || currentSection === "dre" || currentSection === "goods-entry" ? (
+          {currentSection === "dashboard" || currentSection === "dre" || currentSection === "goods-entry" || currentSection === "operational-history" ? (
             <RestaurantNavigatorPanel
               eyebrow={restaurantNavigatorCopy.eyebrow}
               title={restaurantNavigatorCopy.title}
@@ -238,6 +244,12 @@ export function DashboardShell({
                 onActivateRestaurant={onActivateRestaurant}
                 {...restaurantManagementProps}
               />
+            </Suspense>
+          ) : null}
+
+          {currentSection === "operational-history" && canManageRestaurants ? (
+            <Suspense fallback={fallbackCard(processingLabel)}>
+              <LazyOperationalHistoryPanel entries={operationalHistoryEntries} />
             </Suspense>
           ) : null}
 

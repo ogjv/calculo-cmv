@@ -87,7 +87,7 @@ export function useAccountManagement({
       }));
       setAccountError(undefined);
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem.");
+      setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem selecionada. Tente outro arquivo.");
     }
   };
 
@@ -106,7 +106,7 @@ export function useAccountManagement({
       }));
       setAccountError(undefined);
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem.");
+      setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a imagem selecionada. Tente outro arquivo.");
     }
   };
 
@@ -137,7 +137,7 @@ export function useAccountManagement({
       }
       setAccountMessage(profileUpdatedMessage);
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
+      setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil. Verifique os dados e tente novamente.");
     } finally {
       setAccountBusy(false);
     }
@@ -163,7 +163,7 @@ export function useAccountManagement({
       setRestaurantProfileRestaurantId(nextSession.activeRestaurantId ?? nextSession.restaurantId);
       setAccountMessage(profileUpdatedMessage);
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
+      setAccountError(error instanceof Error ? error.message : "Não foi possível atualizar o perfil do restaurante. Verifique os dados e tente novamente.");
     } finally {
       setAccountBusy(false);
     }
@@ -192,7 +192,7 @@ export function useAccountManagement({
       setNewRestaurantName("");
       setAccountMessage("Restaurante cadastrado com sucesso.");
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível cadastrar o restaurante.");
+      setAccountError(error instanceof Error ? error.message : "Não foi possível cadastrar o restaurante. Verifique o nome informado e tente novamente.");
     } finally {
       setAccountBusy(false);
     }
@@ -203,7 +203,7 @@ export function useAccountManagement({
       return;
     }
 
-    if (!window.confirm("Tem certeza que deseja excluir este restaurante? Esta ação remove a base dessa unidade.")) {
+    if (!window.confirm("Deseja excluir este restaurante?\n\nEssa ação remove a unidade, os acessos vinculados e a base de dados correspondente. Esta operação não pode ser desfeita.")) {
       return;
     }
 
@@ -224,7 +224,7 @@ export function useAccountManagement({
       setSession(nextSession);
       setAccountMessage("Restaurante excluído com sucesso.");
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível excluir o restaurante.");
+      setAccountError(error instanceof Error ? error.message : "Não foi possível excluir o restaurante. Tente novamente.");
     } finally {
       setAccountBusy(false);
     }
@@ -249,7 +249,7 @@ export function useAccountManagement({
       }
       setSession(null);
     } catch (error) {
-      setAccountError(error instanceof Error ? error.message : "Não foi possível excluir a conta.");
+      setAccountError(error instanceof Error ? error.message : "Não foi possível excluir a conta. Tente novamente.");
     } finally {
       setAccountBusy(false);
     }

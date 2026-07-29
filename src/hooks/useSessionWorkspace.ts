@@ -226,7 +226,8 @@ const normalizeUploadState = (value: unknown): UploadState => {
     goodsEntryFileName: typeof value.goodsEntryFileName === "string" ? value.goodsEntryFileName : undefined,
     goodsEntryError: typeof value.goodsEntryError === "string" ? value.goodsEntryError : undefined,
     goodsEntryMessage: typeof value.goodsEntryMessage === "string" ? value.goodsEntryMessage : undefined,
-    goodsEntryProcessing: false
+    goodsEntryProcessing: false,
+    auditEntries: asArray(value.auditEntries)
   };
 };
 
@@ -358,7 +359,7 @@ export function useSessionWorkspace({
     }
 
     let mounted = true;
-    void withTimeout(getSupabaseSession(), AUTH_BOOT_TIMEOUT_MS, "Tempo limite ao inicializar autenticação.")
+    void withTimeout(getSupabaseSession(), AUTH_BOOT_TIMEOUT_MS, "A autenticação demorou mais que o esperado. Tente atualizar a página.")
       .then((nextSession) => {
         if (mounted) {
           setSession(nextSession);
@@ -367,7 +368,7 @@ export function useSessionWorkspace({
       .catch((error) => {
         if (mounted) {
           setSession(null);
-          setAuthError(error instanceof Error ? error.message : "Não foi possível inicializar a autenticação.");
+          setAuthError(error instanceof Error ? error.message : "Não foi possível iniciar a autenticação. Tente novamente.");
         }
       })
       .finally(() => {
@@ -413,7 +414,7 @@ export function useSessionWorkspace({
     void withTimeout(
       hydrateSupabaseSession(session, undefined, preferredRestaurantId),
       AUTH_HYDRATE_TIMEOUT_MS,
-      "Tempo limite ao carregar restaurantes e permissões da conta."
+        "O carregamento dos restaurantes demorou mais que o esperado. Tente atualizar a página."
     )
       .then((nextSession) => {
         if (!mounted || !nextSession) {
@@ -439,7 +440,7 @@ export function useSessionWorkspace({
           return;
         }
 
-        setAuthError(error instanceof Error ? error.message : "Não foi possível carregar os restaurantes da conta.");
+        setAuthError(error instanceof Error ? error.message : "Não foi possível carregar os restaurantes vinculados à sua conta.");
         setSession((current) =>
           current && !(current.activeRestaurantId ?? current.restaurantId) ? null : current
         );
@@ -470,7 +471,7 @@ export function useSessionWorkspace({
       void withTimeout(
         hydrateSupabaseSession(session, undefined, preferredRestaurantId),
         AUTH_HYDRATE_TIMEOUT_MS,
-        "Tempo limite ao atualizar restaurantes e permissões da conta."
+        "A atualização de permissões demorou mais que o esperado. Tente novamente."
       )
         .then((nextSession) => {
           if (!nextSession) {
@@ -602,7 +603,7 @@ export function useSessionWorkspace({
           return;
         }
 
-        setAuthError(error instanceof Error ? error.message : "Não foi possível carregar a base do restaurante.");
+        setAuthError(error instanceof Error ? error.message : "Não foi possível carregar os dados deste restaurante.");
         setWorkspaceRestaurantId(targetRestaurantId);
         setWorkspaceReady(true);
       }
@@ -673,7 +674,7 @@ export function useSessionWorkspace({
       setSession(nextSession);
       setAuthError(undefined);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Não foi possível entrar.");
+      setAuthError(error instanceof Error ? error.message : "Não foi possível entrar. Verifique os dados e tente novamente.");
     } finally {
       setAuthSubmitting(false);
     }
@@ -689,7 +690,7 @@ export function useSessionWorkspace({
       setSession(nextSession);
       setAuthError(undefined);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Não foi possível criar o acesso.");
+      setAuthError(error instanceof Error ? error.message : "Não foi possível criar sua conta. Revise os dados e tente novamente.");
     } finally {
       setAuthSubmitting(false);
     }
@@ -700,11 +701,11 @@ export function useSessionWorkspace({
       setAuthSubmitting(true);
       setAuthError(undefined);
       if (!isSupabaseConfigured) {
-        throw new Error("RecuperaÃ§Ã£o de senha disponÃ­vel apenas no modo online.");
+        throw new Error("A recuperação de senha está disponível apenas no modo online.");
       }
       await requestPasswordResetWithSupabase(email);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel enviar o e-mail de recuperaÃ§Ã£o.");
+      setAuthError(error instanceof Error ? error.message : "Não foi possível enviar o e-mail de recuperação. Tente novamente.");
       throw error;
     } finally {
       setAuthSubmitting(false);
@@ -716,7 +717,7 @@ export function useSessionWorkspace({
       setAuthSubmitting(true);
       setAuthError(undefined);
       if (!isSupabaseConfigured) {
-        throw new Error("RecuperaÃ§Ã£o de senha disponÃ­vel apenas no modo online.");
+        throw new Error("A recuperação de senha está disponível apenas no modo online.");
       }
 
       await updateSupabasePassword(password);
@@ -728,7 +729,7 @@ export function useSessionWorkspace({
         setSession(nextSession);
       }
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "NÃ£o foi possÃ­vel atualizar a senha.");
+      setAuthError(error instanceof Error ? error.message : "Não foi possível atualizar a senha. Tente novamente.");
       throw error;
     } finally {
       setAuthSubmitting(false);

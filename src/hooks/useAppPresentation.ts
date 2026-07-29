@@ -34,6 +34,7 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     { key: "dashboard" as AppSection, label: String(t("navDashboard")) },
     { key: "dre" as AppSection, label: String(t("navDre")) },
     { key: "goods-entry" as AppSection, label: String(t("navGoodsEntry")) },
+    ...(canManageRestaurants ? [{ key: "operational-history" as AppSection, label: String(t("navOperationalHistory")) }] : []),
     ...(canManageRestaurants ? [{ key: "restaurants" as AppSection, label: String(t("navRestaurants")) }] : []),
     ...(canManageUserManagement ? [{ key: "user-management" as AppSection, label: String(t("navTeam")) }] : [])
   ];
@@ -207,6 +208,11 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
       eyebrow: String(t("navGoodsEntry")),
       title: String(t("goodsEntryTitle")),
       text: String(t("goodsEntryText"))
+    },
+    "operational-history": {
+      eyebrow: String(t("navOperationalHistory")),
+      title: String(t("navOperationalHistory")),
+      text: "Auditoria leve das importações e exclusões feitas nas bases operacionais."
     },
     "user-management": {
       eyebrow: String(t("navTeam")),

@@ -60,6 +60,7 @@ describe("useAppPresentation", () => {
       "dashboard",
       "dre",
       "goods-entry",
+      "operational-history",
       "restaurants",
       "user-management"
     ]);

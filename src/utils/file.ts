@@ -20,7 +20,7 @@ const readAsArrayBuffer = (file: File) =>
     reader.onerror = () =>
       reject(
         new Error(
-          `Falha ao ler o arquivo ${file.name}. Verifique se é um arquivo .csv/.xlsx válido e tente novamente. Consulte a seção Ajuda na aplicação para detalhes e templates.`
+          `Não foi possível ler o arquivo "${file.name}". Verifique se a planilha está em formato .csv, .xls ou .xlsx e tente novamente.`
         )
       );
     reader.readAsArrayBuffer(file);

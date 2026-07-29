@@ -286,6 +286,19 @@ export type UploadFeedbackItem = {
   detail?: string;
 };
 
+export type AuditLogEntry = {
+  id: string;
+  createdAt: string;
+  module: "dashboard" | "dre" | "goods-entry";
+  action: "import" | "remove";
+  status: "success" | "cancelled" | "error";
+  title: string;
+  actorEmail?: string;
+  periodLabel?: string;
+  fileNames?: string[];
+  detail?: string;
+};
+
 export type PersistedWorkspace = {
   locale: "pt" | "es" | "en";
   state: {
@@ -303,11 +316,12 @@ export type PersistedWorkspace = {
     goodsEntryError?: string;
     goodsEntryMessage?: string;
     goodsEntryProcessing?: boolean;
+    auditEntries?: AuditLogEntry[];
   };
   uploadFeedback: UploadFeedbackItem[];
   selectedPeriod: string;
   selectedView: string;
   drePeriods?: DrePeriodData[];
   selectedDrePeriod?: string;
-  currentSection?: "account" | "dashboard" | "dre" | "restaurants" | "user-management" | "goods-entry" | "help";
+  currentSection?: "account" | "dashboard" | "dre" | "restaurants" | "user-management" | "goods-entry" | "operational-history" | "help";
 };

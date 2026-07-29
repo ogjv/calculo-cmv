@@ -1470,6 +1470,202 @@ input {
   min-height: 180px;
 }
 
+.operational-history-panel,
+.audit-trail-card {
+  display: grid;
+  gap: 12px;
+}
+
+.operational-history-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.filter-select-control,
+.operational-history-filters label {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.filter-select-control > span,
+.operational-history-filters span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.filter-select-button,
+.operational-history-filters select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+}
+
+.filter-select-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.filter-select-button:hover {
+  border-color: rgba(190, 144, 73, 0.48);
+  box-shadow: 0 10px 22px rgba(92, 61, 33, 0.1);
+}
+
+.filter-select-control.open .filter-select-button {
+  border-color: rgba(190, 144, 73, 0.72);
+  box-shadow: 0 0 0 3px rgba(190, 144, 73, 0.14);
+}
+
+.filter-select-button strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-select-chevron {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.72;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.filter-select-control.open .filter-select-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.filter-select-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 240px;
+  padding: 8px;
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(190, 144, 73, 0.28);
+  background: rgba(255, 252, 246, 0.98);
+  box-shadow: 0 22px 40px rgba(65, 47, 26, 0.16);
+}
+
+.filter-select-option {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.filter-select-option:hover,
+.filter-select-option.active {
+  background: rgba(190, 144, 73, 0.16);
+  color: #3a2a16;
+}
+
+.operational-history-list,
+.audit-trail-list {
+  display: grid;
+  gap: 10px;
+}
+
+.operational-history-row,
+.audit-trail-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.operational-history-main {
+  display: grid;
+  gap: 4px;
+}
+
+.audit-trail-row strong {
+  display: block;
+  margin-top: 3px;
+}
+
+.operational-history-row strong,
+.operational-history-row p,
+.operational-history-row small,
+.audit-trail-row p,
+.audit-trail-row small {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.operational-history-row strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.operational-history-meta {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  min-width: 210px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.audit-trail-row time {
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.operational-history-row.import,
+.audit-trail-row.import {
+  border-color: var(--tone-good-border);
+  background: var(--tone-good-bg);
+}
+
+.operational-history-row.remove,
+.audit-trail-row.remove {
+  border-color: var(--tone-mid-border);
+  background: var(--tone-mid-bg);
+}
+
 .account-panel .section-head p,
 .account-panel .account-avatar-panel p,
 .account-panel .restaurant-create-box p,
@@ -2279,6 +2475,59 @@ input {
   border-color: var(--tone-mid-border);
 }
 
+.dre-validation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dre-validation-card {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.dre-validation-card strong {
+  font-size: clamp(1rem, 1.5vw, 1.32rem);
+  line-height: 1.1;
+}
+
+.dre-validation-card p,
+.dre-validation-alerts p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.dre-validation-card.good {
+  background: var(--tone-good-bg);
+  border-color: var(--tone-good-border);
+}
+
+.dre-validation-card.mid {
+  background: var(--tone-mid-bg);
+  border-color: var(--tone-mid-border);
+}
+
+.dre-validation-card.bad {
+  background: var(--tone-bad-bg);
+  border-color: var(--tone-bad-border);
+}
+
+.dre-validation-alerts {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--tone-mid-border);
+  background: var(--tone-mid-bg);
+}
+
 .dre-diagnostics-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
@@ -3052,6 +3301,7 @@ input {
 .period-filter-card .filter-pill-group.active {
   background: rgba(190, 144, 73, 0.22);
   border-color: rgba(190, 144, 73, 0.52);
+  box-shadow: 0 0 0 1px rgba(190, 144, 73, 0.16);
 }
 
 .period-filter-card h3 {
@@ -5104,6 +5354,53 @@ th {
   background: var(--auth-input-bg);
 }
 
+:root[data-theme="dark"] .operational-history-filters select {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(232, 234, 238, 0.14);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .filter-select-button {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(232, 234, 238, 0.14);
+  color: var(--text);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .filter-select-button:hover,
+:root[data-theme="dark"] .filter-select-control.open .filter-select-button {
+  border-color: rgba(255, 222, 150, 0.48);
+  box-shadow: 0 0 0 3px rgba(190, 144, 73, 0.12);
+}
+
+:root[data-theme="dark"] .filter-select-menu {
+  background: rgba(30, 32, 37, 0.98);
+  border-color: rgba(255, 222, 150, 0.24);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.38);
+}
+
+:root[data-theme="dark"] .filter-select-option {
+  color: rgba(244, 245, 247, 0.86);
+}
+
+:root[data-theme="dark"] .filter-select-option:hover,
+:root[data-theme="dark"] .filter-select-option.active {
+  background: rgba(190, 144, 73, 0.22);
+  color: #fff7e7;
+}
+
+:root[data-theme="dark"] .goods-entry-filter-grid > .filter-select-control {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(232, 234, 238, 0.11);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .goods-entry-filter-grid > .filter-select-control .filter-select-button {
+  background: var(--auth-input-bg);
+  border-color: rgba(232, 234, 238, 0.09);
+  box-shadow: none;
+}
+
 :root[data-theme="dark"] .hero-highlight-card,
 :root[data-theme="dark"] .hero-metric-card,
 :root[data-theme="dark"] .process-card,
@@ -5119,6 +5416,31 @@ th {
   background: rgba(200, 204, 211, 0.14);
   border-color: rgba(200, 204, 211, 0.28);
   color: var(--text);
+}
+
+:root[data-theme="dark"] .period-filter-card .filter-pill,
+:root[data-theme="dark"] .period-filter-card .filter-pill-group {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(232, 234, 238, 0.18);
+  color: rgba(244, 245, 247, 0.82);
+}
+
+:root[data-theme="dark"] .period-filter-card .filter-pill.active,
+:root[data-theme="dark"] .period-filter-card .filter-pill-group.active {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 232, 166, 0.2), transparent 38%),
+    linear-gradient(135deg, rgba(190, 144, 73, 0.92), rgba(121, 84, 42, 0.92));
+  border-color: rgba(255, 222, 150, 0.86);
+  color: #fff7e7;
+  box-shadow:
+    0 0 0 1px rgba(255, 222, 150, 0.24),
+    0 12px 26px rgba(190, 144, 73, 0.24);
+}
+
+:root[data-theme="dark"] .period-filter-card .filter-pill-group.active .filter-pill-remove {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 247, 231, 0.24);
+  color: #fff7e7;
 }
 
 :root[data-theme="dark"] .restaurant-tile.active {
@@ -5404,6 +5726,38 @@ th {
     linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(248, 242, 232, 0.52));
   border: 1px solid rgba(76, 108, 90, 0.14);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+.goods-entry-filter-grid > .filter-select-control {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(248, 242, 232, 0.52));
+  border: 1px solid rgba(76, 108, 90, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+.goods-entry-filter-grid > .filter-select-control > span {
+  color: var(--text);
+  font-size: 0.94rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.goods-entry-filter-grid > .filter-select-control .filter-select-button {
+  min-height: 58px;
+  border-radius: 18px;
+  border-color: rgba(65, 47, 26, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(252, 249, 244, 0.94));
+  box-shadow: 0 12px 28px rgba(65, 47, 26, 0.08);
+  font-size: 1rem;
+  font-weight: 650;
 }
 
 .goods-entry-filter-field > span {

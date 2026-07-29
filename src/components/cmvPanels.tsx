@@ -947,7 +947,7 @@ function GroupExplorer({
   onClear: () => void;
 }) {
   const { t } = useLocale();
-  const visibleProducts = groupName ? products.filter((item) => item.group === groupName) : [];
+  const visibleProducts = groupName ? mergeProductsForDisplay(products.filter((item) => item.group === groupName)) : [];
   const subgroupMap = visibleProducts.reduce((map, item) => {
     const current = map.get(item.subgroup) ?? [];
     current.push(item);

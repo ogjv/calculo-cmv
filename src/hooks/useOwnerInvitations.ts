@@ -151,12 +151,12 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
     }
 
     if (!effectiveSession.activeAccountId) {
-      setInviteError("Não foi possível identificar a conta ativa deste usuário. Atualize o vínculo da conta no banco antes de enviar convites.");
+      setInviteError("Não foi possível identificar a conta ativa. Atualize a página e tente novamente.");
       return;
     }
 
     if (inviteForm.featureIds.length === 0) {
-      setInviteError("Selecione ao menos uma funcionalidade para este convite.");
+      setInviteError("Selecione ao menos uma funcionalidade para enviar o convite.");
       return;
     }
 
@@ -171,14 +171,14 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
         restaurantIds: inviteForm.restaurantIds
       });
       await refreshOwnerInvitationData(effectiveSession);
-      setInviteMessage("Convite criado com sucesso.");
+      setInviteMessage("Convite criado com sucesso. O acesso será aplicado no próximo login do usuário.");
       setInviteForm({
         email: "",
         featureIds: [DEFAULT_INVITE_FEATURE],
         restaurantIds: []
       });
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "Não foi possível criar o convite.");
+      setInviteError(error instanceof Error ? error.message : "Não foi possível criar o convite. Verifique o e-mail e tente novamente.");
     } finally {
       setInviteBusy(false);
     }
@@ -197,7 +197,7 @@ export function useOwnerInvitations(effectiveSession: AuthSession | null, canMan
       await refreshOwnerInvitationData(effectiveSession);
       setInviteMessage("Convite revogado com sucesso.");
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : "Não foi possível revogar o convite.");
+      setInviteError(error instanceof Error ? error.message : "Não foi possível revogar o convite. Tente novamente.");
     } finally {
       setInviteBusy(false);
     }
