@@ -20,11 +20,8 @@ export type DashboardPanelsProps = {
   selectedView: string;
   totalView: string;
   hasDashboardData: boolean;
-  hasSalesFile: boolean;
   canManageOperationalData: boolean;
-  onUpload: (kind: "sales" | "recipes", files: File[]) => void;
-  onClearAll: () => void;
-  onResetFlow: () => void;
+  onUploadPair: (files: { salesFile: File; recipeFile: File }) => void;
   onSelectPeriod: (period: string) => void;
   onRemovePeriod?: (period: string) => void;
   onSelectView: (view: string) => void;
@@ -65,13 +62,28 @@ const mergeProductsForDisplay = (products: ProductSummary[]) =>
         return map;
       }
 
+      const previousQuantity = current.quantity;
       const previousRevenue = current.revenue;
+      const nextQuantity = current.quantity + item.quantity;
       const nextRevenue = current.revenue + item.revenue;
 
-      current.quantity += item.quantity;
+      current.quantity = nextQuantity;
       current.revenue = nextRevenue;
       current.cost += item.cost;
       current.grossProfit += item.grossProfit;
+      current.unitCost =
+        nextQuantity > 0
+          ? Number((current.cost / nextQuantity).toFixed(2))
+          : current.unitCost ?? item.unitCost;
+      current.salePrice =
+        current.salePrice !== undefined && item.salePrice !== undefined && nextQuantity > 0
+          ? Number(
+              (
+                ((current.salePrice * previousQuantity) + (item.salePrice * item.quantity)) /
+                nextQuantity
+              ).toFixed(2)
+            )
+          : current.salePrice ?? item.salePrice;
       current.matchedRecipe = current.matchedRecipe || item.matchedRecipe;
       current.isPromotional = current.isPromotional || item.isPromotional;
       current.cmvPercent =
@@ -257,23 +269,24 @@ function KPIGrid({ data }: { data: DashboardData }) {
 
 function UploadPanel({
   state,
-  onUpload,
-  canUploadRecipes,
-  canManageData,
-  onClearAll,
-  onResetFlow
+  onUploadPair,
+  canManageData
 }: {
   state: UploadState;
-  onUpload: (kind: "sales" | "recipes", files: File[]) => void;
-  canUploadRecipes: boolean;
+  onUploadPair: (files: { salesFile: File; recipeFile: File }) => void;
   canManageData: boolean;
-  onClearAll: () => void;
-  onResetFlow: () => void;
 }) {
   const { t } = useLocale();
   const [dragTarget, setDragTarget] = useState<"sales" | "recipes" | null>(null);
+  const [pairedSalesFile, setPairedSalesFile] = useState<File | null>(null);
+  const [pairedRecipeFile, setPairedRecipeFile] = useState<File | null>(null);
   const handleChange = (kind: "sales" | "recipes") => (event: ChangeEvent<HTMLInputElement>) => {
-    onUpload(kind, Array.from(event.target.files ?? []));
+    const file = event.target.files?.[0] ?? null;
+    if (kind === "sales") {
+      setPairedSalesFile(file);
+    } else {
+      setPairedRecipeFile(file);
+    }
     event.target.value = "";
   };
 
@@ -292,23 +305,34 @@ function UploadPanel({
         return;
       }
 
-      onUpload(kind, kind === "recipes" ? files.slice(0, 1) : files);
+      const file = files[0];
+      if (!file) {
+        return;
+      }
+
+      if (kind === "sales") {
+        setPairedSalesFile(file);
+      } else {
+        setPairedRecipeFile(file);
+      }
     };
+  const canSubmitPair = Boolean(canManageData && pairedSalesFile && pairedRecipeFile && !state.processing);
+  const handleSubmitPair = () => {
+    if (!pairedSalesFile || !pairedRecipeFile) {
+      return;
+    }
+
+    onUploadPair({ salesFile: pairedSalesFile, recipeFile: pairedRecipeFile });
+    setPairedSalesFile(null);
+    setPairedRecipeFile(null);
+  };
 
   return (
     <section className="card upload-panel">
       <div className="section-head">
         <div>
           <h3>{String(t("uploadTitle"))}</h3>
-          <p>{String(t("uploadDropHint"))}</p>
-        </div>
-        <div className="panel-actions">
-          <button type="button" className="ghost-button" onClick={onResetFlow} disabled={!canManageData}>
-            Novo carregamento
-          </button>
-          <button type="button" className="ghost-button danger-button" onClick={onClearAll} disabled={!canManageData}>
-            Limpar base
-          </button>
+          <p>Envie sempre o relatório de vendas e a ficha técnica do mesmo mês. O período será identificado pelo arquivo de vendas.</p>
         </div>
       </div>
 
@@ -325,20 +349,20 @@ function UploadPanel({
           onDrop={handleDrop("sales")}
         >
           <span className="eyebrow">{String(t("salesUpload"))}</span>
-          <strong className="upload-title">{String(t("uploadSalesShort"))}</strong>
-          <small>{String(t("uploadDropHint"))}</small>
+          <strong className="upload-title">{pairedSalesFile?.name ?? String(t("uploadSalesShort"))}</strong>
+          <small>Arquivo de vendas da competência.</small>
           <div className="upload-box-footer">
             <span className="upload-action">{String(t("uploadDropHint"))}</span>
             <span className="upload-meta">.csv .xlsx .xls</span>
           </div>
-          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" multiple onChange={handleChange("sales")} disabled={!canManageData} />
+          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" onChange={handleChange("sales")} disabled={!canManageData} />
         </label>
 
         <label
-          className={`upload-box featured secondary simple ${canUploadRecipes && canManageData ? "" : "locked"} ${dragTarget === "recipes" ? "dragging" : ""}`}
+          className={`upload-box featured secondary simple ${canManageData ? "" : "locked"} ${dragTarget === "recipes" ? "dragging" : ""}`}
           onDragOver={(event) => {
             event.preventDefault();
-            if (canUploadRecipes && canManageData) {
+            if (canManageData) {
               setDragTarget("recipes");
             }
           }}
@@ -346,26 +370,31 @@ function UploadPanel({
           onDrop={handleDrop("recipes")}
         >
           <span className="eyebrow">{String(t("recipesUpload"))}</span>
-          <strong className="upload-title">{String(t("uploadRecipesShort"))}</strong>
-          <small>
-            {canManageData
-              ? canUploadRecipes
-                ? String(t("uploadDropHint"))
-                : String(t("recipesUploadLocked"))
-              : String(t("authManageOnly"))}
-          </small>
+          <strong className="upload-title">{pairedRecipeFile?.name ?? String(t("uploadRecipesShort"))}</strong>
+          <small>{canManageData ? "Ficha técnica referente ao mesmo período das vendas." : String(t("authManageOnly"))}</small>
           <div className="upload-box-footer">
-            <span className="upload-action">{canUploadRecipes && canManageData ? String(t("uploadDropHint")) : "Envie vendas primeiro"}</span>
+            <span className="upload-action">{String(t("uploadDropHint"))}</span>
             <span className="upload-meta">.csv .xlsx .xls</span>
           </div>
-          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" onChange={handleChange("recipes")} disabled={!canUploadRecipes || !canManageData} />
+          <input className="upload-input-hidden" type="file" accept=".csv,.xlsx,.xls" onChange={handleChange("recipes")} disabled={!canManageData} />
         </label>
       </div>
 
-      {!canManageData ? <p className="message">{String(t("authManageOnly"))}</p> : null}
-      {state.processing ? <p className="message">{String(t("processing"))}</p> : null}
-      {state.error ? <p className="message error">{state.error}</p> : null}
-      {!state.error && state.data ? <p className="message success">{String(t("success"))}</p> : null}
+      <div className="upload-pair-footer">
+        <div className="upload-pair-footer-action">
+          <button type="button" className="primary-button" onClick={handleSubmitPair} disabled={!canSubmitPair}>
+            {state.processing ? String(t("processing")) : "Adicionar competência"}
+          </button>
+        </div>
+        <div className="upload-pair-footer-copy">
+          <strong>Upload por competência</strong>
+          <span>Se você enviar novamente um par para o mesmo período, o mês será recalculado.</span>
+          {!canManageData ? <small>{String(t("authManageOnly"))}</small> : null}
+          {state.processing ? <small>{String(t("processing"))}</small> : null}
+          {state.error ? <small className="error">{state.error}</small> : null}
+          {!state.error && state.data ? <small className="success">{String(t("success"))}</small> : null}
+        </div>
+      </div>
     </section>
   );
 }
@@ -631,7 +660,15 @@ function PeriodFilterBar({
           {String(t("total"))}
         </button>
         {dashboards.map((dashboard) => (
-          <span key={dashboard.key} className={`filter-pill filter-pill-group ${selectedPeriod === dashboard.key ? "active" : ""}`}>
+          <span
+            key={dashboard.key}
+            className={`filter-pill filter-pill-group ${selectedPeriod === dashboard.key ? "active" : ""}`}
+            title={
+              dashboard.salesFileName || dashboard.recipeFileName
+                ? `Vendas: ${dashboard.salesFileName ?? "-"} | Ficha técnica: ${dashboard.recipeFileName ?? "-"}`
+                : getPeriodLabel(dashboard)
+            }
+          >
             <button type="button" className="filter-pill-main" onClick={() => onSelect(dashboard.key)}>
               {getPeriodLabel(dashboard)}
             </button>
@@ -959,6 +996,8 @@ function GroupExplorer({
                       <th>Codigo</th>
                       <th>Item</th>
                       <th>Qtd</th>
+                      <th>Custo unit.</th>
+                      <th>Preço</th>
                       <th>Receita</th>
                       <th>Custo</th>
                       <th>CMV</th>
@@ -973,6 +1012,8 @@ function GroupExplorer({
                           <td>{item.code}</td>
                           <td>{item.itemName}</td>
                           <td>{formatNumber(item.quantity)}</td>
+                          <td>{item.unitCost !== undefined ? formatCurrency(item.unitCost) : "—"}</td>
+                          <td>{item.salePrice !== undefined ? formatCurrency(item.salePrice) : "—"}</td>
                           <td>{formatCurrency(item.revenue)}</td>
                           <td>{formatCurrency(item.cost)}</td>
                           <td>
@@ -1202,11 +1243,8 @@ export function DashboardPanels({
   selectedView,
   totalView,
   hasDashboardData,
-  hasSalesFile,
   canManageOperationalData,
-  onUpload,
-  onClearAll,
-  onResetFlow,
+  onUploadPair,
   onSelectPeriod,
   onRemovePeriod,
   onSelectView
@@ -1220,11 +1258,8 @@ export function DashboardPanels({
       {canManageOperationalData ? (
         <UploadPanel
           state={state}
-          onUpload={onUpload}
-          canUploadRecipes={hasSalesFile}
+          onUploadPair={onUploadPair}
           canManageData={canManageOperationalData}
-          onClearAll={onClearAll}
-          onResetFlow={onResetFlow}
         />
       ) : null}
       {!hasDashboardData && canManageOperationalData ? (

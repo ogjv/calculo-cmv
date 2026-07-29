@@ -124,17 +124,15 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
           selectedView: "__TOTAL__",
           totalView: "__TOTAL__",
           hasDashboardData: false,
-          hasSalesFile: false,
           canManageOperationalData: true,
-          onUpload: () => undefined,
-          onClearAll: () => undefined,
-          onResetFlow: () => undefined,
+          onUploadPair: () => undefined,
           onSelectPeriod: () => undefined,
           onSelectView: () => undefined
         }}
         goodsEntryPanelProps={{
           onImport: () => undefined,
-          onClear: () => undefined
+          onClear: () => undefined,
+          onRemoveImportedPeriod: () => undefined
         }}
         restaurantManagementProps={{
           restaurantForm: { restaurantName: "Vista Mar" },

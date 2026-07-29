@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   DrePeriodData,
+  GoodsEntryImportData,
+  GoodsEntryRow,
   ImportValidation,
   PeriodDashboard,
   PersistedWorkspace,
@@ -9,7 +11,7 @@ import type {
   UploadFeedbackItem
 } from "../types";
 import { buildDashboardData, buildDashboardSlice, mapRecipeRows, mapSalesRows } from "../utils/cmv";
-import { getDrePeriodKey, getDrePeriodLabel, getDreRevenueGroups, getDreRevenueValue } from "../components/drePanels";
+import { DRE_TOTAL_PERIOD, getDrePeriodKey, getDrePeriodLabel, getDreRevenueGroups, getDreRevenueValue } from "../components/drePanels";
 import { parseDreSpreadsheetFile, parseGoodsEntrySpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "../utils/file";
 
 export type UploadState = PersistedWorkspace["state"];
@@ -60,37 +62,8 @@ const buildConsolidatedDashboard = (periods: PeriodDashboard[]) => {
   return buildDashboardSlice(periods[0].data, consolidatedProducts, consolidatedTotals, consolidatedPeriodLabel);
 };
 
-const mergePeriodDashboards = (
-  currentPeriods: PeriodDashboard[],
-  incomingPeriods: PeriodDashboard[],
-  recipes: RecipeRow[],
-  duplicateRecipeCodes: string[]
-) =>
-  [...incomingPeriods
-    .reduce((map, periodDashboard) => {
-      const current = map.get(periodDashboard.key);
-      if (!current) {
-        map.set(periodDashboard.key, periodDashboard);
-        return map;
-      }
-
-      const mergedSales = productsToSalesRows([...current.data.products, ...periodDashboard.data.products]);
-
-      map.set(periodDashboard.key, {
-        key: periodDashboard.key,
-        label: periodDashboard.label,
-        data: buildDashboardData(
-          mergedSales,
-          recipes,
-          [...current.data.importedSalesTotals, ...periodDashboard.data.importedSalesTotals],
-          current.data.reportPeriod ?? periodDashboard.data.reportPeriod,
-          duplicateRecipeCodes
-        )
-      });
-
-      return map;
-    }, new Map<string, PeriodDashboard>(currentPeriods.map((period) => [period.key, period])))
-    .values()].sort((a, b) => {
+const sortPeriodDashboards = (periods: PeriodDashboard[]) =>
+  [...periods].sort((a, b) => {
     const yearA = a.data.reportPeriod?.year ?? 0;
     const yearB = b.data.reportPeriod?.year ?? 0;
     const monthA = a.data.reportPeriod?.month ?? 0;
@@ -98,12 +71,196 @@ const mergePeriodDashboards = (
     return yearA !== yearB ? yearA - yearB : monthA - monthB;
   });
 
+const upsertPeriodDashboards = (currentPeriods: PeriodDashboard[], incomingPeriods: PeriodDashboard[]) =>
+  sortPeriodDashboards(
+    [...incomingPeriods
+      .reduce((map, periodDashboard) => {
+        map.set(periodDashboard.key, periodDashboard);
+        return map;
+      }, new Map<string, PeriodDashboard>(currentPeriods.map((period) => [period.key, period])))
+    .values()]
+  );
+
 const normalizeLabel = (value: string) =>
   value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
+
+const getGoodsEntryReferenceDate = (row: GoodsEntryRow) => row.invoiceDate ?? row.competencyDate ?? row.dueDate ?? "";
+
+const normalizeGoodsEntryDedupText = (value: string) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, " ");
+
+const getGoodsEntryDedupKey = (row: GoodsEntryRow) =>
+  (() => {
+    const referenceDate = getGoodsEntryReferenceDate(row);
+    const receiptNumber = normalizeGoodsEntryDedupText(row.receiptNumber);
+    const totalValue = Number(row.totalValue || 0).toFixed(2);
+
+    if (referenceDate && receiptNumber) {
+      return [
+        referenceDate,
+        receiptNumber,
+        totalValue,
+        normalizeGoodsEntryDedupText(row.productName),
+        normalizeGoodsEntryDedupText(row.supplier)
+      ].join("|");
+    }
+
+    return [
+      "unsafe",
+      normalizeGoodsEntryDedupText(row.sourceFileName ?? ""),
+      row.rowNumber,
+      referenceDate,
+      receiptNumber,
+      totalValue,
+      normalizeGoodsEntryDedupText(row.productName),
+      normalizeGoodsEntryDedupText(row.supplier)
+    ].join("|");
+  })();
+
+const formatGoodsEntryDateLabel = (value: string) => {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return `${day}/${month}/${year}`;
+};
+
+const toGoodsEntryIsoDate = (value?: string) => {
+  if (!value) {
+    return undefined;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const match = value.match(/(\d{2})\/(\d{2})\/(\d{2,4})/);
+  if (!match) {
+    return undefined;
+  }
+
+  const year = match[3].length === 2 ? `20${match[3]}` : match[3];
+  return `${year}-${match[2]}-${match[1]}`;
+};
+
+const getGoodsEntryPeriodStart = (period?: GoodsEntryImportData["reportPeriod"]) => toGoodsEntryIsoDate(period?.startDate);
+const getGoodsEntryPeriodEnd = (period?: GoodsEntryImportData["reportPeriod"]) => toGoodsEntryIsoDate(period?.endDate);
+
+const buildMergedGoodsEntryData = (
+  currentData: GoodsEntryImportData | undefined,
+  incomingFiles: Array<{ fileName: string; data: GoodsEntryImportData }>
+): GoodsEntryImportData => {
+  const entriesByKey = new Map<string, GoodsEntryRow>();
+
+  for (const entry of currentData?.entries ?? []) {
+    entriesByKey.set(getGoodsEntryDedupKey(entry), entry);
+  }
+
+  for (const incoming of incomingFiles) {
+    for (const entry of incoming.data.entries) {
+      const entryWithSource = {
+        ...entry,
+        sourceFileName: entry.sourceFileName ?? incoming.fileName,
+        sourcePeriodLabel:
+          entry.sourcePeriodLabel ??
+          incoming.data.reportPeriod?.displayLabel ??
+          incoming.data.reportPeriod?.periodLabel ??
+          incoming.data.reportPeriod?.rawLabel
+      };
+      entriesByKey.set(getGoodsEntryDedupKey(entryWithSource), entryWithSource);
+    }
+  }
+
+  const entries = [...entriesByKey.values()].sort((left, right) => {
+    const dateComparison = getGoodsEntryReferenceDate(left).localeCompare(getGoodsEntryReferenceDate(right));
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    return left.productName.localeCompare(right.productName);
+  });
+  const importedData = incomingFiles.map((item) => item.data);
+  const dates = entries.map((entry) => getGoodsEntryReferenceDate(entry)).filter(Boolean).sort((left, right) => left.localeCompare(right));
+  const importedPeriods = [
+    ...(currentData?.importedPeriods ?? (currentData?.reportPeriod ? [currentData.reportPeriod] : [])),
+    ...importedData.map((data) => data.reportPeriod).filter((period): period is NonNullable<GoodsEntryImportData["reportPeriod"]> => Boolean(period))
+  ].reduce<NonNullable<GoodsEntryImportData["importedPeriods"]>>((items, period) => {
+    const key = `${getGoodsEntryPeriodStart(period) ?? period.startDate ?? ""}|${getGoodsEntryPeriodEnd(period) ?? period.endDate ?? ""}|${period.displayLabel}`;
+    if (!items.some((item) => `${getGoodsEntryPeriodStart(item) ?? item.startDate ?? ""}|${getGoodsEntryPeriodEnd(item) ?? item.endDate ?? ""}|${item.displayLabel}` === key)) {
+      items.push(period);
+    }
+    return items;
+  }, []);
+  const periodStartDates = importedPeriods.map(getGoodsEntryPeriodStart).filter(Boolean) as string[];
+  const periodEndDates = importedPeriods.map(getGoodsEntryPeriodEnd).filter(Boolean) as string[];
+  const startDate =
+    [...periodStartDates, dates[0]]
+      .filter(Boolean)
+      .sort((left, right) => String(left).localeCompare(String(right)))[0];
+  const endDate =
+    [...periodEndDates, dates[dates.length - 1]]
+      .filter(Boolean)
+      .sort((left, right) => String(right).localeCompare(String(left)))[0];
+  const displayLabel = startDate && endDate
+    ? `${formatGoodsEntryDateLabel(String(startDate))} a ${formatGoodsEntryDateLabel(String(endDate))}`
+    : incomingFiles[incomingFiles.length - 1]?.data.reportPeriod?.displayLabel ?? currentData?.reportPeriod?.displayLabel ?? "Base acumulada";
+
+  return {
+    sheetName: incomingFiles.length === 1 && !currentData ? incomingFiles[0].data.sheetName : "Base acumulada",
+    restaurantName: incomingFiles[incomingFiles.length - 1]?.data.restaurantName ?? currentData?.restaurantName,
+    reportTitle: incomingFiles[incomingFiles.length - 1]?.data.reportTitle ?? currentData?.reportTitle,
+    reportPeriod: {
+      rawLabel: displayLabel,
+      startDate: startDate ? String(startDate) : undefined,
+      endDate: endDate ? String(endDate) : undefined,
+      displayLabel,
+      periodKey: startDate && endDate ? `${String(startDate).slice(0, 7)}_${String(endDate).slice(0, 7)}` : "goods-entry-accumulated",
+      periodLabel: displayLabel,
+      month: startDate ? Number(String(startDate).slice(5, 7)) : undefined,
+      year: startDate ? Number(String(startDate).slice(0, 4)) : undefined
+    },
+    importedPeriods,
+    headerRowIndex: incomingFiles[incomingFiles.length - 1]?.data.headerRowIndex ?? currentData?.headerRowIndex,
+    entries
+  };
+};
+
+const rebuildGoodsEntryDataFromEntries = (
+  currentData: GoodsEntryImportData,
+  entries: GoodsEntryRow[],
+  importedPeriods = currentData.importedPeriods ?? []
+): GoodsEntryImportData | undefined => {
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  const syntheticData = buildMergedGoodsEntryData(undefined, [
+    {
+      fileName: currentData.sheetName,
+      data: {
+        ...currentData,
+        entries,
+        importedPeriods,
+        reportPeriod: undefined
+      }
+    }
+  ]);
+
+  return {
+    ...syntheticData,
+    importedPeriods
+  };
+};
 
 export const buildImportErrorMessage = (fileName: string, detail: string, hint = "Verifique o formato, as colunas e os dados e tente novamente.") => {
   const normalizedFileName = fileName?.trim() || "arquivo";
@@ -187,6 +344,7 @@ export function useOperationalData() {
   const dreData = activeDrePeriod?.data;
   const goodsEntryData = state.goodsEntryData;
   const goodsEntryError = state.goodsEntryError;
+  const goodsEntryMessage = state.goodsEntryMessage;
   const goodsEntryProcessing = state.goodsEntryProcessing ?? false;
   const hasDashboardData = Boolean(dashboard);
   const hasSalesFile = salesFiles.length > 0 || (state.periodDashboards?.length ?? 0) > 0;
@@ -335,7 +493,7 @@ export function useOperationalData() {
         );
       }
 
-      const mergedPeriods = mergePeriodDashboards(periodDashboards, incomingPeriods, recipes, duplicateRecipeCodes);
+      const mergedPeriods = upsertPeriodDashboards(periodDashboards, incomingPeriods);
       setUploadFeedback(nextSalesFiles.map((file) => ({ id: `sales-${file.name}`, kind: "sales", fileName: file.name, status: "success" })));
       applyPeriodDashboards(mergedPeriods, {
         recipeBase: recipes,
@@ -443,7 +601,7 @@ export function useOperationalData() {
         incomingPeriods = createPeriodDashboardsFromImports(salesFiles.map((salesFile) => salesFile.name), recipes, duplicateRecipeCodes, salesImports);
       }
 
-      const mergedPeriods = mergePeriodDashboards(rebuiltPeriods, incomingPeriods, recipes, duplicateRecipeCodes);
+      const mergedPeriods = upsertPeriodDashboards(rebuiltPeriods, incomingPeriods);
       if (mergedPeriods.length === 0) {
         throw new Error(
           buildImportErrorMessage(file.name, "Não foi possível montar o dashboard com os dados carregados. Verifique se o arquivo de vendas está compatível com as fichas técnicas.")
@@ -505,6 +663,93 @@ export function useOperationalData() {
     void handleRecipeUpload(files[0]);
   };
 
+  const handlePairedUpload = async ({ salesFile, recipeFile }: { salesFile: File; recipeFile: File }) => {
+    let validations: ImportValidation[] = [];
+
+    try {
+      setUploadFeedback([
+        { id: `sales-${salesFile.name}`, kind: "sales", fileName: salesFile.name, status: "pending" },
+        { id: `recipes-${recipeFile.name}`, kind: "recipes", fileName: recipeFile.name, status: "pending" }
+      ]);
+      setState((current) => ({
+        ...current,
+        error: undefined,
+        processing: true
+      }));
+
+      const [salesImport, recipesRaw] = await Promise.all([
+        parseSalesSpreadsheetFile(salesFile),
+        parseSpreadsheetFile(recipeFile)
+      ]);
+      const recipes = mapRecipeRows(recipesRaw);
+      const recipeHeaders = recipesRaw[0] ? Object.keys(recipesRaw[0]) : [];
+      validations = [
+        validateColumns("sales", salesFile.name, salesImport.headerValues, ["CÓDIGO", "PRODUTO", "QTE", "TOTAL"]),
+        validateColumns("recipes", recipeFile.name, recipeHeaders, ["CÓDIGO", "PRODUTO DO CARDÁPIO", "PREÇO", "CUSTO", "CMV"])
+      ];
+
+      const invalidValidation = validations.find((validation) => validation.missingColumns.length > 0);
+      if (invalidValidation) {
+        throw new Error(
+          buildImportErrorMessage(
+            invalidValidation.fileName,
+            `Faltam colunas obrigatórias: ${invalidValidation.missingColumns.join(", ")}.`
+          )
+        );
+      }
+
+      const sales = mapSalesRows(salesImport.items);
+      if (sales.length === 0) {
+        throw new Error(
+          buildImportErrorMessage(salesFile.name, "Não foram encontradas linhas válidas para processar este arquivo de vendas.")
+        );
+      }
+
+      if (recipes.length === 0) {
+        throw new Error(
+          buildImportErrorMessage(recipeFile.name, "Não foram encontradas linhas válidas para processar este arquivo de fichas técnicas.")
+        );
+      }
+
+      const duplicateRecipeCodes = getDuplicateCodes(recipes);
+      const fallbackKey = `${salesFile.name}-${Date.now()}`;
+      const periodKey = salesImport.reportPeriod?.periodKey ?? fallbackKey;
+      const periodLabel = salesImport.reportPeriod?.periodLabel ?? salesImport.reportPeriod?.displayLabel ?? salesFile.name;
+      const nextPeriod: PeriodDashboard = {
+        key: periodKey,
+        label: periodLabel,
+        salesFileName: salesFile.name,
+        recipeFileName: recipeFile.name,
+        data: buildDashboardData(sales, recipes, salesImport.totals, salesImport.reportPeriod, duplicateRecipeCodes)
+      };
+      const nextPeriods = upsertPeriodDashboards(periodDashboards, [nextPeriod]);
+
+      setUploadFeedback([
+        { id: `sales-${salesFile.name}`, kind: "sales", fileName: salesFile.name, status: "success" },
+        { id: `recipes-${recipeFile.name}`, kind: "recipes", fileName: recipeFile.name, status: "success" }
+      ]);
+      applyPeriodDashboards(nextPeriods, {
+        recipeBase: undefined,
+        duplicateRecipeCodes: undefined,
+        validations
+      });
+      setSalesFiles([]);
+      setRecipeFile(null);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Falha ao processar arquivo.";
+      setUploadFeedback([
+        { id: `sales-${salesFile.name}`, kind: "sales", fileName: salesFile.name, status: "error", detail },
+        { id: `recipes-${recipeFile.name}`, kind: "recipes", fileName: recipeFile.name, status: "error", detail }
+      ]);
+      setState((current) => ({
+        ...current,
+        validations,
+        error: detail,
+        processing: false
+      }));
+    }
+  };
+
   const handleDreImport = async (file: File) => {
     try {
       setDreProcessing(true);
@@ -547,34 +792,60 @@ export function useOperationalData() {
     }
   };
 
-  const handleGoodsEntryImport = async (file: File) => {
+  const handleGoodsEntryImport = async (files: File | File[]) => {
+    const incomingFiles = Array.isArray(files) ? files : [files];
+    const firstFile = incomingFiles[0];
+    if (!firstFile) {
+      return;
+    }
+
     try {
       setState((current) => ({
         ...current,
-        goodsEntryFileName: file.name,
+        goodsEntryFileName: incomingFiles.map((file) => file.name).join(", "),
         goodsEntryProcessing: true,
-        goodsEntryError: undefined
+        goodsEntryError: undefined,
+        goodsEntryMessage: undefined
       }));
 
-      const nextGoodsEntryData = await parseGoodsEntrySpreadsheetFile(file);
+      const parsedFiles = await Promise.all(
+        incomingFiles.map(async (file) => ({
+          fileName: file.name,
+          data: await parseGoodsEntrySpreadsheetFile(file)
+        }))
+      );
 
-      if (nextGoodsEntryData.entries.length === 0) {
+      const invalidFile = parsedFiles.find((item) => item.data.entries.length === 0);
+      if (invalidFile) {
         throw new Error(
-          buildImportErrorMessage(file.name, "Não foram encontradas linhas válidas de entrada de mercadorias neste arquivo.")
+          buildImportErrorMessage(invalidFile.fileName, "Não foram encontradas linhas válidas de entrada de mercadorias neste arquivo.")
         );
       }
 
-      setState((current) => ({
-        ...current,
-        goodsEntryData: nextGoodsEntryData,
-        goodsEntryFileName: file.name,
-        goodsEntryError: undefined,
-        goodsEntryProcessing: false
-      }));
+      setState((current) => {
+        const previousEntriesCount = current.goodsEntryData?.entries.length ?? 0;
+        const nextGoodsEntryData = buildMergedGoodsEntryData(current.goodsEntryData, parsedFiles);
+        const nextEntriesCount = nextGoodsEntryData.entries.length;
+        const importedEntriesCount = parsedFiles.reduce((sum, item) => sum + item.data.entries.length, 0);
+        const addedEntriesCount = Math.max(0, nextEntriesCount - previousEntriesCount);
+
+        return {
+          ...current,
+          goodsEntryData: nextGoodsEntryData,
+          goodsEntryFileName: [current.goodsEntryFileName, ...parsedFiles.map((item) => item.fileName)].filter(Boolean).join(", "),
+          goodsEntryError: undefined,
+          goodsEntryMessage:
+            addedEntriesCount > 0
+              ? `${addedEntriesCount} lançamentos novos adicionados à base. Base total: ${nextEntriesCount} lançamentos.`
+              : `Arquivo processado com ${importedEntriesCount} lançamentos, mas nenhum lançamento novo foi adicionado por já constar na base.`,
+          goodsEntryProcessing: false
+        };
+      });
     } catch (error) {
       setState((current) => ({
         ...current,
         goodsEntryError: error instanceof Error ? error.message : "Falha ao processar o arquivo de entrada de mercadorias.",
+        goodsEntryMessage: undefined,
         goodsEntryProcessing: false
       }));
     }
@@ -586,8 +857,41 @@ export function useOperationalData() {
       delete nextState.goodsEntryData;
       delete nextState.goodsEntryFileName;
       delete nextState.goodsEntryError;
+      delete nextState.goodsEntryMessage;
       delete nextState.goodsEntryProcessing;
       return nextState;
+    });
+  };
+
+  const handleRemoveGoodsEntryImportedPeriod = (periodLabel: string) => {
+    setState((current) => {
+      if (!current.goodsEntryData) {
+        return current;
+      }
+
+      const nextImportedPeriods = (current.goodsEntryData.importedPeriods ?? []).filter(
+        (period) => (period.displayLabel || period.periodLabel || period.rawLabel) !== periodLabel
+      );
+      const nextEntries = current.goodsEntryData.entries.filter((entry) => entry.sourcePeriodLabel !== periodLabel);
+      const nextGoodsEntryData = rebuildGoodsEntryDataFromEntries(current.goodsEntryData, nextEntries, nextImportedPeriods);
+
+      if (!nextGoodsEntryData) {
+        const nextState = { ...current };
+        delete nextState.goodsEntryData;
+        delete nextState.goodsEntryFileName;
+        delete nextState.goodsEntryError;
+        nextState.goodsEntryMessage = `Período ${periodLabel} removido. A base de entrada de mercadorias ficou vazia.`;
+        delete nextState.goodsEntryProcessing;
+        return nextState;
+      }
+
+      return {
+        ...current,
+        goodsEntryData: nextGoodsEntryData,
+        goodsEntryError: undefined,
+        goodsEntryMessage: `Período ${periodLabel} removido da base. Base total: ${nextGoodsEntryData.entries.length} lançamentos.`,
+        goodsEntryProcessing: false
+      };
     });
   };
 
@@ -615,6 +919,37 @@ export function useOperationalData() {
     rebuildFromPeriods(periodDashboards.filter((period) => period.key !== periodKey));
   };
 
+  const handleRemoveDrePeriod = (periodKey: string) => {
+    const targetPeriod = drePeriods.find((period) => period.key === periodKey);
+    const targetLabel = targetPeriod?.label ?? periodKey;
+    if (typeof window !== "undefined") {
+      const shouldRemove = window.confirm(
+        `Deseja excluir apenas o período ${targetLabel}?\n\nEssa ação remove somente esse DRE da análise atual e não pode ser desfeita.`
+      );
+      if (!shouldRemove) {
+        return;
+      }
+    }
+
+    setDrePeriods((current) => {
+      const nextPeriods = current.filter((period) => period.key !== periodKey);
+      const selectedDrePeriodKeys = selectedDrePeriod.split(",").map((key) => key.trim()).filter(Boolean);
+      const nextSelectedKeys = selectedDrePeriodKeys.filter(
+        (key) => key !== periodKey && nextPeriods.some((period) => period.key === key)
+      );
+
+      if (selectedDrePeriod === periodKey || selectedDrePeriodKeys.includes(periodKey)) {
+        setSelectedDrePeriod(nextSelectedKeys.join(",") || (nextPeriods[nextPeriods.length - 1]?.key ?? DEFAULT_DRE_PERIOD));
+      } else if (selectedDrePeriod === DRE_TOTAL_PERIOD && nextPeriods.length <= 1) {
+        setSelectedDrePeriod(
+          nextPeriods[nextPeriods.length - 1]?.key ?? DEFAULT_DRE_PERIOD
+        );
+      }
+
+      return nextPeriods;
+    });
+  };
+
   const handleClearAll = () => {
     setSalesFiles([]);
     setRecipeFile(null);
@@ -623,6 +958,7 @@ export function useOperationalData() {
       goodsEntryData: current.goodsEntryData,
       goodsEntryFileName: current.goodsEntryFileName,
       goodsEntryError: current.goodsEntryError,
+      goodsEntryMessage: current.goodsEntryMessage,
       goodsEntryProcessing: current.goodsEntryProcessing
     }));
     setSelectedPeriod(TOTAL_PERIOD);
@@ -665,15 +1001,19 @@ export function useOperationalData() {
     dreData,
     goodsEntryData,
     goodsEntryError,
+    goodsEntryMessage,
     goodsEntryProcessing,
     hasDashboardData,
     hasSalesFile,
     hasGoodsEntryData,
     handleUpload,
+    handlePairedUpload,
     handleDreImport,
     handleGoodsEntryImport,
     handleClearGoodsEntry,
+    handleRemoveGoodsEntryImportedPeriod,
     handleRemovePeriod,
+    handleRemoveDrePeriod,
     handleClearAll,
     handleResetFlow
   };

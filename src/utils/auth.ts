@@ -63,7 +63,18 @@ const writeJson = (key: string, value: unknown) => {
     return;
   }
 
-  window.localStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      console.warn("Não foi possível salvar dados locais porque o armazenamento do navegador está cheio.", {
+        key
+      });
+      return;
+    }
+
+    throw error;
+  }
 };
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();

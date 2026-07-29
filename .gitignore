@@ -1,11 +1,34 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
-.env
+dist-ssr/
 *.tsbuildinfo
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.DS_Store
+pnpm-debug.log*
+
+# Testing
 coverage/
 playwright-report/
 test-results/
+blob-report/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Vite
+.vite/

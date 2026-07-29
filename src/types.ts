@@ -88,6 +88,8 @@ export type DrePeriodData = {
 
 export type GoodsEntryRow = {
   rowNumber: number;
+  sourceFileName?: string;
+  sourcePeriodLabel?: string;
   group: string;
   subgroup: string;
   productName: string;
@@ -109,6 +111,7 @@ export type GoodsEntryImportData = {
   restaurantName?: string;
   reportTitle?: string;
   reportPeriod?: SalesReportPeriod;
+  importedPeriods?: SalesReportPeriod[];
   headerRowIndex?: number;
   entries: GoodsEntryRow[];
 };
@@ -165,6 +168,8 @@ export type ProductSummary = {
   group: string;
   subgroup: string;
   quantity: number;
+  unitCost?: number;
+  salePrice?: number;
   revenue: number;
   cost: number;
   grossProfit: number;
@@ -207,6 +212,8 @@ export type DashboardData = {
 export type PeriodDashboard = {
   key: string;
   label: string;
+  salesFileName?: string;
+  recipeFileName?: string;
   data: DashboardData;
 };
 
@@ -294,6 +301,7 @@ export type PersistedWorkspace = {
     goodsEntryData?: GoodsEntryImportData;
     goodsEntryFileName?: string;
     goodsEntryError?: string;
+    goodsEntryMessage?: string;
     goodsEntryProcessing?: boolean;
   };
   uploadFeedback: UploadFeedbackItem[];

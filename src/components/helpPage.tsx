@@ -17,7 +17,7 @@ export function HelpPage() {
 
         <h3>Entrada de Mercadorias</h3>
         <p>
-          Relatório de recebimento de mercadorias, sempre em Excel. Certifique-se de que as colunas de quantidade,
+          Relatório de entrada de mercadorias, sempre em Excel. Certifique-se de que as colunas de quantidade,
           preço e datas estejam presentes e bem formatadas.
         </p>
 

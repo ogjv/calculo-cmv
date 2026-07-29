@@ -1,11 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { DreImportData, DrePeriodData } from "../types";
 import { formatCurrency, formatPercent } from "../utils/cmv";
 
 const drePalette = ["#2f6f5e", "#c9823a", "#b84e3f", "#496f9f", "#8b6f47", "#6f7785", "#a55c7a", "#5f7f4f"];
 const shortMonthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+export const DRE_TOTAL_PERIOD = "__ALL_DRE_PERIODS__";
+const DRE_SELECTION_SEPARATOR = ",";
 
 export type DrePanelCopy = {
   navDre: string;
@@ -68,6 +70,7 @@ export type DreAnalysisPanelProps = {
   copy: DrePanelCopy;
   onImport: (file: File) => void;
   onSelectPeriod: (period: string) => void;
+  onRemovePeriod?: (period: string) => void;
 };
 
 const polarToCartesian = (cx: number, cy: number, r: number, angle: number) => {
@@ -101,11 +104,28 @@ const buildArcPath = (
   ].join(" ");
 };
 
+function IconTrash() {
+  return (
+    <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 14h10l1-14" />
+      <path d="M9 7V4h6v3" />
+    </svg>
+  );
+}
+
 const normalizeDreLabel = (value: string) =>
   value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase();
+
+const matchesAnyDreTerm = (label: string, terms: string[]) => {
+  const normalized = normalizeDreLabel(label);
+  return terms.some((term) => normalized.includes(normalizeDreLabel(term)));
+};
 
 const formatCompactCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", {
@@ -121,14 +141,22 @@ const getDreGroupValue = (group: DreImportData["sections"][number]["groups"][num
 const getDreSectionValue = (section: DreImportData["sections"][number]) =>
   section.total?.value ?? section.groups.reduce((sum, group) => sum + getDreGroupValue(group), 0);
 
+const isDreNonOperationalLabel = (label: string) => {
+  const normalized = normalizeDreLabel(label);
+  return normalized.includes("NAO OPERACIONAL") || normalized.includes("NAO OPERACIONAIS");
+};
+
 const isDreOperationalRevenueLabel = (label: string) => {
   const normalized = normalizeDreLabel(label);
-  return normalized.includes("RECEITAS OPERACIONAIS") || normalized.includes("RECEITA OPERACIONAL");
+  return !isDreNonOperationalLabel(label) && (
+    normalized.includes("RECEITAS OPERACIONAIS") ||
+    normalized.includes("RECEITA OPERACIONAL")
+  );
 };
 
 const isDreRevenueLabel = (label: string) => {
   const normalized = normalizeDreLabel(label);
-  return normalized.includes("RECEITA") && !normalized.includes("RECEITA LIQUIDA");
+  return normalized.includes("RECEITA") && !normalized.includes("RECEITA LIQUIDA") && !isDreNonOperationalLabel(label);
 };
 
 const isDreResultLabel = (label: string) => {
@@ -138,15 +166,13 @@ const isDreResultLabel = (label: string) => {
 
 const findDreSectionByIncludes = (data: DreImportData, terms: string[]) =>
   data.sections.find((section) => {
-    const normalized = normalizeDreLabel(section.label);
-    return terms.some((term) => normalized.includes(term));
+    return matchesAnyDreTerm(section.label, terms);
   });
 
 const findDreGroupByIncludes = (data: DreImportData, terms: string[]) => {
   for (const section of data.sections) {
     const group = section.groups.find((item) => {
-      const normalized = normalizeDreLabel(item.label);
-      return terms.some((term) => normalized.includes(term));
+      return matchesAnyDreTerm(item.label, terms);
     });
 
     if (group) {
@@ -157,8 +183,28 @@ const findDreGroupByIncludes = (data: DreImportData, terms: string[]) => {
   return undefined;
 };
 
-const findDreSummaryValue = (data: DreImportData, label: string) =>
-  data.summary.find((item) => normalizeDreLabel(item.label) === normalizeDreLabel(label))?.value;
+const findDreSummaryValueByMatcher = (data: DreImportData, matcher: (label: string) => boolean) =>
+  data.summary.find((item) => matcher(item.label) && item.value > 0)?.value;
+
+const findDreAnySummaryValueByMatcher = (data: DreImportData, matcher: (label: string) => boolean) =>
+  data.summary.find((item) => matcher(item.label))?.value;
+
+const getDreOperationalResultValue = (data: DreImportData) =>
+  findDreAnySummaryValueByMatcher(data, (label) => {
+    const normalized = normalizeDreLabel(label);
+    return normalized.includes("RESULTADO OPERACIONAL") && !normalized.includes("PERCENTUAL");
+  });
+
+const getDreFinalBalanceValue = (data: DreImportData) =>
+  findDreAnySummaryValueByMatcher(data, (label) => normalizeDreLabel(label).includes("SALDO FINAL")) ??
+  getDreOperationalResultValue(data);
+
+const findDreGroupsByIncludes = (data: DreImportData, terms: string[]) =>
+  data.sections.flatMap((section) =>
+    section.groups
+      .filter((group) => matchesAnyDreTerm(group.label, terms))
+      .map((group) => ({ section, group }))
+  );
 
 const getDreRevenueSections = (data: DreImportData) => {
   const operationalRevenueSections = data.sections.filter((section) => isDreOperationalRevenueLabel(section.label));
@@ -170,13 +216,47 @@ const getDreRevenueSections = (data: DreImportData) => {
   return data.sections.filter((section) => isDreRevenueLabel(section.label));
 };
 
-export const getDreRevenueValue = (data: DreImportData) =>
-  findDreSummaryValue(data, "TOTAL RECEITAS") ??
-  findDreSummaryValue(data, "TOTAL RECEITAS OPERACIONAIS") ??
-  getDreRevenueSections(data).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+export const getDreRevenueValue = (data: DreImportData) => {
+  const operationalRevenueSummary = findDreSummaryValueByMatcher(data, (label) => {
+    const normalized = normalizeDreLabel(label);
+    return isDreOperationalRevenueLabel(label) && normalized.includes("TOTAL");
+  });
+
+  if (operationalRevenueSummary !== undefined) {
+    return operationalRevenueSummary;
+  }
+
+  const operationalRevenueSections = data.sections.filter((section) => isDreOperationalRevenueLabel(section.label));
+  const operationalRevenueFromSections = operationalRevenueSections.reduce((sum, section) => sum + getDreSectionValue(section), 0);
+
+  if (operationalRevenueFromSections > 0) {
+    return operationalRevenueFromSections;
+  }
+
+  const netRevenueSummary = findDreSummaryValueByMatcher(data, (label) => normalizeDreLabel(label).includes("RECEITA LIQUIDA"));
+
+  if (netRevenueSummary !== undefined) {
+    return netRevenueSummary;
+  }
+
+  const genericRevenueSummary = findDreSummaryValueByMatcher(data, (label) => {
+    const normalized = normalizeDreLabel(label);
+    return normalized.includes("TOTAL") && normalized.includes("RECEITA") && !isDreNonOperationalLabel(label);
+  });
+
+  return genericRevenueSummary ?? getDreRevenueSections(data).reduce((sum, section) => sum + getDreSectionValue(section), 0);
+};
 
 const getDreExpenseValue = (data: DreImportData) =>
-  findDreSummaryValue(data, "TOTAL DESPESAS") ??
+  findDreSummaryValueByMatcher(data, (label) => {
+    const normalized = normalizeDreLabel(label);
+    return (
+      normalized.includes("TOTAL") &&
+      (normalized.includes("DESPESAS") || normalized.includes("GASTOS")) &&
+      !normalized.includes("OPERACIONAIS") &&
+      !normalized.includes("OPERACIONAL")
+    );
+  }) ??
   (() => {
     const revenueSectionLabels = new Set(getDreRevenueSections(data).map((section) => section.label));
     return data.sections
@@ -307,6 +387,9 @@ export const getDrePeriodLabel = (data: DreImportData, fallback: string) => {
   return data.period?.rawLabel ?? fallback;
 };
 
+const getDrePeriodYear = (period?: DrePeriodData) =>
+  period?.data.period?.year ?? (period?.key.match(/^(\d{4})-/)?.[1] ? Number(period.key.slice(0, 4)) : undefined);
+
 const getDreTone = (label: string, value: number) => {
   if (isDreRevenueLabel(label)) {
     return "good";
@@ -335,6 +418,132 @@ const getDreRatioTone = (value: number, goodMax: number, attentionMax: number) =
   return "bad";
 };
 
+const buildConsolidatedDreData = (periods: DrePeriodData[]): DreImportData | undefined => {
+  if (periods.length === 0) {
+    return undefined;
+  }
+
+  const summaryMap = new Map<string, DreImportData["summary"][number]>();
+  const sectionMap = new Map<
+    string,
+    {
+      label: string;
+      totalValue: number;
+      rowNumber: number;
+      groups: Map<
+        string,
+        {
+          label: string;
+          totalValue: number;
+          rowNumber: number;
+          lines: Map<string, DreImportData["sections"][number]["groups"][number]["lines"][number]>;
+        }
+      >;
+    }
+  >();
+
+  periods.forEach((period) => {
+    period.data.summary.forEach((line) => {
+      const summaryKey = normalizeDreLabel(line.label);
+      const current = summaryMap.get(summaryKey);
+      summaryMap.set(summaryKey, {
+        label: current?.label ?? line.label,
+        value: (current?.value ?? 0) + line.value,
+        rowNumber: current?.rowNumber ?? line.rowNumber
+      });
+    });
+
+    period.data.sections.forEach((section) => {
+      const sectionKey = normalizeDreLabel(section.label);
+      const sectionEntry =
+        sectionMap.get(sectionKey) ??
+        {
+          label: section.label,
+          totalValue: 0,
+          rowNumber: section.total?.rowNumber ?? 0,
+          groups: new Map()
+        };
+
+      sectionEntry.totalValue += getDreSectionValue(section);
+
+      section.groups.forEach((group) => {
+        const groupKey = normalizeDreLabel(group.label);
+        const groupEntry =
+          sectionEntry.groups.get(groupKey) ??
+          {
+            label: group.label,
+            totalValue: 0,
+            rowNumber: group.total?.rowNumber ?? 0,
+            lines: new Map()
+          };
+
+        groupEntry.totalValue += getDreGroupValue(group);
+
+        group.lines.forEach((line) => {
+          const lineKey = normalizeDreLabel(line.label);
+          const currentLine = groupEntry.lines.get(lineKey);
+          groupEntry.lines.set(lineKey, {
+            label: currentLine?.label ?? line.label,
+            value: (currentLine?.value ?? 0) + line.value,
+            rowNumber: currentLine?.rowNumber ?? line.rowNumber
+          });
+        });
+
+        sectionEntry.groups.set(groupKey, groupEntry);
+      });
+
+      sectionMap.set(sectionKey, sectionEntry);
+    });
+  });
+
+  return {
+    sheetName: "Total",
+    restaurantName: periods[0].data.restaurantName,
+    reportTitle: periods[0].data.reportTitle,
+    analysisTitle: "Análise total",
+    period: {
+      rawLabel: "Total"
+    },
+    summary: [...summaryMap.values()],
+    sections: [...sectionMap.values()].map((section) => ({
+      label: section.label,
+      total: {
+        label: section.label,
+        value: section.totalValue,
+        rowNumber: section.rowNumber
+      },
+      groups: [...section.groups.values()].map((group) => ({
+        label: group.label,
+        total: {
+          label: group.label,
+          value: group.totalValue,
+          rowNumber: group.rowNumber
+        },
+        lines: [...group.lines.values()]
+      }))
+    }))
+  };
+};
+
+type DreTrendPoint = {
+  key: string;
+  label: string;
+  revenue: number;
+  expenses: number;
+  operationalResult: number;
+};
+
+const buildDreTrendPoints = (periods: DrePeriodData[]): DreTrendPoint[] =>
+  [...periods]
+    .sort((left, right) => left.key.localeCompare(right.key))
+    .map((period) => ({
+      key: period.key,
+      label: getDrePeriodShortLabel(period.data),
+      revenue: getDreRevenueValue(period.data),
+      expenses: getDreExpenseValue(period.data),
+      operationalResult: getDreOperationalResultValue(period.data) ?? getDreFinalBalanceValue(period.data) ?? 0
+    }));
+
 const getDreMarginTone = (value: number) => {
   if (!Number.isFinite(value)) {
     return "mid";
@@ -354,7 +563,7 @@ const getDreMarginTone = (value: number) => {
 function DreResultMap({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
   const revenue = getDreRevenueValue(data);
   const expenses = getDreExpenseValue(data);
-  const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? revenue - expenses;
+  const finalBalance = getDreFinalBalanceValue(data) ?? revenue - expenses;
   const maxValue = Math.max(Math.abs(revenue), Math.abs(expenses), Math.abs(finalBalance), 1);
   const cards = [
     { key: "revenue", label: copy.dreRevenue, value: revenue, tone: "good" },
@@ -564,7 +773,7 @@ function DreParticipationGrid({ data, copy }: { data: DreImportData; copy: DrePa
 function DreStrategicInsights({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
   const revenue = getDreRevenueValue(data);
   const expenses = getDreExpenseValue(data);
-  const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? revenue - expenses;
+  const finalBalance = getDreFinalBalanceValue(data) ?? revenue - expenses;
   const revenueLeader = findDreRevenueLeader(data);
   const revenueSectionLabels = new Set(getDreRevenueSections(data).map((section) => section.label));
   const expenseGroups = data.sections
@@ -636,13 +845,52 @@ function DreStrategicInsights({ data, copy }: { data: DreImportData; copy: DrePa
 
 function DreRestaurantDiagnostics({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
   const revenue = getDreRevenueValue(data);
-  const finalBalance = findDreSummaryValue(data, "SALDO FINAL") ?? 0;
-  const operationalResult = findDreSummaryValue(data, "RESULTADO OPERACIONAL") ?? finalBalance;
-  const inputsSection = findDreSectionByIncludes(data, ["INSUMOS"]);
-  const operationalSection = findDreSectionByIncludes(data, ["DESPESAS OPERACIONAIS"]);
-  const peopleGroup = findDreGroupByIncludes(data, ["PESSOAL", "PERSONAL"]);
-  const inputsValue = inputsSection ? getDreSectionValue(inputsSection) : 0;
-  const peopleValue = peopleGroup ? getDreGroupValue(peopleGroup.group) : 0;
+  const finalBalance = getDreFinalBalanceValue(data) ?? revenue - getDreExpenseValue(data);
+  const operationalResult = getDreOperationalResultValue(data) ?? finalBalance;
+  const inputsTerms = [
+    "INSUMOS",
+    "CMV",
+    "CUSTO DA MERCADORIA",
+    "CUSTO DAS MERCADORIAS",
+    "CUSTO DOS PRODUTOS",
+    "CUSTOS DOS PRODUTOS",
+    "CUSTO DE VENDAS",
+    "CUSTOS VARIAVEIS"
+  ];
+  const operationalExpenseTerms = [
+    "DESPESAS OPERACIONAIS",
+    "GASTOS OPERACIONAIS",
+    "DESPESAS FIXAS",
+    "GASTOS FIXOS",
+    "ESTRUTURA"
+  ];
+  const peopleTerms = [
+    "PESSOAL",
+    "PERSONAL",
+    "FOLHA",
+    "SALARIO",
+    "SALARIOS",
+    "MAO DE OBRA",
+    "ENCARGOS",
+    "RH",
+    "EQUIPE",
+    "COLABORADORES"
+  ];
+  const inputsSection = findDreSectionByIncludes(data, inputsTerms);
+  const operationalSection = findDreSectionByIncludes(data, operationalExpenseTerms);
+  const peopleGroups = findDreGroupsByIncludes(data, peopleTerms);
+  const peopleGroup = peopleGroups[0];
+  const peopleSection = findDreSectionByIncludes(data, ["PESSOAL", "FOLHA", "MAO DE OBRA", "GASTO COM PESSOAL"]);
+  const inputsGroups = inputsSection ? [] : findDreGroupsByIncludes(data, inputsTerms);
+  const inputsValue = inputsSection
+    ? getDreSectionValue(inputsSection)
+    : inputsGroups.reduce((sum, item) => sum + getDreGroupValue(item.group), 0);
+  const peopleValue =
+    peopleGroups.length > 0
+      ? peopleGroups.reduce((sum, item) => sum + getDreGroupValue(item.group), 0)
+      : peopleSection
+        ? getDreSectionValue(peopleSection)
+        : 0;
   const structureValue = operationalSection ? Math.max(0, getDreSectionValue(operationalSection) - peopleValue) : 0;
   const finalMargin = revenue > 0 ? (finalBalance / revenue) * 100 : 0;
   const operationalMargin = revenue > 0 ? (operationalResult / revenue) * 100 : 0;
@@ -684,7 +932,7 @@ function DreRestaurantDiagnostics({ data, copy }: { data: DreImportData; copy: D
     {
       label: copy.drePeopleOnRevenue,
       value: formatPercent(peopleRatio),
-      detail: peopleGroup ? formatCurrency(peopleValue) : copy.dreNoData,
+      detail: peopleGroup || peopleSection ? formatCurrency(peopleValue) : copy.dreNoData,
       tone: getDreRatioTone(peopleRatio, 22, 30)
     },
     {
@@ -834,13 +1082,66 @@ function DreOperationalBreakdowns({ data, copy }: { data: DreImportData; copy: D
   );
 }
 
-function DreRevenueExpenseTrend({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
+function buildLinePath(points: Array<{ x: number; y: number }>) {
+  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+}
+
+function DreRevenueExpenseTrend({ data, copy, trendPoints }: { data: DreImportData; copy: DrePanelCopy; trendPoints?: DreTrendPoint[] }) {
   const revenue = getDreRevenueValue(data);
   const expenses = getDreExpenseValue(data);
-  const maxValue = Math.max(revenue, expenses, 1);
   const height = 220;
   const width = 680;
   const padding = 28;
+  const activeTrend = trendPoints && trendPoints.length > 1 ? trendPoints : undefined;
+
+  if (activeTrend) {
+    const maxValue = Math.max(...activeTrend.flatMap((point) => [point.revenue, point.expenses]), 1);
+    const plotWidth = width - padding * 2;
+    const plotHeight = height - padding * 2;
+    const getX = (index: number) => padding + (activeTrend.length === 1 ? plotWidth / 2 : (index / (activeTrend.length - 1)) * plotWidth);
+    const getY = (value: number) => padding + (1 - value / maxValue) * plotHeight;
+    const revenuePoints = activeTrend.map((point, index) => ({ x: getX(index), y: getY(point.revenue) }));
+    const expensePoints = activeTrend.map((point, index) => ({ x: getX(index), y: getY(point.expenses) }));
+    const labelStep = Math.max(1, Math.ceil(activeTrend.length / 6));
+
+    return (
+      <section className="dre-chart-card dre-line-chart-card">
+        <div className="section-head">
+          <div>
+            <h3>{copy.dreRevenueVsExpenses}</h3>
+            <p>{copy.dreRevenueVsExpensesText}</p>
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} className="dre-line-chart" role="img" aria-label={copy.dreRevenueVsExpenses}>
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} />
+          <path d={buildLinePath(revenuePoints)} className="dre-line revenue" />
+          <path d={buildLinePath(expensePoints)} className="dre-line expense" />
+          {activeTrend.map((point, index) => (
+            <g key={`revenue-expense-${point.key}`}>
+              <circle cx={getX(index)} cy={getY(point.revenue)} r="5" className="dre-point revenue" />
+              <circle cx={getX(index)} cy={getY(point.expenses)} r="5" className="dre-point expense" />
+              {index % labelStep === 0 || index === activeTrend.length - 1 ? (
+                <text x={getX(index)} y={height - 6} textAnchor="middle">
+                  {point.label}
+                </text>
+              ) : null}
+            </g>
+          ))}
+        </svg>
+        <div className="dre-chart-legend-inline">
+          <span className="revenue">
+            {copy.dreRevenue}: {formatCurrency(revenue)}
+          </span>
+          <span className="expense">
+            {copy.dreOutflows}: {formatCurrency(expenses)}
+          </span>
+        </div>
+      </section>
+    );
+  }
+
+  const maxValue = Math.max(revenue, expenses, 1);
   const x = width / 2;
   const revenueY = padding + (1 - revenue / maxValue) * (height - padding * 2);
   const expensesY = padding + (1 - expenses / maxValue) * (height - padding * 2);
@@ -882,12 +1183,82 @@ function DreRevenueExpenseTrend({ data, copy }: { data: DreImportData; copy: Dre
   );
 }
 
-function DreOperationalResultBars({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
-  const operationalResult = findDreSummaryValue(data, "RESULTADO OPERACIONAL") ?? findDreSummaryValue(data, "SALDO FINAL") ?? 0;
-  const maxValue = Math.max(Math.abs(operationalResult), 1);
+function DreOperationalResultBars({ data, copy, trendPoints }: { data: DreImportData; copy: DrePanelCopy; trendPoints?: DreTrendPoint[] }) {
+  const operationalResult = getDreOperationalResultValue(data) ?? getDreFinalBalanceValue(data) ?? 0;
   const height = 220;
   const width = 680;
   const padding = 28;
+  const activeTrend = trendPoints && trendPoints.length > 1 ? trendPoints : undefined;
+
+  if (activeTrend) {
+    const maxValue = Math.max(...activeTrend.map((point) => Math.abs(point.operationalResult)), 1);
+    const hasNegative = activeTrend.some((point) => point.operationalResult < 0);
+    const plotWidth = width - padding * 2;
+    const plotHeight = height - padding * 2;
+    const baseline = hasNegative ? padding + plotHeight / 2 : height - padding;
+    const scale = hasNegative ? (plotHeight / 2) / maxValue : plotHeight / maxValue;
+    const slotWidth = plotWidth / activeTrend.length;
+    const barWidth = Math.max(16, Math.min(46, slotWidth * 0.58));
+    const labelStep = Math.max(1, Math.ceil(activeTrend.length / 6));
+
+    return (
+      <section className="dre-chart-card dre-line-chart-card">
+        <div className="section-head">
+          <div>
+            <h3>{copy.dreOperationalResultChart}</h3>
+            <p>{copy.dreOperationalResultChartText}</p>
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} className="dre-bar-chart" role="img" aria-label={copy.dreOperationalResultChart}>
+          <line x1={padding} y1={baseline} x2={width - padding} y2={baseline} />
+          {activeTrend.map((point, index) => {
+            const x = padding + slotWidth * index + slotWidth / 2;
+            const barHeight = Math.max(4, Math.abs(point.operationalResult) * scale);
+            const barY = point.operationalResult >= 0 ? baseline - barHeight : baseline;
+            const belowBarLabelY = barY + barHeight + 16;
+            const negativeLabelFitsBelow = belowBarLabelY <= height - 34;
+            const valueLabelY =
+              point.operationalResult >= 0 || !negativeLabelFitsBelow
+                ? Math.max(16, barY - 8)
+                : belowBarLabelY;
+
+            return (
+              <g key={`operational-result-${point.key}`}>
+                <rect
+                  x={x - barWidth / 2}
+                  y={barY}
+                  width={barWidth}
+                  height={barHeight}
+                  rx="7"
+                  className={point.operationalResult >= 0 ? "positive" : "negative"}
+                />
+                <text
+                  x={x}
+                  y={valueLabelY}
+                  textAnchor="middle"
+                  className={`dre-bar-value-label ${point.operationalResult >= 0 ? "positive" : "negative"} ${
+                    point.operationalResult < 0 && !negativeLabelFitsBelow ? "above-negative" : ""
+                  }`}
+                >
+                  {formatCompactCurrency(point.operationalResult)}
+                </text>
+                {index % labelStep === 0 || index === activeTrend.length - 1 ? (
+                  <text x={x} y={height - 6} textAnchor="middle">
+                    {point.label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+        <div className="dre-chart-legend-inline">
+          <span>{formatCurrency(operationalResult)}</span>
+        </div>
+      </section>
+    );
+  }
+
+  const maxValue = Math.max(Math.abs(operationalResult), 1);
   const barHeight = Math.max(16, (Math.abs(operationalResult) / maxValue) * (height - padding * 2));
   const baseline = height - padding;
   const barY = operationalResult >= 0 ? baseline - barHeight : baseline;
@@ -921,11 +1292,11 @@ function DreOperationalResultBars({ data, copy }: { data: DreImportData; copy: D
   );
 }
 
-function DreFinancialCharts({ data, copy }: { data: DreImportData; copy: DrePanelCopy }) {
+function DreFinancialCharts({ data, copy, trendPoints }: { data: DreImportData; copy: DrePanelCopy; trendPoints?: DreTrendPoint[] }) {
   return (
     <section className="dre-financial-chart-grid">
-      <DreRevenueExpenseTrend data={data} copy={copy} />
-      <DreOperationalResultBars data={data} copy={copy} />
+      <DreRevenueExpenseTrend data={data} copy={copy} trendPoints={trendPoints} />
+      <DreOperationalResultBars data={data} copy={copy} trendPoints={trendPoints} />
     </section>
   );
 }
@@ -939,15 +1310,77 @@ export function DreAnalysisPanel({
   canManageData,
   copy,
   onImport,
-  onSelectPeriod
+  onSelectPeriod,
+  onRemovePeriod
 }: DreAnalysisPanelProps) {
+  const sortedPeriods = useMemo(() => [...periods].sort((left, right) => left.key.localeCompare(right.key)), [periods]);
+  const selectedPeriodKeys = useMemo(
+    () =>
+      selectedPeriod
+        .split(DRE_SELECTION_SEPARATOR)
+        .map((item) => item.trim())
+        .filter((key) => sortedPeriods.some((period) => period.key === key)),
+    [selectedPeriod, sortedPeriods]
+  );
+  const fallbackPeriod = sortedPeriods[sortedPeriods.length - 1];
+  const effectiveSelectedKeys = useMemo(
+    () => (selectedPeriodKeys.length > 0 ? selectedPeriodKeys : fallbackPeriod ? [fallbackPeriod.key] : []),
+    [fallbackPeriod, selectedPeriodKeys]
+  );
+  const selectedPeriods = useMemo(
+    () => sortedPeriods.filter((period) => effectiveSelectedKeys.includes(period.key)),
+    [effectiveSelectedKeys, sortedPeriods]
+  );
+  const periodYears = useMemo(
+    () =>
+      [...new Set(sortedPeriods.map((period) => getDrePeriodYear(period)).filter((year): year is number => Boolean(year)))]
+        .sort((left, right) => right - left),
+    [sortedPeriods]
+  );
+  const initialYear =
+    getDrePeriodYear(selectedPeriods[0] ?? fallbackPeriod) ??
+    periodYears[0];
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(initialYear);
+  const activeYear = selectedYear ?? initialYear;
+  const yearPeriods = sortedPeriods.filter((period) => getDrePeriodYear(period) === activeYear);
+  const displayData = selectedPeriods.length > 1 ? buildConsolidatedDreData(selectedPeriods) : selectedPeriods[0]?.data ?? data;
+  const trendPoints = useMemo(
+    () => (selectedPeriods.length > 1 ? buildDreTrendPoints(selectedPeriods) : undefined),
+    [selectedPeriods]
+  );
+
+  useEffect(() => {
+    const nextYear = getDrePeriodYear(selectedPeriods[0] ?? fallbackPeriod) ?? periodYears[0];
+    if (nextYear && nextYear !== selectedYear) {
+      setSelectedYear(nextYear);
+    }
+  }, [fallbackPeriod, periodYears, selectedPeriods, selectedYear]);
+
+  const selectYear = (year: number) => {
+    setSelectedYear(year);
+    const periodsInYear = sortedPeriods.filter((period) => getDrePeriodYear(period) === year);
+    const lastPeriodInYear = periodsInYear[periodsInYear.length - 1];
+    if (lastPeriodInYear) {
+      onSelectPeriod(lastPeriodInYear.key);
+    }
+  };
+
+  const togglePeriod = (periodKey: string) => {
+    const currentYearKeys = yearPeriods.map((period) => period.key);
+    const activeKeysInYear = effectiveSelectedKeys.filter((key) => currentYearKeys.includes(key));
+    const nextKeys = activeKeysInYear.includes(periodKey)
+      ? activeKeysInYear.filter((key) => key !== periodKey)
+      : [...activeKeysInYear, periodKey].sort((left, right) => left.localeCompare(right));
+
+    onSelectPeriod((nextKeys.length > 0 ? nextKeys : [periodKey]).join(DRE_SELECTION_SEPARATOR));
+  };
+
   return (
     <section className="card dre-panel">
       <div className="section-head">
         <div>
-          <span className="eyebrow">{copy.navDre}</span>
-          <h3>{data ? copy.dreParsedTitle : copy.dreEmptyTitle}</h3>
-          {!data ? <p>{copy.dreEmptyText}</p> : null}
+          <h3>{displayData ? copy.dreParsedTitle : copy.dreEmptyTitle}</h3>
+          {!displayData ? <p>{copy.dreEmptyText}</p> : null}
         </div>
       </div>
 
@@ -977,39 +1410,68 @@ export function DreAnalysisPanel({
 
       {error ? <p className="message error">{error}</p> : null}
 
-      {data ? (
+      {displayData ? (
         <>
-          <div className="dre-summary-grid">
-            <article className="totals-box compact dre-period-summary-card">
-              <span className="eyebrow">{copy.drePeriod}</span>
-              <strong>{getDrePeriodLabel(data, data.sheetName)}</strong>
-              {periods.length > 1 ? (
-                <div className="filter-bar dre-period-filter" aria-label={copy.dreSelectPeriod}>
-                  {periods.map((period) => (
+          {periods.length > 0 ? (
+            <section className="card compact-card period-filter-card">
+              <div className="section-head">
+                <div>
+                  <h3>Período analisado</h3>
+                  <p>Escolha o ano e marque um ou mais meses para analisar o DRE no recorte desejado.</p>
+                </div>
+              </div>
+
+              {periodYears.length > 1 ? (
+                <div className="filter-bar dre-year-filter" aria-label="Selecionar ano do DRE">
+                  {periodYears.map((year) => (
                     <button
-                      key={period.key}
+                      key={year}
                       type="button"
-                      className={`filter-pill ${selectedPeriod === period.key ? "active" : ""}`}
-                      onClick={() => onSelectPeriod(period.key)}
+                      className={`filter-pill ${activeYear === year ? "active" : ""}`}
+                      onClick={() => selectYear(year)}
                     >
-                      {period.label}
+                      {year}
                     </button>
                   ))}
                 </div>
               ) : null}
-            </article>
-          </div>
+
+              <div className="filter-bar dre-period-filter" aria-label={copy.dreSelectPeriod}>
+                {yearPeriods.map((period) => (
+                  <span
+                    key={period.key}
+                    className={`filter-pill filter-pill-group ${effectiveSelectedKeys.includes(period.key) ? "active" : ""}`}
+                  >
+                    <button type="button" className="filter-pill-main" onClick={() => togglePeriod(period.key)}>
+                      {period.label}
+                    </button>
+                    {canManageData && onRemovePeriod ? (
+                      <button
+                        type="button"
+                        className="filter-pill-remove"
+                        onClick={() => onRemovePeriod(period.key)}
+                        aria-label={`Remover ${period.label}`}
+                        title={`Excluir ${period.label}`}
+                      >
+                        <IconTrash />
+                      </button>
+                    ) : null}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <div className="dre-visual-grid">
-            <DreResultMap data={data} copy={copy} />
-            <DreSectionChart data={data} copy={copy} />
+            <DreResultMap data={displayData} copy={copy} />
+            <DreSectionChart data={displayData} copy={copy} />
           </div>
 
-          <DreStrategicInsights data={data} copy={copy} />
-          <DreRestaurantDiagnostics data={data} copy={copy} />
-          <DreOperationalBreakdowns data={data} copy={copy} />
-          <DreFinancialCharts data={data} copy={copy} />
-          <DreParticipationGrid data={data} copy={copy} />
+          <DreStrategicInsights data={displayData} copy={copy} />
+          <DreRestaurantDiagnostics data={displayData} copy={copy} />
+          <DreOperationalBreakdowns data={displayData} copy={copy} />
+          <DreFinancialCharts data={displayData} copy={copy} trendPoints={trendPoints} />
+          <DreParticipationGrid data={displayData} copy={copy} />
         </>
       ) : null}
     </section>
