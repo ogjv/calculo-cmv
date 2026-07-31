@@ -105,8 +105,15 @@ function IconHelp() {
 }
 
 const fallbackCard = (processingLabel: string) => (
-  <section className="card">
-    <p className="message">{processingLabel}</p>
+  <section className="card skeleton-card" aria-label={processingLabel}>
+    <span className="skeleton-line short" />
+    <span className="skeleton-line long" />
+    <div className="skeleton-grid">
+      <span className="skeleton-block" />
+      <span className="skeleton-block" />
+      <span className="skeleton-block" />
+    </div>
+    <span className="skeleton-line medium" />
   </section>
 );
 
@@ -158,8 +165,8 @@ export function DashboardShell({
               type="button"
               className="sidebar-account-menu-button"
               onClick={onLogout}
-              title={logoutLabel}
               aria-label={logoutLabel}
+              data-ui-tooltip={logoutLabel}
             >
               <IconLogout />
             </button>
@@ -168,8 +175,8 @@ export function DashboardShell({
                 type="button"
                 className={`sidebar-account-menu-button ${currentSection === "help" ? "active" : ""}`}
                 onClick={() => onChangeSection("help")}
-                title="Ajuda"
                 aria-label="Ajuda"
+                data-ui-tooltip="Ajuda"
               >
                 <IconHelp />
               </button>
@@ -178,8 +185,8 @@ export function DashboardShell({
               type="button"
               className={`sidebar-account-menu-button sidebar-avatar-button ${currentSection === "account" ? "active" : ""}`}
               onClick={onOpenAccount}
-              title={myAccountLabel}
               aria-label={myAccountLabel}
+              data-ui-tooltip={myAccountLabel}
             >
               <UserAvatar session={effectiveSession} size="md" />
             </button>

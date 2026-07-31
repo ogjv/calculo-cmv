@@ -174,6 +174,11 @@ const formatCompactCurrency = (value: number) =>
     maximumFractionDigits: value >= 1000000 ? 1 : 0
   }).format(value);
 
+const formatDonutCenterLabel = (value: string) => {
+  const normalized = value.trim();
+  return normalized || "TOTAL";
+};
+
 const getDreGroupValue = (group: DreImportData["sections"][number]["groups"][number]) =>
   group.total?.value ?? group.lines.reduce((sum, line) => sum + line.value, 0);
 
@@ -734,6 +739,8 @@ function DreMiniDonut({
   copy: DrePanelCopy;
 }) {
   const [clickedSlice, setClickedSlice] = useState<string>();
+  const [selectedSlice, setSelectedSlice] = useState<string>();
+  const [tooltip, setTooltip] = useState<{ label: string; value: number; x: number; y: number }>();
   const isDense = items.length > 6;
   const isVeryDense = items.length > 10;
   const size = isVeryDense ? 300 : isDense ? 244 : 176;
@@ -741,7 +748,20 @@ function DreMiniDonut({
   const cy = size / 2;
   const outerRadius = isVeryDense ? 142 : isDense ? 114 : 80;
   const innerRadius = isVeryDense ? 78 : isDense ? 66 : 46;
+  const activeItem = items.find((item) => item.label === selectedSlice);
+  const centerValue = activeItem ? activeItem.value : total;
+  const centerLabel = activeItem ? formatDonutCenterLabel(activeItem.label) : copy.total;
+  const centerBoxSize = Math.max(58, (innerRadius - 9) * 2);
+  const centerBoxHeight = isVeryDense ? 62 : isDense ? 54 : 46;
   let cursor = 0;
+  const showTooltip = (item: { label: string; value: number }, event: { clientX: number; clientY: number }) => {
+    setTooltip({
+      label: item.label,
+      value: item.value,
+      x: event.clientX + 14,
+      y: event.clientY + 14
+    });
+  };
 
   return (
     <article className={`dre-donut-card ${isDense ? "dense" : ""} ${isVeryDense ? "very-dense" : ""}`}>
@@ -758,25 +778,35 @@ function DreMiniDonut({
                 key={item.label}
                 d={buildArcPath(cx, cy, outerRadius, innerRadius, start, end)}
                 fill={item.color}
-                className={clickedSlice === item.label ? "clicked" : ""}
+                className={`${clickedSlice === item.label ? "clicked" : ""} ${selectedSlice === item.label ? "active" : ""}`}
                 onClick={() => {
+                  setSelectedSlice((current) => (current === item.label ? undefined : item.label));
                   setClickedSlice(item.label);
                   window.setTimeout(() => {
                     setClickedSlice((current) => (current === item.label ? undefined : current));
                   }, 340);
                 }}
+                onMouseEnter={(event) => showTooltip(item, event)}
+                onMouseMove={(event) => showTooltip(item, event)}
+                onMouseLeave={() => setTooltip(undefined)}
               >
                 <title>{`${item.label}: ${formatCurrency(item.value)}`}</title>
               </path>
             );
           })}
           <circle cx={cx} cy={cy} r={innerRadius - 5} fill="var(--donut-hole)" />
-          <text x={cx} y={cy - 2} textAnchor="middle" className="dre-donut-center-value">
-            {formatCompactCurrency(total)}
-          </text>
-          <text x={cx} y={cy + 18} textAnchor="middle" className="dre-donut-center-label">
-            {copy.total}
-          </text>
+          <foreignObject
+            x={cx - centerBoxSize / 2}
+            y={cy - centerBoxHeight / 2}
+            width={centerBoxSize}
+            height={centerBoxHeight}
+            className="dre-donut-center-object"
+          >
+            <div className={`dre-donut-center-html ${activeItem ? "has-selection" : ""}`}>
+              <strong>{formatCompactCurrency(centerValue)}</strong>
+              <span title={centerLabel}>{centerLabel}</span>
+            </div>
+          </foreignObject>
         </svg>
       </div>
       <div className="dre-donut-copy">
@@ -786,13 +816,28 @@ function DreMiniDonut({
       </div>
       <div className="dre-donut-legend">
         {items.map((item) => (
-          <div key={item.label} className="dre-donut-legend-row">
+          <button
+            key={item.label}
+            type="button"
+            className={`dre-donut-legend-row ${selectedSlice === item.label ? "active" : ""}`}
+            onClick={() => setSelectedSlice((current) => (current === item.label ? undefined : item.label))}
+            onMouseEnter={(event) => showTooltip(item, event)}
+            onMouseMove={(event) => showTooltip(item, event)}
+            onMouseLeave={() => setTooltip(undefined)}
+          >
             <span className="dre-donut-swatch" style={{ backgroundColor: item.color }} />
             <span className="dre-donut-legend-name">{item.label}</span>
             <strong>{formatPercent(total > 0 ? (item.value / total) * 100 : 0)}</strong>
-          </div>
+          </button>
         ))}
       </div>
+      {tooltip ? (
+        <div className="dre-donut-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
+          <strong>{tooltip.label}</strong>
+          <span>{formatCurrency(tooltip.value)}</span>
+          <span>{formatPercent(total > 0 ? (tooltip.value / total) * 100 : 0)} de participação</span>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -915,6 +960,34 @@ function DreStrategicInsights({ data, copy }: { data: DreImportData; copy: DrePa
         ))}
       </div>
     </section>
+  );
+}
+
+function DreProcessingSkeleton() {
+  return (
+    <section className="card skeleton-card" aria-label="Processando DRE">
+      <span className="skeleton-line short" />
+      <span className="skeleton-line long" />
+      <div className="skeleton-grid">
+        <span className="skeleton-block" />
+        <span className="skeleton-block" />
+        <span className="skeleton-block" />
+      </div>
+    </section>
+  );
+}
+
+function EmptyStateIcon() {
+  return (
+    <span className="empty-state-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <path d="M5 19V5" />
+        <path d="M5 19h14" />
+        <path d="M9 16v-5" />
+        <path d="M13 16V8" />
+        <path d="M17 16v-3" />
+      </svg>
+    </span>
   );
 }
 
@@ -1534,6 +1607,16 @@ export function DreAnalysisPanel({
       ) : null}
 
       {error ? <p className="message error">{error}</p> : null}
+      {processing ? <DreProcessingSkeleton /> : null}
+      {!displayData && !processing ? (
+        <section className="card empty-state-card">
+          <div className="empty-state-inner">
+            <EmptyStateIcon />
+            <h3>Nenhum DRE importado ainda</h3>
+            <p>Importe o modelo de DRE analítico para liberar os indicadores, gráficos e diagnósticos financeiros desta unidade.</p>
+          </div>
+        </section>
+      ) : null}
 
       {displayData ? (
         <>

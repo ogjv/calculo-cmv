@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import type { GoodsEntryImportData, GoodsEntryRow } from "../types";
 import { formatCurrency, formatNumber } from "../utils/cmv";
+import { confirmAction } from "../utils/confirmDialog";
 import { FilterSelect } from "./filterSelect";
 
 export type GoodsEntryPanelsProps = {
@@ -217,10 +218,13 @@ function GoodsEntryDateField({
       return;
     }
 
-    if (availableMonths.length > 0 && !availableMonths.some((month) => getMonthKey(month) === visibleMonthKey)) {
-      setVisibleMonthKey(getMonthKey(availableMonths[0]));
-    }
-  }, [availableMonths, value, visibleMonthKey]);
+    setVisibleMonthKey((currentMonthKey) => {
+      if (availableMonths.length > 0 && !availableMonths.some((month) => getMonthKey(month) === currentMonthKey)) {
+        return getMonthKey(availableMonths[0]);
+      }
+      return currentMonthKey;
+    });
+  }, [availableMonths, value]);
 
   const activeIndex = availableMonths.findIndex((month) => getMonthKey(month) === visibleMonthKey);
   const activeMonth = activeIndex >= 0 ? availableMonths[activeIndex] : availableMonths[0];
@@ -446,6 +450,34 @@ function GoodsEntryUploadPanel({
       {error ? <p className="message error">{error}</p> : null}
       {message ? <p className="message success">{message}</p> : null}
     </section>
+  );
+}
+
+function GoodsEntryProcessingSkeleton() {
+  return (
+    <section className="card skeleton-card" aria-label="Processando entrada de mercadorias">
+      <span className="skeleton-line short" />
+      <span className="skeleton-line long" />
+      <div className="skeleton-grid">
+        <span className="skeleton-block" />
+        <span className="skeleton-block" />
+        <span className="skeleton-block" />
+      </div>
+    </section>
+  );
+}
+
+function EmptyStateIcon() {
+  return (
+    <span className="empty-state-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 7h16" />
+        <path d="M6 7v12h12V7" />
+        <path d="M9 11h6" />
+        <path d="M9 15h4" />
+        <path d="M8 7V5h8v2" />
+      </svg>
+    </span>
   );
 }
 
@@ -860,15 +892,18 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
     setOpenCalendar(null);
   }, [dataVersion]);
 
+  const normalizedDateFrom = dateFrom && dateTo && dateFrom > dateTo ? dateTo : dateFrom;
+  const normalizedDateTo = dateFrom && dateTo && dateFrom > dateTo ? dateFrom : dateTo;
+
   const filteredEntries = useMemo(
     () =>
       sourceEntries.filter((row) => {
         const referenceDate = getReferenceDate(row);
         if (hasEntryLevelDates) {
-          if (dateFrom && (!referenceDate || referenceDate < dateFrom)) {
+          if (normalizedDateFrom && (!referenceDate || referenceDate < normalizedDateFrom)) {
             return false;
           }
-          if (dateTo && (!referenceDate || referenceDate > dateTo)) {
+          if (normalizedDateTo && (!referenceDate || referenceDate > normalizedDateTo)) {
             return false;
           }
         }
@@ -880,7 +915,7 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
         }
         return true;
       }),
-    [dateFrom, dateTo, hasEntryLevelDates, selectedGroup, selectedSupplier, sourceEntries]
+    [hasEntryLevelDates, normalizedDateFrom, normalizedDateTo, selectedGroup, selectedSupplier, sourceEntries]
   );
 
   const availableDateSet = useMemo(() => new Set(availableDates), [availableDates]);
@@ -917,14 +952,16 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
   const importedPeriodLabels = [
     ...new Set((data?.importedPeriods ?? []).map((period) => period.displayLabel || period.periodLabel || period.rawLabel).filter(Boolean))
   ];
-  const handleRemoveImportedPeriod = (label: string) => {
-    if (typeof window !== "undefined") {
-      const shouldRemove = window.confirm(
-        `Deseja excluir as entradas do período ${label}?\n\nEssa ação remove somente esse período importado da base de entrada de mercadorias e não pode ser desfeita.`
-      );
-      if (!shouldRemove) {
-        return;
-      }
+  const handleRemoveImportedPeriod = async (label: string) => {
+    const shouldRemove = await confirmAction({
+      title: `Excluir período ${label}?`,
+      message: "Essa ação remove somente esse período importado da base de entrada de mercadorias e não pode ser desfeita.",
+      confirmLabel: "Excluir",
+      cancelLabel: "Cancelar",
+      tone: "danger"
+    });
+    if (!shouldRemove) {
+      return;
     }
 
     onRemoveImportedPeriod(label);
@@ -935,14 +972,14 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
       {canManageData ? (
         <GoodsEntryUploadPanel canManageData={canManageData} processing={processing} error={error} message={message} onImport={onImport} onClear={onClear} />
       ) : null}
+      {processing ? <GoodsEntryProcessingSkeleton /> : null}
 
       {!data ? (
-        <section className="card">
-          <div className="section-head">
-            <div>
-              <h3>Análise pronta para começar</h3>
-              <p>Importe o relatório de entradas para comparar grupos, subgrupos, fornecedores e ritmo de compras.</p>
-            </div>
+        <section className="card empty-state-card">
+          <div className="empty-state-inner">
+            <EmptyStateIcon />
+            <h3>Análise pronta para começar</h3>
+            <p>Importe o relatório de entrada de mercadorias para comparar grupos, subgrupos, fornecedores e ritmo de compras desta unidade.</p>
           </div>
         </section>
       ) : (
@@ -1008,9 +1045,6 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
                 value={dateFrom}
                 onChange={(value) => {
                   setDateFrom(value);
-                  if (dateTo && value > dateTo) {
-                    setDateTo(value);
-                  }
                   setOpenCalendar(null);
                 }}
                 open={openCalendar === "from"}
@@ -1023,9 +1057,6 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
                 value={dateTo}
                 onChange={(value) => {
                   setDateTo(value);
-                  if (dateFrom && value < dateFrom) {
-                    setDateFrom(value);
-                  }
                   setOpenCalendar(null);
                 }}
                 open={openCalendar === "to"}
@@ -1060,8 +1091,12 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
           </section>
 
           {filteredEntries.length === 0 ? (
-            <section className="card">
-              <p className="message">Nenhum lançamento foi encontrado com os filtros selecionados.</p>
+            <section className="card empty-state-card">
+              <div className="empty-state-inner">
+                <EmptyStateIcon />
+                <h3>Nenhum lançamento no recorte</h3>
+                <p>Ajuste as datas, grupo ou fornecedor para ampliar a leitura das entradas de mercadorias.</p>
+              </div>
             </section>
           ) : (
             <>

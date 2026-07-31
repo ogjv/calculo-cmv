@@ -222,8 +222,8 @@ export function useAppPresentation({ currentSection, effectiveSession, t }: UseA
     ,
     help: {
       eyebrow: "Ajuda",
-      title: "Ajuda e templates",
-      text: "Central de ajuda para importação de planilhas, templates e solução de problemas."
+      title: "Guia de importação",
+      text: "Orientação rápida para escolher o arquivo correto em cada análise."
     }
   };
 

@@ -26,6 +26,18 @@ const formatDateTime = (value: string) =>
     minute: "2-digit"
   });
 
+function EmptyStateIcon() {
+  return (
+    <span className="empty-state-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <path d="M11 8c-1.66 0-3 1.34-3 3" />
+        <path d="M20 20l-3-3" />
+      </svg>
+    </span>
+  );
+}
+
 export function OperationalHistoryPanel({ entries = [] }: OperationalHistoryPanelProps) {
   const [selectedDay, setSelectedDay] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState("all");
@@ -109,7 +121,13 @@ export function OperationalHistoryPanel({ entries = [] }: OperationalHistoryPane
       </div>
 
       {filteredEntries.length === 0 ? (
-        <p className="message">Nenhum evento encontrado para os filtros selecionados.</p>
+        <section className="empty-state-card operational-history-empty">
+          <div className="empty-state-inner">
+            <EmptyStateIcon />
+            <h3>Nenhum evento encontrado</h3>
+            <p>Altere os filtros ou realize uma importação/exclusão para registrar novas movimentações operacionais.</p>
+          </div>
+        </section>
       ) : (
         <div className="operational-history-list">
           {filteredEntries.map((entry) => (

@@ -1,70 +1,170 @@
+type HelpModule = {
+  id: string;
+  title: string;
+  eyebrow: string;
+  description: string;
+  fileName: string;
+  acceptedFiles: string;
+  imageSrc: string;
+  imageAlt: string;
+  sourcePath: string[];
+  setup: string[];
+  notes: string[];
+};
+
+const helpModules: HelpModule[] = [
+  {
+    id: "dashboard-fichas-tecnicas",
+    eyebrow: "Dashboard",
+    title: "Fichas técnicas",
+    description: "Arquivo usado para buscar custo unitário, preço e composição dos produtos vendidos no período.",
+    fileName: "Relatório de Ficha Técnica",
+    acceptedFiles: ".xls ou .xlsx",
+    imageSrc: "/guia-fichas-tecnicas.png",
+    imageAlt: "Tela de exportação do relatório de fichas técnicas",
+    sourcePath: ["Ficha Técnica", "Ficha técnica", "Exportar para Excel"],
+    setup: ["Tipo do relatório: Sintético", "Com ficha técnica", "Incluir produtos inativos", "Mostrar custo das mercadorias: pelo preço médio"],
+    notes: [
+      "Deve ser enviado junto com o arquivo de vendas do mesmo período.",
+      "É importante incluir produtos inativos para evitar itens vendidos sem ficha técnica.",
+      "O custo será usado como base do CMV teórico do Dashboard."
+    ]
+  },
+  {
+    id: "dashboard-vendas",
+    eyebrow: "Dashboard",
+    title: "Vendas",
+    description: "Arquivo usado para identificar os itens vendidos, quantidades, receita e competência analisada.",
+    fileName: "Resumo dos produtos vendidos",
+    acceptedFiles: ".xls ou .xlsx",
+    imageSrc: "/guia-vendas.png",
+    imageAlt: "Tela de configuração do relatório de vendas",
+    sourcePath: ["Relatórios de controle", "Totalização", "Configurar", "Resumo dos produtos vendidos"],
+    setup: ["Selecionar Resumo dos produtos vendidos", "Tipo: P Venda", "Salvar", "Exportar/emitir em Excel"],
+    notes: [
+      "Este arquivo define o mês ou período do carregamento no Dashboard.",
+      "Envie sempre em par com a ficha técnica vigente daquele mesmo período.",
+      "Evite misturar vendas de um restaurante com ficha técnica de outra unidade."
+    ]
+  },
+  {
+    id: "entrada-mercadorias",
+    eyebrow: "Entrada de mercadorias",
+    title: "Compras e abastecimento",
+    description: "Use esta etapa para acompanhar volume comprado, fornecedores, grupos de compra e evolução das entradas.",
+    fileName: "Relatório de entrada de mercadorias",
+    acceptedFiles: ".xls ou .xlsx",
+    imageSrc: "/guia-entradas-de-mercadorias.png",
+    imageAlt: "Tela de exportação do relatório de entrada de mercadorias",
+    sourcePath: ["Entrada de mercadorias", "Entrada de mercadorias por grupo e subgrupo", "Exportar para Excel"],
+    setup: ["Grupo: TODOS", "Sub-Grupo: TODOS", "Todas as mercadorias", "Informar intervalo de Data da Nota", "Exportar para Excel"],
+    notes: [
+      "O sistema acumula arquivos importados em momentos diferentes.",
+      "Entradas duplicadas são ignoradas quando possuem a mesma data, nota e valor.",
+      "A terceira linha do arquivo é usada para identificar o período do relatório."
+    ]
+  },
+  {
+    id: "dre",
+    eyebrow: "Análise de DRE",
+    title: "Resultado financeiro",
+    description: "Use esta etapa para analisar receitas, despesas, margem operacional, margem final e estrutura sobre receita.",
+    fileName: "Relatório de DRE analítico",
+    acceptedFiles: ".xls ou .xlsx",
+    imageSrc: "/guia-dre.png",
+    imageAlt: "Tela de exportação do relatório de DRE",
+    sourcePath: ["DRE", "Receita/Despesa p/ Grupo", "Despesa por competência", "Exportar Excel"],
+    setup: ["Tipo de despesa: Despesa por competência", "Informar período inicial e final", "Exportar Excel"],
+    notes: [
+      "Importe uma competência por vez para manter o histórico mensal organizado.",
+      "As nomenclaturas podem variar entre restaurantes; o sistema tenta identificar equivalências automaticamente.",
+      "Depois de importar, confira os principais indicadores antes de considerar o mês validado."
+    ]
+  }
+];
+
+const uniqueHelpModules = helpModules.filter((module, index, modules) => modules.findIndex((candidate) => candidate.id === module.id) === index);
+
+function HelpIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 4h7l3 3v13H7z" />
+      <path d="M14 4v4h4" />
+      <path d="M9.5 11h5" />
+      <path d="M9.5 14h5" />
+      <path d="M9.5 17h3" />
+    </svg>
+  );
+}
+
 export function HelpPage() {
   return (
-    <section className="card help-page">
-      <div className="help-page-content">
-        <h2>Ajuda — Importação de planilhas</h2>
+    <section className="help-page">
+      <div className="help-hero card">
+        <div>
+          <span className="eyebrow">Central de orientação</span>
+          <h2>Arquivos corretos para cada análise</h2>
+          <p>
+            Use esta página como guia rápido para saber qual relatório importar em cada aba do sistema. A ideia é reduzir
+            erros de upload e garantir que cada indicador seja calculado com a base correta.
+          </p>
+        </div>
+      </div>
 
-        <p>
-          Orientações para preparar os arquivos que o sistema espera. Leia com atenção e use os templates
-          disponibilizados abaixo antes de tentar o upload.
-        </p>
+      <div className="help-module-grid">
+        {uniqueHelpModules.map((module) => (
+          <article className="card help-module-card" key={module.id}>
+            <div className="help-module-head">
+              <span className="help-module-icon">
+                <HelpIcon />
+              </span>
+              <div>
+                <span className="eyebrow">{module.eyebrow}</span>
+                <h3>{module.title}</h3>
+              </div>
+            </div>
 
-        <h3>Fichas Técnicas</h3>
-        <p>
-          Relatório de fichas técnicas (sintéticas), sempre em Excel. Inclui produtos inativos. Exporte do seu sistema
-          no formato Excel (.xlsx) e utilize o template para garantir colunas e nomes corretos.
-        </p>
+            <p>{module.description}</p>
 
-        <h3>Entrada de Mercadorias</h3>
-        <p>
-          Relatório de entrada de mercadorias, sempre em Excel. Certifique-se de que as colunas de quantidade,
-          preço e datas estejam presentes e bem formatadas.
-        </p>
+            <figure className="help-reference-shot">
+              <img src={module.imageSrc} alt={module.imageAlt} loading="lazy" />
+              <figcaption>{module.imageAlt}</figcaption>
+            </figure>
 
-        <h3>Vendas</h3>
-        <p>
-          Relatório de vendas contendo somente o resumo de produtos vendidos, sempre em Excel. Atenção: alguns sistemas
-          exportam uma aba inicial de instruções — remova essa aba antes de subir o arquivo quando necessário.
-        </p>
+            <div className="help-file-box">
+              <span>Arquivo necessário</span>
+              <strong>{module.fileName}</strong>
+              <small>Formato aceito: {module.acceptedFiles}</small>
+            </div>
 
-        <h3>DRE</h3>
-        <p>
-          Estrutura do DRE: confirmar no sistema de origem. Use o template de DRE quando disponível; caso ainda não tenha
-          o template, envie um exemplo para que possamos padronizar a leitura.
-        </p>
+            <div className="help-route-box">
+              <span className="eyebrow">Caminho no sistema</span>
+              <div className="help-route">
+                {module.sourcePath.map((step, index) => (
+                  <span key={`${module.id}-${step}`}>
+                    {step}
+                    {index < module.sourcePath.length - 1 ? <small>→</small> : null}
+                  </span>
+                ))}
+              </div>
+            </div>
 
-        <h3>Solução de problemas comuns</h3>
-        <ol>
-          <li>Use os templates abaixo para garantir que as colunas estejam na ordem e com nomes esperados.</li>
-          <li>Remova cabeçalhos informativos ou folhas extras antes de salvar o arquivo final.</li>
-          <li>Verifique formatos numéricos e datas — prefira formatos neutros (ex.: 2023-07-01) quando possível.</li>
-          <li>Se a mensagem indicar que o arquivo não está no padrão, salve uma cópia e anexe ao ticket de suporte.</li>
-        </ol>
+            <div className="help-setup-box">
+              <span className="eyebrow">Configuração recomendada</span>
+              <ul>
+                {module.setup.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
 
-        <h3>Templates</h3>
-        <ul>
-          <li>
-            <a href="/help/templates/recipes-template.xlsx" download>
-              Baixar template — Fichas Técnicas (XLSX)
-            </a>
-          </li>
-          <li>
-            <a href="/help/templates/goods-entry-template.xlsx" download>
-              Baixar template — Entrada de Mercadorias (XLSX)
-            </a>
-          </li>
-          <li>
-            <a href="/help/templates/sales-template.xlsx" download>
-              Baixar template — Vendas (XLSX)
-            </a>
-          </li>
-        </ul>
-
-        <h3>Precisa de ajuda?</h3>
-        <p>
-          Se persistir o erro, copie a mensagem exibida pelo sistema e abra um chamado com: nome do arquivo, tipo de
-          arquivo e as primeiras 5 linhas do arquivo (ou anexe uma amostra). Isso acelera a investigação.
-        </p>
+            <ul className="help-checklist">
+              {module.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </article>
+        ))}
       </div>
     </section>
   );

@@ -13,6 +13,7 @@ import type {
 } from "../types";
 import { buildDashboardData, buildDashboardSlice, mapRecipeRows, mapSalesRows } from "../utils/cmv";
 import { DRE_TOTAL_PERIOD, getDrePeriodKey, getDrePeriodLabel, getDreRevenueGroups, getDreRevenueValue } from "../components/drePanels";
+import { confirmAction } from "../utils/confirmDialog";
 import { parseDreSpreadsheetFile, parseGoodsEntrySpreadsheetFile, parseSalesSpreadsheetFile, parseSpreadsheetFile } from "../utils/file";
 
 export type UploadState = PersistedWorkspace["state"];
@@ -38,8 +39,14 @@ const appendAuditEntries = (current: UploadState, entries: AuditLogEntry[] = [])
       }
     : current;
 
-const askImportConfirmation = (message: string) =>
-  typeof window === "undefined" ? true : window.confirm(message);
+const askImportConfirmation = (title: string, message: string, tone: "default" | "danger" = "default") =>
+  confirmAction({
+    title,
+    message,
+    tone,
+    confirmLabel: tone === "danger" ? "Excluir" : "Confirmar importação",
+    cancelLabel: "Cancelar"
+  });
 
 const GENERIC_FILE_PROCESSING_ERROR = "Não foi possível processar o arquivo. Verifique o formato e tente novamente.";
 const GENERIC_FILES_PROCESSING_ERROR = "Não foi possível processar os arquivos. Verifique o formato das planilhas e tente novamente.";
@@ -740,8 +747,6 @@ export function useOperationalData() {
       const periodLabel = salesImport.reportPeriod?.periodLabel ?? salesImport.reportPeriod?.displayLabel ?? salesFile.name;
       const existingPeriod = periodDashboards.some((period) => period.key === periodKey);
       const dashboardConfirmation = [
-        "Confirmar importação para o Dashboard?",
-        "",
         `Tipo: vendas + fichas técnicas`,
         `Período detectado: ${periodLabel}`,
         `Arquivo de vendas: ${salesFile.name}`,
@@ -751,7 +756,7 @@ export function useOperationalData() {
         existingPeriod ? "Atenção: já existe uma competência com este período. Ao confirmar, os dados anteriores serão substituídos por este novo par de arquivos." : undefined
       ].filter(Boolean).join("\n");
 
-      if (!askImportConfirmation(dashboardConfirmation)) {
+      if (!(await askImportConfirmation("Confirmar importação para o Dashboard?", dashboardConfirmation))) {
         setUploadFeedback([]);
         setState((current) => ({
           ...current,
@@ -835,8 +840,6 @@ export function useOperationalData() {
       const existingPeriod = drePeriods.some((period) => period.key === periodKey);
       const dreRevenue = getDreRevenueValue(nextDreData);
       const dreConfirmation = [
-        "Confirmar importação de DRE?",
-        "",
         `Período detectado: ${periodLabel}`,
         nextDreData.restaurantName ? `Restaurante no arquivo: ${nextDreData.restaurantName}` : undefined,
         `Arquivo: ${file.name}`,
@@ -845,7 +848,7 @@ export function useOperationalData() {
         existingPeriod ? "Atenção: já existe um DRE com este período. Ao confirmar, o DRE anterior será substituído." : undefined
       ].filter(Boolean).join("\n");
 
-      if (!askImportConfirmation(dreConfirmation)) {
+      if (!(await askImportConfirmation("Confirmar importação de DRE?", dreConfirmation))) {
         return;
       }
 
@@ -924,8 +927,6 @@ export function useOperationalData() {
         )
       ];
       const goodsConfirmation = [
-        "Confirmar importação de entradas de mercadorias?",
-        "",
         `Arquivo(s): ${parsedFiles.map((item) => item.fileName).join(", ")}`,
         `Período(s) detectado(s): ${importedPeriodLabels.join(", ") || "Não identificado"}`,
         `Lançamentos identificados: ${importedEntriesCount}`,
@@ -933,7 +934,7 @@ export function useOperationalData() {
         "Entradas duplicadas serão ignoradas automaticamente."
       ].join("\n");
 
-      if (!askImportConfirmation(goodsConfirmation)) {
+      if (!(await askImportConfirmation("Confirmar importação de entradas de mercadorias?", goodsConfirmation))) {
         setState((current) => ({
           ...current,
           goodsEntryProcessing: false
@@ -1053,16 +1054,16 @@ export function useOperationalData() {
     applyPeriodDashboards(nextPeriods, { error: undefined, auditEntries });
   };
 
-  const handleRemovePeriod = (periodKey: string, actorEmail?: string) => {
+  const handleRemovePeriod = async (periodKey: string, actorEmail?: string) => {
     const targetPeriod = periodDashboards.find((period) => period.key === periodKey);
     const targetLabel = targetPeriod ? getPeriodLabel(targetPeriod) : periodKey;
-    if (typeof window !== "undefined") {
-      const shouldRemove = window.confirm(
-        `Deseja excluir o período ${targetLabel}?\n\nEssa ação remove somente os dados dessa competência no Dashboard e não pode ser desfeita.`
-      );
-      if (!shouldRemove) {
-        return;
-      }
+    const shouldRemove = await askImportConfirmation(
+      `Excluir período ${targetLabel}?`,
+      "Essa ação remove somente os dados dessa competência no Dashboard e não pode ser desfeita.",
+      "danger"
+    );
+    if (!shouldRemove) {
+      return;
     }
 
     rebuildFromPeriods(periodDashboards.filter((period) => period.key !== periodKey), [
@@ -1079,16 +1080,16 @@ export function useOperationalData() {
     ]);
   };
 
-  const handleRemoveDrePeriod = (periodKey: string, actorEmail?: string) => {
+  const handleRemoveDrePeriod = async (periodKey: string, actorEmail?: string) => {
     const targetPeriod = drePeriods.find((period) => period.key === periodKey);
     const targetLabel = targetPeriod?.label ?? periodKey;
-    if (typeof window !== "undefined") {
-      const shouldRemove = window.confirm(
-        `Deseja excluir o período ${targetLabel}?\n\nEssa ação remove somente esse DRE da análise atual e não pode ser desfeita.`
-      );
-      if (!shouldRemove) {
-        return;
-      }
+    const shouldRemove = await askImportConfirmation(
+      `Excluir período ${targetLabel}?`,
+      "Essa ação remove somente esse DRE da análise atual e não pode ser desfeita.",
+      "danger"
+    );
+    if (!shouldRemove) {
+      return;
     }
 
     setDrePeriods((current) => {

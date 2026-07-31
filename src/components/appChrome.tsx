@@ -416,8 +416,8 @@ export function InternalNavigation({ section, onChange, items }: InternalNavigat
             type="button"
             className={`sidebar-nav-item ${section === item.key ? "active" : ""}`}
             onClick={() => onChange(item.key)}
-            title={item.label}
             aria-label={item.label}
+            data-ui-tooltip={item.label}
           >
             <span className="sidebar-nav-icon">{getNavigationIcon(item.key)}</span>
             <span className="sidebar-nav-text">{item.label}</span>

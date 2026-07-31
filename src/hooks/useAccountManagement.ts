@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { AuthSession } from "../types";
 import { createLocalRestaurantForAccount, deleteLocalRestaurantAccount, deleteLocalRestaurantFromAccount, updateLocalRestaurantProfile, updateLocalUserProfile } from "../utils/auth";
 import { createSupabaseRestaurantForCurrentUser, deleteSupabaseRestaurantAccount, deleteSupabaseRestaurantFromAccount, signOutFromSupabase, updateSupabaseRestaurantProfile, updateSupabaseUserProfile } from "../utils/cloudAuth";
+import { confirmAction } from "../utils/confirmDialog";
 import { savePreferredRestaurant } from "./useSessionWorkspace";
 
 export type ProfileFormState = {
@@ -203,7 +204,14 @@ export function useAccountManagement({
       return;
     }
 
-    if (!window.confirm("Deseja excluir este restaurante?\n\nEssa ação remove a unidade, os acessos vinculados e a base de dados correspondente. Esta operação não pode ser desfeita.")) {
+    const shouldDelete = await confirmAction({
+      title: "Excluir restaurante?",
+      message: "Essa ação remove a unidade, os acessos vinculados e a base de dados correspondente. Esta operação não pode ser desfeita.",
+      confirmLabel: "Excluir",
+      cancelLabel: "Cancelar",
+      tone: "danger"
+    });
+    if (!shouldDelete) {
       return;
     }
 
@@ -235,7 +243,14 @@ export function useAccountManagement({
       return;
     }
 
-    if (!window.confirm(deleteConfirmMessage)) {
+    const shouldDelete = await confirmAction({
+      title: "Excluir conta?",
+      message: deleteConfirmMessage,
+      confirmLabel: "Excluir",
+      cancelLabel: "Cancelar",
+      tone: "danger"
+    });
+    if (!shouldDelete) {
       return;
     }
 
