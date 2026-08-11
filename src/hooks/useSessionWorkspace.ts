@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type {
   AuthSession,
@@ -302,7 +302,11 @@ export function useSessionWorkspace({
   const latestStateRef = useRef<UploadState>({});
   const latestUploadFeedbackRef = useRef<UploadFeedbackItem[]>([]);
   const latestDrePeriodsRef = useRef<DrePeriodData[]>([]);
-  const saveQueueRef = useRef(Promise.resolve());
+  const saveInFlightRef = useRef(false);
+  const pendingCloudWorkspaceRef = useRef<{
+    restaurantId: string;
+    workspace: PersistedWorkspace;
+  } | null>(null);
   const latestWorkspaceMetaRef = useRef({
     locale: "pt" as Locale,
     selectedPeriod: TOTAL_PERIOD,
@@ -310,6 +314,42 @@ export function useSessionWorkspace({
     selectedDrePeriod: DEFAULT_DRE_PERIOD,
     currentSection: "dashboard" as AppSection
   });
+
+  const processPendingCloudWorkspaceSave = useCallback(() => {
+    if (saveInFlightRef.current || !pendingCloudWorkspaceRef.current) {
+      return;
+    }
+
+    const pending = pendingCloudWorkspaceRef.current;
+    pendingCloudWorkspaceRef.current = null;
+    saveInFlightRef.current = true;
+
+    void saveCloudWorkspace(pending.restaurantId, pending.workspace)
+      .then(() => {
+        setAuthError((current) =>
+          current === "Não foi possível salvar as informações deste restaurante. Verifique sua conexão e tente novamente antes de fechar o site."
+            ? undefined
+            : current
+        );
+      })
+      .catch(() => {
+        setAuthError("Não foi possível salvar as informações deste restaurante. Verifique sua conexão e tente novamente antes de fechar o site.");
+      })
+      .finally(() => {
+        saveInFlightRef.current = false;
+        if (pendingCloudWorkspaceRef.current) {
+          processPendingCloudWorkspaceSave();
+        }
+      });
+  }, []);
+
+  const queueCloudWorkspaceSave = useCallback(
+    (restaurantId: string, workspace: PersistedWorkspace) => {
+      pendingCloudWorkspaceRef.current = { restaurantId, workspace };
+      processPendingCloudWorkspaceSave();
+    },
+    [processPendingCloudWorkspaceSave]
+  );
 
   const effectiveSession = useMemo(
     () => (session ? applyActiveRestaurant(session, getPreferredRestaurant(session.userId)) : null),
@@ -344,6 +384,35 @@ export function useSessionWorkspace({
       currentSection
     };
   }, [currentSection, drePeriods, locale, selectedDrePeriod, selectedPeriod, selectedView, state, uploadFeedback, workspaceRestaurantId]);
+
+  useEffect(() => {
+    const hasPendingSave = () => Boolean(pendingCloudWorkspaceRef.current) || saveInFlightRef.current;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasPendingSave()) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        processPendingCloudWorkspaceSave();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", processPendingCloudWorkspaceSave);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", processPendingCloudWorkspaceSave);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [processPendingCloudWorkspaceSave]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -646,20 +715,11 @@ export function useSessionWorkspace({
     };
 
     if (effectiveSession.authMode === "supabase") {
-      const timer = window.setTimeout(() => {
-        saveQueueRef.current = saveQueueRef.current
-          .catch(() => undefined)
-          .then(() => saveCloudWorkspace(restaurantId, workspace))
-          .catch(() => undefined);
-      }, 650);
-
-      return () => {
-        window.clearTimeout(timer);
-      };
+      queueCloudWorkspaceSave(restaurantId, workspace);
     } else {
       saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
     }
-  }, [currentSection, drePeriods, effectiveSession, locale, selectedDrePeriod, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
+  }, [currentSection, drePeriods, effectiveSession, locale, queueCloudWorkspaceSave, selectedDrePeriod, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
 
   const login = async (email: string, password: string) => {
     try {

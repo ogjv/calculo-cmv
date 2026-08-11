@@ -102,6 +102,9 @@ table {
 button {
   border: 0;
   background: none;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 button:disabled {
@@ -2740,11 +2743,18 @@ input {
   border-radius: 20px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.58);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .dre-validation-card strong {
+  display: block;
+  min-width: 0;
+  color: var(--text);
   font-size: clamp(1rem, 1.5vw, 1.32rem);
   line-height: 1.1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dre-validation-card p,
@@ -2752,6 +2762,7 @@ input {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .dre-validation-card.good {
@@ -3315,6 +3326,7 @@ input {
 }
 
 .dre-donut-legend-name {
+  color: var(--text);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5341,6 +5353,7 @@ input {
   border-radius: 18px;
   border: 1px solid rgba(65, 47, 26, 0.06);
   background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
   text-align: left;
   cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
@@ -5371,6 +5384,7 @@ input {
 
 .legend-name {
   grid-area: name;
+  color: var(--text);
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
@@ -5381,6 +5395,7 @@ input {
 .legend-item strong {
   grid-area: value;
   justify-self: end;
+  color: var(--text);
   text-align: right;
   line-height: 1.15;
   white-space: nowrap;
@@ -5390,6 +5405,7 @@ input {
 
 .legend-item small {
   grid-area: share;
+  color: var(--muted);
   line-height: 1.25;
   white-space: nowrap;
 }
@@ -6690,6 +6706,7 @@ th {
   grid-template-columns: 14px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
+  color: var(--text);
 }
 
 .goods-entry-select-row {
@@ -7922,5 +7939,131 @@ th {
   .cmv-pill {
     width: 100%;
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-shell {
+    width: 100%;
+    padding: max(8px, env(safe-area-inset-top)) 8px 20px;
+  }
+
+  .dashboard-sidebar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    padding: 7px 8px;
+    overflow-x: auto;
+    overflow-y: visible;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: 8px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dashboard-sidebar-brand,
+  .internal-sidebar-nav,
+  .dashboard-sidebar-footer {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: auto;
+  }
+
+  .dashboard-sidebar-brand {
+    grid-area: auto;
+  }
+
+  .internal-sidebar-nav {
+    grid-area: auto;
+  }
+
+  .dashboard-sidebar-footer {
+    grid-area: auto;
+    justify-self: auto;
+  }
+
+  .internal-sidebar-nav-list,
+  .sidebar-account-menu {
+    width: auto;
+    min-width: max-content;
+    overflow: visible;
+  }
+
+  .internal-sidebar-nav-list {
+    justify-content: flex-start;
+  }
+
+  .sidebar-nav-item,
+  .sidebar-account-menu-button {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    scroll-snap-align: center;
+  }
+
+  .dashboard-sidebar-brand .brand-logo-frame {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .sidebar-account-menu-button .profile-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .sidebar-nav-item .ui-icon,
+  .sidebar-account-menu-button .ui-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  .dre-validation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dre-validation-card {
+    min-height: auto;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .dre-validation-card .eyebrow {
+    font-size: 0.68rem;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
+  }
+
+  .dre-validation-card strong {
+    font-size: clamp(0.98rem, 5vw, 1.18rem);
+    line-height: 1.12;
+    white-space: normal;
+  }
+
+  .dre-validation-card p,
+  .dre-validation-alerts p {
+    font-size: clamp(0.9rem, 4.6vw, 1rem);
+    line-height: 1.35;
+  }
+
+  .legend-item,
+  .dre-donut-legend-row,
+  .goods-entry-donut-legend-row,
+  .goods-entry-line-legend-row {
+    color: var(--text);
+  }
+
+  .legend-item strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }

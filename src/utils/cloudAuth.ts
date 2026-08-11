@@ -1011,7 +1011,8 @@ export const saveCloudWorkspace = async (restaurantId: string, workspace: Persis
       },
       upload_feedback: workspace.uploadFeedback,
       selected_period: workspace.selectedPeriod,
-      selected_view: workspace.selectedView
+      selected_view: workspace.selectedView,
+      updated_at: new Date().toISOString()
     },
     { onConflict: "restaurant_id" }
   );
