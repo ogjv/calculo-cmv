@@ -1693,6 +1693,13 @@ input {
   transform: translate(0, -50%) scale(1);
 }
 
+@media (hover: none), (pointer: coarse) {
+  [data-ui-tooltip]::after {
+    content: none;
+    display: none;
+  }
+}
+
 .dre-donut-tooltip {
   position: fixed;
   z-index: 60;
@@ -7943,6 +7950,17 @@ th {
 }
 
 @media (max-width: 560px) {
+  .dashboard-sidebar [data-ui-tooltip]::after {
+    content: none;
+    display: none;
+  }
+
+  .dashboard-sidebar [data-ui-tooltip]:hover::after,
+  .dashboard-sidebar [data-ui-tooltip]:focus-visible::after {
+    opacity: 0;
+    transform: none;
+  }
+
   .dashboard-shell {
     width: 100%;
     padding: max(8px, env(safe-area-inset-top)) 8px 20px;
@@ -7999,6 +8017,11 @@ th {
 
   .internal-sidebar-nav-list {
     justify-content: flex-start;
+  }
+
+  .sidebar-nav-item:hover,
+  .sidebar-account-menu-button:hover {
+    transform: none;
   }
 
   .sidebar-nav-item,
@@ -8061,9 +8084,33 @@ th {
     color: var(--text);
   }
 
+  .legend-item {
+    grid-template-columns: 12px minmax(0, 1fr);
+    grid-template-areas:
+      "swatch name"
+      ". value"
+      ". share";
+  }
+
   .legend-item strong {
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    width: 100%;
+    min-width: 0;
+    justify-self: start;
+    color: var(--text);
+    text-align: left;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+    font-size: clamp(1rem, 5.8vw, 1.35rem);
+    line-height: 1.12;
+  }
+
+  .legend-item small {
+    justify-self: start;
+    color: var(--muted);
+    text-align: left;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
   }
 }
