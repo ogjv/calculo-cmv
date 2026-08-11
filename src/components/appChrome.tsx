@@ -46,7 +46,7 @@ export function BrandMark({ tagline }: { tagline: string }) {
   return (
     <div className="brand-mark" aria-label="G/REST">
       <div className="brand-logo-frame brand-logo-cutout">
-        <img src="/grest.png" alt="G/REST" className="brand-logo-image" />
+        <img src={`${import.meta.env.BASE_URL}grest.png`} alt="G/REST" className="brand-logo-image" />
       </div>
       <div className="brand-wordmark">
         <span className="brand-name">G/REST</span>
@@ -443,7 +443,7 @@ export function ProfileAvatar({
       {session.profilePhotoUrl ? (
         <img src={session.profilePhotoUrl} alt={restaurantLabel} />
       ) : (
-        <img src="/grest.png" alt="G/REST" className="brand-logo-image cutout" />
+        <img src={`${import.meta.env.BASE_URL}grest.png`} alt="G/REST" className="brand-logo-image cutout" />
       )}
     </div>
   );

@@ -2,8 +2,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
+  // O dashboard e servido em https://grest.com.br/dashboard via rewrite da Vercel.
+  // base + outDir mantem o prefixo /dashboard identico nos dois projetos.
+  base: "/dashboard/",
   plugins: [react()],
   build: {
+    outDir: "dist/dashboard",
     rollupOptions: {
       output: {
         manualChunks(id) {
