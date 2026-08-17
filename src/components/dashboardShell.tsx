@@ -170,17 +170,15 @@ export function DashboardShell({
             >
               <IconLogout />
             </button>
-            {effectiveSession?.globalRole === "owner" ? (
-              <button
-                type="button"
-                className={`sidebar-account-menu-button ${currentSection === "help" ? "active" : ""}`}
-                onClick={() => onChangeSection("help")}
-                aria-label="Ajuda"
-                data-ui-tooltip="Ajuda"
-              >
-                <IconHelp />
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className={`sidebar-account-menu-button ${currentSection === "help" ? "active" : ""}`}
+              onClick={() => onChangeSection("help")}
+              aria-label="Ajuda"
+              data-ui-tooltip="Ajuda"
+            >
+              <IconHelp />
+            </button>
             <button
               type="button"
               className={`sidebar-account-menu-button sidebar-avatar-button ${currentSection === "account" ? "active" : ""}`}
@@ -271,7 +269,7 @@ export function DashboardShell({
             </Suspense>
           ) : null}
 
-          {currentSection === "help" && effectiveSession?.globalRole === "owner" ? <HelpPage /> : null}
+          {currentSection === "help" ? <HelpPage canManageOperationalData={canManageOperationalData} /> : null}
 
           {currentSection === "user-management" && canManageUserManagement ? (
             <Suspense fallback={fallbackCard(processingLabel)}>

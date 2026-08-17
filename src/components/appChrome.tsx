@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { AuthSession } from "../types";
+import type { AppSection } from "../hooks/useSessionWorkspace";
 import type { AuthScreenCopy, ThemeLabels, NavigationItem } from "../presentation/contracts";
 
 type Locale = "pt" | "es" | "en";
 type ThemeMode = "light" | "dark";
-type AppSection = "account" | "dashboard" | "dre" | "restaurants" | "user-management" | "goods-entry" | "operational-history" | "help";
 
 type AuthScreenProps = {
   locale: Locale;
@@ -470,7 +470,7 @@ export function UserAvatar({
   );
 }
 
-function getNavigationIcon(section: AppSection) {
+export function getNavigationIcon(section: AppSection) {
   switch (section) {
     case "dashboard":
       return <IconDashboardNav />;

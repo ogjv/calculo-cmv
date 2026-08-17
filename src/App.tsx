@@ -62,6 +62,7 @@ export default function App() {
     authHydrating,
     authSubmitting,
     passwordRecoveryActive,
+    workspaceReady,
     login: handleLogin,
     register: handleRegister,
     requestPasswordReset: handlePasswordReset,
@@ -166,14 +167,16 @@ export default function App() {
     }
   }, [canManageRestaurants, canManageUserManagement, currentSection]);
 
-  if (passwordRecoveryActive || authLoading || authHydrating || !effectiveSession) {
+  const workspaceLoading = Boolean(effectiveSession && !workspaceReady);
+
+  if (passwordRecoveryActive || authLoading || authHydrating || workspaceLoading || !effectiveSession) {
     return (
       <LocaleContext.Provider value={locale}>
         <AppAccessGate
           locale={locale}
           theme={theme}
           authLoading={authLoading}
-          authHydrating={authHydrating}
+          authHydrating={authHydrating || workspaceLoading}
           authSubmitting={authSubmitting}
           passwordRecoveryActive={passwordRecoveryActive}
           authError={authError}

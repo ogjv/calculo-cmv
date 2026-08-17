@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import type { GoodsEntryImportData, GoodsEntryRow } from "../types";
 import { formatCurrency, formatNumber } from "../utils/cmv";
 import { confirmAction } from "../utils/confirmDialog";
+import { getNavigationIcon } from "./appChrome";
 import { FilterSelect } from "./filterSelect";
 
 export type GoodsEntryPanelsProps = {
@@ -470,13 +471,7 @@ function GoodsEntryProcessingSkeleton() {
 function EmptyStateIcon() {
   return (
     <span className="empty-state-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24">
-        <path d="M4 7h16" />
-        <path d="M6 7v12h12V7" />
-        <path d="M9 11h6" />
-        <path d="M9 15h4" />
-        <path d="M8 7V5h8v2" />
-      </svg>
+      {getNavigationIcon("goods-entry")}
     </span>
   );
 }
@@ -978,8 +973,8 @@ export function GoodsEntryPanels({ data, error, message, processing, canManageDa
         <section className="card empty-state-card">
           <div className="empty-state-inner">
             <EmptyStateIcon />
-            <h3>Análise pronta para começar</h3>
-            <p>Importe o relatório de entrada de mercadorias para comparar grupos, subgrupos, fornecedores e ritmo de compras desta unidade.</p>
+            <h3>Este restaurante ainda não tem dados de entrada de mercadorias</h3>
+            <p>Quando esta aba for alimentada para esta unidade, os grupos, fornecedores e ritmo de compras aparecerão aqui.</p>
           </div>
         </section>
       ) : (

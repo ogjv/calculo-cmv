@@ -24,6 +24,8 @@ const DEFAULT_DRE_PERIOD = "__LATEST_DRE__";
 const ACTIVE_RESTAURANT_STORAGE_PREFIX = "grest.activeRestaurant.";
 const AUTH_BOOT_TIMEOUT_MS = 30000;
 const AUTH_HYDRATE_TIMEOUT_MS = 15000;
+const WORKSPACE_SAVE_ERROR_MESSAGE =
+  "Não foi possível salvar as informações deste restaurante. Verifique sua conexão e tente novamente antes de fechar o site.";
 
 const isPasswordRecoveryUrl = () => {
   if (typeof window === "undefined") {
@@ -114,6 +116,17 @@ const getWorkspaceSessionKey = (session?: AuthSession | null) => {
 
   return `${session.userId}:${session.authMode}:${restaurantId}`;
 };
+
+const canPersistWorkspace = (session?: AuthSession | null) =>
+  Boolean(
+    session &&
+      (
+        session.authMode !== "supabase" ||
+        session.globalRole === "owner" ||
+        session.activeAccountRole === "owner" ||
+        session.activeRole === "owner"
+      )
+  );
 
 const hasPersistedWorkspaceContent = (workspace?: PersistedWorkspace | null) =>
   Boolean(
@@ -326,14 +339,10 @@ export function useSessionWorkspace({
 
     void saveCloudWorkspace(pending.restaurantId, pending.workspace)
       .then(() => {
-        setAuthError((current) =>
-          current === "Não foi possível salvar as informações deste restaurante. Verifique sua conexão e tente novamente antes de fechar o site."
-            ? undefined
-            : current
-        );
+        setAuthError((current) => (current === WORKSPACE_SAVE_ERROR_MESSAGE ? undefined : current));
       })
       .catch(() => {
-        setAuthError("Não foi possível salvar as informações deste restaurante. Verifique sua conexão e tente novamente antes de fechar o site.");
+        setAuthError(WORKSPACE_SAVE_ERROR_MESSAGE);
       })
       .finally(() => {
         saveInFlightRef.current = false;
@@ -370,6 +379,15 @@ export function useSessionWorkspace({
   );
 
   const activeWorkspaceKey = getWorkspaceSessionKey(effectiveSession);
+  const sharedWorkspaceContentKey = useMemo(
+    () =>
+      JSON.stringify({
+        state,
+        uploadFeedback,
+        drePeriods
+      }),
+    [drePeriods, state, uploadFeedback]
+  );
 
   useEffect(() => {
     latestWorkspaceRestaurantIdRef.current = workspaceRestaurantId;
@@ -690,6 +708,12 @@ export function useSessionWorkspace({
       return;
     }
 
+    if (!canPersistWorkspace(effectiveSession)) {
+      pendingCloudWorkspaceRef.current = null;
+      setAuthError((current) => (current === WORKSPACE_SAVE_ERROR_MESSAGE ? undefined : current));
+      return;
+    }
+
     if (state.processing || state.goodsEntryProcessing) {
       return;
     }
@@ -719,7 +743,7 @@ export function useSessionWorkspace({
     } else {
       saveRestaurantWorkspace<PersistedWorkspace>(restaurantId, workspace);
     }
-  }, [currentSection, drePeriods, effectiveSession, locale, queueCloudWorkspaceSave, selectedDrePeriod, selectedPeriod, selectedView, state, uploadFeedback, workspaceReady, workspaceRestaurantId]);
+  }, [effectiveSession, locale, queueCloudWorkspaceSave, sharedWorkspaceContentKey, workspaceReady, workspaceRestaurantId]);
 
   const login = async (email: string, password: string) => {
     try {

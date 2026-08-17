@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { DreImportData, DrePeriodData } from "../types";
 import { formatCurrency, formatPercent } from "../utils/cmv";
+import { getNavigationIcon } from "./appChrome";
 
 const drePalette = ["#2f6f5e", "#c9823a", "#b84e3f", "#496f9f", "#8b6f47", "#6f7785", "#a55c7a", "#5f7f4f"];
 const shortMonthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -980,13 +981,7 @@ function DreProcessingSkeleton() {
 function EmptyStateIcon() {
   return (
     <span className="empty-state-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24">
-        <path d="M5 19V5" />
-        <path d="M5 19h14" />
-        <path d="M9 16v-5" />
-        <path d="M13 16V8" />
-        <path d="M17 16v-3" />
-      </svg>
+      {getNavigationIcon("dre")}
     </span>
   );
 }
@@ -1612,8 +1607,8 @@ export function DreAnalysisPanel({
         <section className="card empty-state-card">
           <div className="empty-state-inner">
             <EmptyStateIcon />
-            <h3>Nenhum DRE importado ainda</h3>
-            <p>Importe o modelo de DRE analítico para liberar os indicadores, gráficos e diagnósticos financeiros desta unidade.</p>
+            <h3>Este restaurante ainda não tem dados de DRE</h3>
+            <p>Quando esta aba for alimentada para esta unidade, os indicadores, gráficos e diagnósticos financeiros aparecerão aqui.</p>
           </div>
         </section>
       ) : null}

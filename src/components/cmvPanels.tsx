@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { ChangeEvent, CSSProperties, DragEvent } from "react";
 import type { DashboardData, GroupSummary, ImportValidation, PeriodDashboard, ProductSummary, SalesTotalRow } from "../types";
 import { formatCurrency, formatNumber, formatPercent } from "../utils/cmv";
-import { DashboardReadOnlyGuide } from "./dashboardPanels";
+import { getNavigationIcon } from "./appChrome";
 import { useLocale } from "../i18n";
 
 type UploadPanelState = {
@@ -1262,53 +1262,16 @@ export function DashboardPanels({
           canManageData={canManageOperationalData}
         />
       ) : null}
-      {!hasDashboardData && canManageOperationalData ? (
-        <section className="card">
-          <div className="section-head">
-            <div>
-              <h3>{String(t("authEmptyState"))}</h3>
-              <p>{String(t("authRestaurantNavigatorText"))}</p>
-            </div>
+      {!hasDashboardData ? (
+        <section className="card empty-state-card">
+          <div className="empty-state-inner">
+            <span className="empty-state-icon" aria-hidden="true">
+              {getNavigationIcon("dashboard")}
+            </span>
+            <h3>Este restaurante ainda não tem dados no Dashboard</h3>
+            <p>Quando esta aba for alimentada para esta unidade, os indicadores, gráficos e análises do Dashboard aparecerão aqui.</p>
           </div>
         </section>
-      ) : !hasDashboardData ? (
-        <DashboardReadOnlyGuide
-          eyebrow={String(t("navDashboard"))}
-          title={String(t("dashboardGuideTitle"))}
-          text={String(t("dashboardGuideText"))}
-          revenueLabel={String(t("dashboardGuideRevenueLabel"))}
-          revenueValue="R$ 128 mil"
-          revenueTrend={String(t("dashboardGuideRevenueTrend"))}
-          salesChartTitle={String(t("dashboardGuideSalesChartTitle"))}
-          salesChartHint={String(t("dashboardGuideSalesChartHint"))}
-          cmvTitle={String(t("dashboardGuideCmvTitle"))}
-          cmvText={String(t("dashboardGuideCmvText"))}
-          alertLabel={String(t("dashboardGuideAlertLabel"))}
-          alertTitle={String(t("dashboardGuideAlertTitle"))}
-          alertText={String(t("dashboardGuideAlertText"))}
-          signals={[
-            {
-              title: String(t("dashboardGuideKpisTitle")),
-              text: String(t("dashboardGuideKpisText")),
-              tone: "good"
-            },
-            {
-              title: String(t("dashboardGuideChartsTitle")),
-              text: String(t("dashboardGuideChartsText")),
-              tone: "mid"
-            },
-            {
-              title: String(t("dashboardGuideAlertsTitle")),
-              text: String(t("dashboardGuideAlertsText")),
-              tone: "bad"
-            }
-          ]}
-          bars={[
-            { label: String(t("dashboardGuideBarPizzas")), value: 78, color: "#2f6f5e" },
-            { label: String(t("dashboardGuideBarDrinks")), value: 56, color: "#c9823a" },
-            { label: String(t("dashboardGuideBarKitchen")), value: 38, color: "#496f9f" }
-          ]}
-        />
       ) : dashboard ? (
         <>
           <ValidationPanel validations={state.validations ?? []} />

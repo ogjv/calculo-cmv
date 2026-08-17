@@ -13,6 +13,13 @@ type UserProfileFormState = {
   userPhotoUrl?: string;
 };
 
+const normalizeSearchText = (value?: string) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export type AccountSettingsPanelProps = {
   session: AuthSession;
   userForm: UserProfileFormState;
@@ -376,6 +383,26 @@ export function UserManagementPanel({
   onRemoveMember,
   copy
 }: UserManagementPanelProps) {
+  const [memberSearch, setMemberSearch] = useState("");
+  const normalizedMemberSearch = useMemo(() => normalizeSearchText(memberSearch), [memberSearch]);
+  const filteredMembers = useMemo(
+    () =>
+      normalizedMemberSearch
+        ? members.filter((member) => {
+            const searchableText = normalizeSearchText(
+              [
+                member.fullName,
+                member.email,
+                ...member.restaurants.map((restaurant) => restaurant.restaurantName)
+              ]
+                .filter(Boolean)
+                .join(" ")
+            );
+            return searchableText.includes(normalizedMemberSearch);
+          })
+        : members,
+    [members, normalizedMemberSearch]
+  );
   const ownerCount = members.filter((member) => member.role === "owner").length;
   const userCount = members.filter((member) => member.role !== "owner").length;
   const restaurantCoverage = new Set(
@@ -526,12 +553,41 @@ export function UserManagementPanel({
             </div>
           </div>
 
+          <div className="user-management-search-card">
+            <label className="auth-field user-management-search-field">
+              <span>Buscar usuário</span>
+              <input
+                value={memberSearch}
+                onChange={(event) => setMemberSearch(event.target.value)}
+                placeholder="Digite nome, e-mail ou restaurante"
+                type="search"
+              />
+            </label>
+            <div className="user-management-search-meta">
+              <span>
+                {memberSearch.trim()
+                  ? `${filteredMembers.length} de ${members.length} usuário(s) encontrados`
+                  : `${members.length} usuário(s) cadastrados`}
+              </span>
+              {memberSearch.trim() ? (
+                <button type="button" className="ghost-button" onClick={() => setMemberSearch("")}>
+                  Limpar busca
+                </button>
+              ) : null}
+            </div>
+          </div>
+
           {membersLoading ? <section className="account-form-card"><p className="message">{copy.processing}</p></section> : null}
           {!membersLoading && members.length === 0 ? <section className="account-form-card"><p className="message">{copy.teamEmpty}</p></section> : null}
+          {!membersLoading && members.length > 0 && filteredMembers.length === 0 ? (
+            <section className="account-form-card">
+              <p className="message">Nenhum usuário foi encontrado para essa busca.</p>
+            </section>
+          ) : null}
 
-          {!membersLoading && members.length > 0 ? (
+          {!membersLoading && filteredMembers.length > 0 ? (
             <div className="team-members-grid compact user-management-members-grid">
-              {members.map((member) => (
+              {filteredMembers.map((member) => (
                 <ManagedMemberCard
                   key={member.membershipId}
                   member={member}
