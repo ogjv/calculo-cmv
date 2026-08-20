@@ -87,14 +87,14 @@ const helpModules: HelpModule[] = [
     eyebrow: "Análise de DRE",
     title: "Resultado financeiro",
     description: "Use esta etapa para analisar receitas, despesas, margem operacional, margem final e estrutura sobre receita.",
-    fileName: "Relatório de DRE analítico",
+    fileName: "Relatório de DRE por grupo da receita e despesa por caixa",
     acceptedFiles: ".xls ou .xlsx",
     imageSrc: `${import.meta.env.BASE_URL}guia-dre.png`,
     imageAlt: "Tela de exportação do relatório de DRE",
-    sourcePath: ["DRE", "Receita/Despesa p/ Grupo", "Despesa por competência", "Exportar Excel"],
-    setup: ["Tipo de despesa: Despesa por competência", "Informar período inicial e final", "Exportar Excel"],
+    sourcePath: ["DRE", "Receita/Despesa p/ Grupo", "Despesa por caixa", "Exportar Excel"],
+    setup: ["Tipo de despesa: Despesa por caixa", "Informar período inicial e final", "Exportar Excel"],
     notes: [
-      "Importe uma competência por vez para manter o histórico mensal organizado.",
+      "Importe um período por vez para manter o histórico mensal organizado.",
       "As nomenclaturas podem variar entre restaurantes; o sistema tenta identificar equivalências automaticamente.",
       "Depois de importar, confira os principais indicadores antes de considerar o mês validado."
     ]
@@ -157,7 +157,7 @@ const readerHelpModules: ReaderHelpModule[] = [
     title: "Como ler o resultado financeiro",
     description:
       "Esta aba organiza receitas, custos e despesas para mostrar a saúde econômica da operação no período selecionado.",
-    source: "As informações vêm do modelo de DRE analítico do restaurante, respeitando a competência selecionada.",
+    source: "As informações vêm do modelo de DRE analítico do restaurante, respeitando o período selecionado.",
     markers: [
       {
         label: "Receita operacional",
