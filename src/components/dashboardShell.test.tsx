@@ -114,6 +114,7 @@ function renderShell(callbacks?: DashboardShellCallbacks) {
         dreAnalysisProps={{
           periods: [],
           selectedPeriod: "__LATEST_DRE__",
+          session,
           onImport: () => undefined,
           onSelectPeriod: () => undefined
         }}

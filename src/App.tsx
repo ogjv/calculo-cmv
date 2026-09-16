@@ -215,6 +215,7 @@ export default function App() {
           data: dreData,
           periods: drePeriods,
           selectedPeriod: selectedDrePeriod,
+          session: effectiveSession,
           error: dreError,
           processing: dreProcessing,
           onImport: (file) => void handleDreImport(file, effectiveSession.email),

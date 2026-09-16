@@ -224,6 +224,7 @@ export function DashboardShell({
                 data={dreAnalysisProps.data}
                 periods={dreAnalysisProps.periods}
                 selectedPeriod={dreAnalysisProps.selectedPeriod}
+                session={dreAnalysisProps.session}
                 error={dreAnalysisProps.error}
                 processing={dreAnalysisProps.processing}
                 canManageData={canManageOperationalData}
